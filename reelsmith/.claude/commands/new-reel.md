@@ -1,0 +1,1 @@
+I have a new reel to edit. Follow the "New reel workflow" in CLAUDE.md: import the clips from drop-in-order/, review and tighten the rough cut, do a first styling pass using lookbook/STYLE.md, then open the studio and summarize what you did. $ARGUMENTS
