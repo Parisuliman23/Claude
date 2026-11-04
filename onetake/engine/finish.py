@@ -22,6 +22,9 @@ def save_frame(name, t_out):
     fr = render.FrameReader(config.absolute(p["source"])).at(ts)
     s = config.settings()
     fr = render.cover_fit(fr, s["width"], s["height"])
+    bc = p.get("burned_captions") or {}
+    if bc.get("remove"):
+        analyze.remove_burned_text(fr, bc.get("band"))
     tracks = {f["id"]: f["track"] for f in p.get("faces", {}).get("detected", [])}
     for c in p.get("faces", {}).get("covers", []):
         if c.get("face") in tracks:

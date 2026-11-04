@@ -307,6 +307,7 @@ function renderVisuals() {
     <div class="chips">
       <label class="chip">Captions <select id="capStyle">${opts}</select></label>
       <button class="chip ${p.captions === false ? "" : "on"}" id="capToggle">${p.captions === false ? "Captions off" : "Captions on"}</button>
+      ${p.burned_captions ? `<button class="chip ${p.burned_captions.remove ? "on" : ""}" id="burnToggle" title="Captions that were already in your video">${p.burned_captions.remove ? "Video's own captions: removed" : "Video's own captions: kept"}</button>` : ""}
       <label class="chip">Height <input type="range" id="capY" min="0.15" max="0.9" step="0.01" value="${S.style.y ?? 0.7}" style="width:90px"></label>
       <button class="chip" id="lookbookBtn">📖 Lookbook</button>
       <button class="chip" id="addLookBtn">✦ Add a look</button>
@@ -331,6 +332,7 @@ function renderVisuals() {
   bindLines($("#panel"));
   $("#capStyle").onchange = e => mutate(p => p.caption_style = e.target.value);
   $("#capToggle").onclick = () => mutate(p => p.captions = p.captions === false);
+  const bt = $("#burnToggle"); if (bt) bt.onclick = () => mutate(p => p.burned_captions.remove = !p.burned_captions.remove);
   $("#capY").oninput = e => { S.style.y = +e.target.value; S.lastCapKey = null; };
   $("#capY").onchange = e => mutate(p => p.caption_y = +e.target.value, { render: false });
   $("#lookbookBtn").onclick = lookbookModal;
@@ -945,11 +947,34 @@ const imgCache = {};
 function img(src) { if (!imgCache[src]) { const i = new Image(); i.src = src; imgCache[src] = i; } return imgCache[src]; }
 const canBlur = (() => { const c = document.createElement("canvas").getContext("2d"); return "filter" in c; })();
 
+function drawBurned(vw, vh, sc, ox, oy, ts) {
+  // Preview of "paint out the video's own captions": blur where the engine found them.
+  // (The final render repaints those pixels from their surroundings, which looks cleaner.)
+  const bc = S.p.burned_captions;
+  if (!bc || !bc.remove || !bc.boxes) return;
+  for (const b of bc.boxes) {
+    if (Math.abs(b[0] - ts) > 0.14) continue;
+    const pad = 0.02;
+    const x0 = Math.max(0, b[1] - pad) * vw, y0 = Math.max(0, b[2] - pad) * vh, x1 = Math.min(1, b[3] + pad) * vw, y1 = Math.min(1, b[4] + pad) * vh;
+    const dx = x0 * sc - ox, dy = y0 * sc - oy, dw = (x1 - x0) * sc, dh = (y1 - y0) * sc;
+    fctx.save();
+    if (canBlur) { fctx.filter = "blur(26px)"; fctx.drawImage(v, x0, y0, x1 - x0, y1 - y0, dx, dy, dw, dh); fctx.drawImage(v, x0, y0, x1 - x0, y1 - y0, dx, dy, dw, dh); }
+    else {
+      const tmp = S.pix || (S.pix = document.createElement("canvas")); tmp.width = Math.max(2, dw / 30 | 0); tmp.height = Math.max(2, dh / 30 | 0);
+      tmp.getContext("2d").drawImage(v, x0, y0, x1 - x0, y1 - y0, 0, 0, tmp.width, tmp.height);
+      fctx.imageSmoothingEnabled = true; fctx.drawImage(tmp, dx, dy, dw, dh);
+    }
+    fctx.restore();
+  }
+}
+
 function drawFaces() {
   fctx.clearRect(0, 0, W, H);
-  const f = S.p.faces; if (!f.covers.length || S.inBroll || !v.videoWidth) return;
+  if (S.inBroll || !v.videoWidth) return;
   const vw = v.videoWidth, vh = v.videoHeight, sc = Math.max(W / vw, H / vh), ox = (vw * sc - W) / 2, oy = (vh * sc - H) / 2;
   const ts = v.currentTime;
+  drawBurned(vw, vh, sc, ox, oy, ts);
+  const f = S.p.faces; if (!f.covers.length) return;
   for (const c of f.covers) {
     const d = f.detected.find(d => d.id === c.face); if (!d) continue;
     const pos = faceAt(d.track, ts); if (!pos) continue;

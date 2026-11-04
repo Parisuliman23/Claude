@@ -148,3 +148,103 @@ def best_moment(path, dur, fps=4):
         if v > best_v:
             best_i, best_v = i, v
     return round(min(times[best_i], length - dur), 2)
+
+
+# ---------------------------------------------------------------------------
+# Burned-in captions (e.g. a CapCut export): find them, and paint them out.
+
+def text_lines(bgr, ref_h=None):
+    """Find caption-like text in a frame. Returns (mask of text pixels, [boxes x0,y0,x1,y1 in px]).
+    Captions are bright/colored letters with a dark outline or shadow, in wide short lines,
+    made of several separate letters (so logos and single bright shapes are ignored)."""
+    h, w = bgr.shape[:2]
+    rh = ref_h or h  # full-frame height at this scale (bgr may be a horizontal strip)
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    bright = (gray > 185) | ((hsv[:, :, 1] > 110) & (hsv[:, :, 2] > 170))
+    dark = (gray < 70).astype(np.uint8)
+    near_dark = cv2.dilate(dark, np.ones((5, 5), np.uint8)) > 0
+    cand = (bright & near_dark).astype(np.uint8)
+    lines = cv2.morphologyEx(cand, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_RECT, (max(9, w // 25), 3)))
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(lines, 8)
+    boxes = []
+    mask = np.zeros_like(cand)
+    for i in range(1, n):
+        x, y, bw, bh, area = stats[i]
+        if bw < w * 0.12 or not (rh * 0.012 <= bh <= rh * 0.12) or bw < bh * 2.2:
+            continue
+        cx = x + bw / 2
+        if not (w * 0.15 < cx < w * 0.85):
+            continue
+        sub = cand[y:y + bh, x:x + bw]
+        if sub.mean() < 0.08:
+            continue
+        letters = cv2.connectedComponents(sub, 8)[0] - 1
+        if letters < 4:
+            continue
+        boxes.append((int(x), int(y), int(x + bw), int(y + bh)))
+        mask[lab == i] = 1  # the whole closed text line, not just the letter fill
+    return mask, boxes
+
+
+def scan_burned_text(video, fps=4, progress=None):
+    """Sample the video and report where burned-in captions are.
+    Returns {"coverage": share of sampled frames with text, "band": [y0, y1] (fractions), "boxes": [[t, x0, y0, x1, y1], ...]}"""
+    cap = cv2.VideoCapture(str(video))
+    n = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    sfps = cap.get(cv2.CAP_PROP_FPS) or 30
+    cap.release()
+    total = n / sfps if n else None
+    boxes, frames_with = [], 0
+    samples = 0
+    for t, _, small in _frames(video, fps, 360):
+        if progress and total:
+            progress(min(0.99, t / total))
+        samples += 1
+        h, w = small.shape[:2]
+        _, bs = text_lines(small)
+        if bs:
+            frames_with += 1
+        for x0, y0, x1, y1 in bs:
+            boxes.append([round(t, 2), round(x0 / w, 4), round(y0 / h, 4), round(x1 / w, 4), round(y1 / h, 4)])
+    res = {"coverage": round(frames_with / max(1, samples), 3), "boxes": boxes, "band": None}
+    if boxes:
+        # the captions live where text shows up most: the densest 25%-tall strip of the frame
+        cy = [(b[2] + b[4]) / 2 for b in boxes]
+        best = max((sum(1 for c in cy if s0 <= c <= s0 + 0.25), s0) for s0 in [k / 100 for k in range(0, 76)])[1]
+        inband = [b for b, c in zip(boxes, cy) if best <= c <= best + 0.25]
+        res["band"] = [round(max(0.0, min(b[2] for b in inband) - 0.02), 3),
+                       round(min(1.0, max(b[4] for b in inband) + 0.02), 3)]
+        res["boxes"] = inband
+        res["coverage"] = round(len({b[0] for b in inband}) / max(1, samples), 3)
+    return res
+
+
+def remove_burned_text(frame, band=None, scale=0.5, state=None):
+    """Paint out burned-in caption text in place (inside the band of the frame, if given).
+    Pass the same `state` dict for consecutive frames: if detection misses a frame, the last
+    mask is reused briefly so old captions don't flicker back."""
+    H, W = frame.shape[:2]
+    y0, y1 = (int(band[0] * H), int(band[1] * H)) if band else (0, H)
+    roi = frame[y0:y1]
+    if roi.size == 0:
+        return
+    small = cv2.resize(roi, (int(W * scale), max(1, int((y1 - y0) * scale))), interpolation=cv2.INTER_AREA)
+    mask, boxes = text_lines(small, ref_h=H * scale)
+    if state is not None:
+        if boxes:
+            state["mask"], state["miss"] = mask, 0
+        elif state.get("mask") is not None and state.get("miss", 0) < 4 and state["mask"].shape == mask.shape:
+            mask, boxes = state["mask"], [None]
+            state["miss"] = state.get("miss", 0) + 1
+    if not boxes:
+        return
+    # cover each text line plus its outline and drop shadow
+    k = max(9, int(small.shape[1] * 0.03)) | 1
+    m = cv2.dilate(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k)))
+    filled = cv2.inpaint(small, m * 255, 7, cv2.INPAINT_TELEA)
+    filled = cv2.GaussianBlur(filled, (9, 9), 0)
+    big = cv2.resize(filled, (W, y1 - y0), interpolation=cv2.INTER_LINEAR)
+    mb = cv2.resize(cv2.GaussianBlur(m.astype(np.float32), (5, 5), 0), (W, y1 - y0))[:, :, None]
+    mb = np.clip(mb * 1.2, 0, 1)
+    frame[y0:y1] = (big * mb + roi * (1 - mb)).astype(np.uint8)

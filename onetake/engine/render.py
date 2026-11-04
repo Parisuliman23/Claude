@@ -217,6 +217,9 @@ class Composer:
         self.tracks = {f["id"]: f["track"] for f in p.get("faces", {}).get("detected", [])}
         self.covers = [c for c in p.get("faces", {}).get("covers", []) if c.get("face") in self.tracks]
         self.src = FrameReader(config.absolute(p["source"]))
+        bc = p.get("burned_captions") or {}
+        self.burn_band = (bc.get("band") or [0.0, 1.0]) if bc.get("remove") else None
+        self.burn_state = {}
         self.transparent = layer in ("captions", "graphics")
         self.cap_cache = {}
 
@@ -233,6 +236,8 @@ class Composer:
                 frame = cover_fit(rd.at(float(b.get("clip_start", 0)) + t - sp[0]), W, H)
             else:
                 frame = cover_fit(self.src.at(ts), W, H)
+                if self.burn_band:  # paint out captions that were already in the video
+                    analyze.remove_burned_text(frame, self.burn_band, state=self.burn_state)
                 for c in self.covers:
                     pos = analyze.face_at(self.tracks[c["face"]], ts)
                     if pos:
