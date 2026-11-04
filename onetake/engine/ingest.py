@@ -119,6 +119,15 @@ def new(name=None, clips=None, log=print, move=True):
         "render": {"status": "none"},
         "rev": 0,
     }
+    log("  checking for captions already in the video…")
+    from . import analyze
+    scan = analyze.scan_burned_text(d / "source.mp4")
+    if scan["coverage"] >= 0.25 and scan["band"]:
+        p["burned_captions"] = {"remove": True, **scan}
+        # put our captions where the old ones were, so they cover any trace
+        p["caption_y"] = round(min(0.85, max(0.15, (scan["band"][0] + scan["band"][1]) / 2)), 3)
+        log(f"  found captions in {scan['coverage'] * 100:.0f}% of the video — they'll be painted out "
+            f"and replaced with yours")
     log("  making the rough cut…")
     roughcut.run(p)
     # Default look: the first line becomes a styled hook title.

@@ -9,6 +9,7 @@
   highlight NAME A-B [--off]
   set NAME KEY --json VALUE  set a top-level field (caption_style, sound, carousel, trials, story, hook_duration…)
   overlay NAME ID --json {…} change an overlay (merge)    add-overlay NAME --json {…}   remove-overlay NAME ID
+  remove-captions NAME [--off]  find captions burned into the video and paint them out (or keep them)
   faces NAME                find faces (for Cover a face)
   still NAME SECONDS        render one frame to check a look (projects/NAME/cache/still.png)
   render NAME               lock in: render projects/NAME/exports/reel.mp4
@@ -179,6 +180,28 @@ def main(argv=None):
             p["edit_rev"] = p.get("edit_rev", 0) + 1
         project.update(args[0], fn)
         return show(args[0])
+    if c == "remove-captions":
+        from . import analyze
+        nm = args[0]
+        if a.off:
+            project.update(nm, lambda p: (p.setdefault("burned_captions", {}).update({"remove": False}),
+                                          p.update({"edit_rev": p.get("edit_rev", 0) + 1})))
+            print("Keeping the video's own captions.")
+            return
+        p = project.load(nm)
+        scan = analyze.scan_burned_text(config.absolute(p["source"]))
+        if not scan["band"]:
+            print("No burned-in captions found.")
+            return
+
+        def fn(q):
+            q["burned_captions"] = {"remove": True, **scan}
+            q["caption_y"] = round(min(0.85, max(0.15, (scan["band"][0] + scan["band"][1]) / 2)), 3)
+            q["edit_rev"] = q.get("edit_rev", 0) + 1
+        project.update(nm, fn)
+        print(f"Found captions in {scan['coverage'] * 100:.0f}% of the video (band {scan['band']}). "
+              f"They'll be painted out; your captions moved to y={min(0.85, (scan['band'][0] + scan['band'][1]) / 2):.2f}.")
+        return
     if c == "faces":
         from . import analyze
         p = project.load(args[0])

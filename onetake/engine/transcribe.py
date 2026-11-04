@@ -38,6 +38,15 @@ def run(path):
             t = w.word.strip()
             if t:
                 words.append({"t": t, "s": round(w.start, 3), "e": round(max(w.end, w.start + 0.05), 3)})
+    # Whisper sometimes splits numbers ("$50" ",000"): join them back into one word.
+    merged = []
+    for w in words:
+        if merged and re.match(r"^[,.]\d", w["t"]) and re.search(r"\d$", merged[-1]["t"]):
+            merged[-1]["t"] += w["t"]
+            merged[-1]["e"] = w["e"]
+        else:
+            merged.append(w)
+    words = merged
     # Lines = sentences. Also break on a long pause, or at a comma once a line gets long.
     line, count = 0, 0
     for k, w in enumerate(words):

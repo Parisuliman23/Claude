@@ -41,6 +41,13 @@ Run `python3 -m engine` with no arguments for the full list.
    - Commands: `cut NAME A-B`, `restore NAME A-B` (word indexes), `cut-line NAME L`, `restore-line NAME L`.
 4. **First styling pass** — follow `lookbook/STYLE.md`:
    - Caption style: `set NAME caption_style --json '"bold-pop"'` (ids in `lookbook/captions.json`).
+   - **Captions already in the video** (e.g. a CapCut export): the user wants *ours*, not theirs. The import
+     detects them automatically ("found captions in N% of the video") and sets `burned_captions.remove`, which
+     paints them out in the render, and moves our captions to the same height to cover any trace. Keep our
+     captions ON. If the import didn't catch them (you see text in a `still`), run `remove-captions NAME`.
+     Check a still before and after: the old text should be gone. (Studio: Visuals → "Video's own captions".)
+     Check a still: captions must not cover the mouth or chin. Move them for this reel with
+     `set NAME caption_y --json 0.82` (0 = top, 1 = bottom; stay above ~0.85 to clear Instagram's UI).
    - Hook: the import adds a hook title on the first line. Rewrite its text to a punchy ≤ 8-word hook:
      `overlay NAME <hook-id> --json '{"params": {"text": "..."}}'`.
    - Highlight 1–2 key words per sentence or two (numbers, money, emotional words): `highlight NAME A-B`.
