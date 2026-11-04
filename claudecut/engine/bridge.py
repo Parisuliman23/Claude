@@ -9,7 +9,7 @@ import time
 
 from . import config, project
 
-PROMPT = """A request just came in from the Reelsmith studio app.
+PROMPT = """A request just came in from the ClaudeCut studio app.
 Project: {name}
 Request id: {rid}
 

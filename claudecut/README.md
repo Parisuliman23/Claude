@@ -1,14 +1,32 @@
-# Reelsmith — Claude edits your reels
+# ClaudeCut: edit your reels with Claude Code, no CapCut grind
+
+**Film once. Claude edits it. You stay in creative control.**
 
 Film like you normally do, drop the clips in a folder, and tell Claude
-**"I have a new reel to edit."** Claude cuts out the pauses, filler words and
+**"I have a new reel to edit."** Claude cuts out the pauses, "um"s and
 retakes, styles the captions, hook and graphics, picks music, and opens a
-**studio** in your browser where you see everything before anything is rendered.
-You stay in control: bring back any cut, swap any look, and ask Claude for new
-ones. Then one click turns it into a finished reel, a CapCut project, a
-carousel, a story and three trial reels.
+**studio** in your browser. There you see every edit before anything is
+rendered. Bring back any cut, swap any look, or describe something new and
+Claude makes three options to choose from.
+
+One click turns it into a finished reel, plus a CapCut layer pack, a carousel,
+a story and three trial reels. **One video becomes six pieces of content.**
 
 Everything runs on your own computer. Nothing is uploaded anywhere.
+
+## Who it's for
+
+- **Creators who film on their phone** and lose hours cutting pauses and retakes in CapCut.
+- **Coaches, course creators and small-business owners** who need to post consistently but aren't editors.
+- **Moms who create content** and want their kids' faces covered automatically when they're in the shot.
+- **Anyone already using Claude** who wants AI editing they can *see* before it's final, instead of
+  typing a prompt and crossing their fingers.
+
+### Why it's different from "AI edits it for you" tools
+- **You see everything before it renders.** The studio previews every cut, caption and look live.
+- **Nothing is locked in.** Every cut can come back, and every look, sound and take is swappable.
+- **It learns your style.** Your lookbook and style notes grow with every reel.
+- **More than one reel.** Carousel, story and trial reels come from the same video.
 
 ---
 
@@ -52,7 +70,7 @@ brew install ffmpeg python
 
 # 3. get this folder (or download the ZIP from GitHub and unzip it)
 git clone https://github.com/parisuliman23/claude.git
-cd claude/reelsmith
+cd claude/claudecut
 
 # 4. Python packages
 python3 -m pip install -r requirements.txt
@@ -67,8 +85,8 @@ Windows works too: install Python and ffmpeg (`winget install ffmpeg`), then do 
 
 ## Every reel
 
-1. Put your clips in **`reelsmith/drop-in-order/`**. They're used in name order, so `1.mov`, `2.mov`… works.
-2. Open Claude Code **in the `reelsmith` folder** (`cd reelsmith` then `claude`) and say:
+1. Put your clips in **`claudecut/drop-in-order/`**. They're used in name order, so `1.mov`, `2.mov`… works.
+2. Open Claude Code **in the `claudecut` folder** (`cd claudecut` then `claude`) and say:
    > I have a new reel to edit
 
    (or type `/new-reel`).

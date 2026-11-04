@@ -74,7 +74,7 @@ def render_full(name):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Reelsmith"
+    server_version = "ClaudeCut"
 
     def log_message(self, fmt, *args):
         pass

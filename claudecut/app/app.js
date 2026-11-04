@@ -1,4 +1,4 @@
-// Reelsmith studio — everything you see in the browser.
+// ClaudeCut studio — everything you see in the browser.
 "use strict";
 
 const $ = s => document.querySelector(s);
@@ -76,9 +76,9 @@ async function loadProject(name) {
   setProject(p);
   v.src = media(p.source);
   $("#ptitle").textContent = p.title;
-  document.title = `${p.title} · Reelsmith`;
+  document.title = `${p.title} · ClaudeCut`;
   for (const r of p.requests || []) S.reqStatus[r.id] = r.status;
-  setTab(localStorage.getItem("rs_tab_" + name) || "cut");
+  setTab(localStorage.getItem("cc_tab_" + name) || "cut");
   updateMusic();
   fitStage();
   requestAnimationFrame(tick);
@@ -159,7 +159,7 @@ function jobDone(kind, j) {
 // ------------------------------------------------------------------ tabs + panel
 const TABS = ["cut", "visuals", "sound", "finish"];
 function setTab(t) {
-  S.tab = t; localStorage.setItem("rs_tab_" + S.name, t);
+  S.tab = t; localStorage.setItem("cc_tab_" + S.name, t);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
   const i = TABS.indexOf(t);
   $("#nextBtn").textContent = i < 3 ? `Next: ${TABS[i + 1][0].toUpperCase() + TABS[i + 1].slice(1)} ›` : "Lock in my looks";
@@ -1146,10 +1146,10 @@ $("#themeBtn").onclick = () => {
   const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   const next = cur === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
-  try { localStorage.setItem("rs_theme", next); } catch {}
+  try { localStorage.setItem("cc_theme", next); } catch {}
   drawTimeline();
 };
-try { const th = localStorage.getItem("rs_theme"); if (th) document.documentElement.dataset.theme = th; } catch {}
+try { const th = localStorage.getItem("cc_theme"); if (th) document.documentElement.dataset.theme = th; } catch {}
 new ResizeObserver(() => { fitStage(); drawTimeline(); }).observe($("#phone"));
 
 boot();
