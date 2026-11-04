@@ -41,6 +41,9 @@ Run `python3 -m engine` with no arguments for the full list.
    - Commands: `cut NAME A-B`, `restore NAME A-B` (word indexes), `cut-line NAME L`, `restore-line NAME L`.
 4. **First styling pass** — follow `lookbook/STYLE.md`:
    - Caption style: `set NAME caption_style --json '"bold-pop"'` (ids in `lookbook/captions.json`).
+     If the clip already has captions burned in (e.g. a CapCut export), turn ours off so lines don't show twice:
+     `set NAME captions --json false` (the studio's Visuals tab also has a Captions on/off button). Suggest the user
+     drop in the original clip without captions instead, for the best result.
      Check a still: captions must not cover the mouth or chin. Move them for this reel with
      `set NAME caption_y --json 0.82` (0 = top, 1 = bottom; stay above ~0.85 to clear Instagram's UI).
    - Hook: the import adds a hook title on the first line. Rewrite its text to a punchy ≤ 8-word hook:
