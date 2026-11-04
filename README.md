@@ -1,6 +1,6 @@
 # Claude
 
-## [ClaudeCut](claudecut/): edit your reels with Claude Code, no CapCut grind
+## [Claude Cut Studio](claudecut/): edit your reels with Claude Code, no CapCut grind
 
 Film like normal, drop your clips in a folder, and tell Claude Code
 *"I have a new reel to edit."* Claude does the rough cut, captions, hook, looks

@@ -1,4 +1,4 @@
-# ClaudeCut: edit your reels with Claude Code, no CapCut grind
+# Claude Cut Studio: edit your reels with Claude Code, no CapCut grind
 
 **Film once. Claude edits it. You stay in creative control.**
 

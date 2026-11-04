@@ -1,4 +1,4 @@
-// ClaudeCut studio — everything you see in the browser.
+// Claude Cut Studio — everything you see in the browser.
 "use strict";
 
 const $ = s => document.querySelector(s);
@@ -76,7 +76,7 @@ async function loadProject(name) {
   setProject(p);
   v.src = media(p.source);
   $("#ptitle").textContent = p.title;
-  document.title = `${p.title} · ClaudeCut`;
+  document.title = `${p.title} · Claude Cut Studio`;
   for (const r of p.requests || []) S.reqStatus[r.id] = r.status;
   setTab(localStorage.getItem("cc_tab_" + name) || "cut");
   updateMusic();

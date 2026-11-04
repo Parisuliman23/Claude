@@ -1,1 +1,1 @@
-"""ClaudeCut — a reels editing engine you run with Claude Code."""
+"""Claude Cut Studio — a reels editing engine you run with Claude Code."""
