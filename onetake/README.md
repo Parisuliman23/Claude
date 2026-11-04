@@ -83,6 +83,18 @@ The first transcription downloads the speech model (about 500 MB) once.
 
 Windows works too: install Python and ffmpeg (`winget install ffmpeg`), then do the same steps.
 
+## App icons (no Terminal needed)
+
+Run this once from the `onetake` folder:
+
+```bash
+bash install-launcher.sh
+```
+
+Two apps appear in your launcher (on a Chromebook, in the **Linux apps** folder; right-click to pin to the shelf):
+- **One Take – New reel**: starts Claude and asks it to edit what's in `drop-in-order`.
+- **One Take Studio**: opens the studio in your browser.
+
 ## Every reel
 
 1. Put your clips in **`onetake/drop-in-order/`**. They're used in name order, so `1.mov`, `2.mov`… works.
