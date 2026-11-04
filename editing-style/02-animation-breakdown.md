@@ -1,6 +1,6 @@
 # Animation breakdown: every graphic, when it appears, and why
 
-How this was built: each video was sampled at 1 frame per second to list every on-screen element. The 20 most important animations were then pulled frame by frame (every 2nd–4th frame at native 24/30 fps) to measure entry timing, duration and easing. Those frame strips are in [`frame-strips/`](frame-strips/). Times are `seconds` from the start of each video.
+How this was built: each video was sampled at 1 frame per second to list every on-screen element. The 20 most important animations were then pulled frame by frame (every 2nd–4th frame at native 24/30 fps) to measure entry timing, duration and easing. Each video's frame strips are in `videos/<video>/frame-strips/`. Times are `seconds` from the start of each video.
 
 **How to read the "Why" column:** every visual answers one of five jobs:
 
@@ -257,26 +257,26 @@ How this was built: each video was sampled at 1 frame per second to list every o
 
 | Strip | What was measured | Result |
 |---|---|---|
-| `v1_cardpop.jpg` | Screenshot entry | **Hard cut-in, 0 frames of tween**, landing on the name's first syllable. White outer glow ~6 px |
-| `v1_fanstack.jpg` | Stack build | Each new card appears instantly *behind/beside* the last. Tilt ±6–10°. The pill note appears on the same frame as card 3 |
-| `v1_typewriter.jpg` | Heavy-caps typewriter | ~2 characters per frame (~30–35 chars/s). Starts within 1 frame of the first spoken word. The ellipsis types last |
-| `v1_cta.jpg` | CTA pop | Scale from ~40% to 100% over ~3 frames (0.1 s), no visible overshoot. The handwritten keyword types on ~1 s later, on "comment" |
-| `v2_arrow.jpg` | Arrow draw | Head appears first, then the shaft extends ~1.0 s with ease-out. Only *after* it lands does the list start |
-| `v2_meme.jpg` | Meme insert | Hard cut-in above the head. The handwritten label types on in ~0.2 s. Swaps to the next meme with no transition |
-| `v3_hook.jpg` | Counter + headline | Counter 18→90 in ~1.2 s, **ease-out** (big jumps first). Headline slides from the left in ~0.2 s. B-roll swaps underneath every ~0.5 s |
-| `v3_highlight.jpg` | Highlighter | Article hard-cuts in, slow push-in ~1.2 s, cut to a tight crop, then a yellow marker sweeps left→right in ~0.75 s, matched to the phrase |
-| `v3_gauge.jpg` | Radial gauge | Title + dot first, then arc + number count together, **ease-out ~1.3 s**. Secondary labels fade in last |
-| `v5_cards.jpg` | Before/after | Card 1 on "from this", card 2 on "to this": two hard pops 0.6 s apart, at hand height |
-| `v5_flow.jpg` | Flowchart | Box A pops on the condition. Arrow + Box B appear together on the result. Empty white space is held between them so the eye waits |
-| `v7_hook.jpg` | Strobe swap | Two lower-half images alternate for ~0.3 s (1-frame flickers) before settling: a news-glitch feel |
-| `v7_cta.jpg` | Keyword blink | `'ALERT'` flashes 1 frame on → 3 frames off → on. A double-blink, timed to the keyword |
-| `v8_grid.jpg` | Collage wall | Speaker rotoscoped over a reel-cover grid that drifts/shifts. The dashboard card stays fixed in front |
-| `v8_arrows.jpg` | Annotations | Handwritten note + curved arrow pop together (no draw-on), each on its exact phrase |
-| `v9_glass.jpg` | Receipt stack | Background darkens ~60%. Card 1 dissolves in over ~0.27 s. Later cards slide in. All stay visible as a collage |
-| `v9_zoom.jpg` | Number punch | Two snap-zooms (no easing) into one number, with a highlight added at the second step |
-| `v9_box.jpg` | Draw-around | Green rounded rectangle stroke draws in ~0.5 s on "key areas" |
-| `v10_flashback.jpg` | Parody switch | Hard cut to B&W + letterbox. Label scale-pops in 1–2 frames. Exit = practical gag + red X drawn in 2 strokes over ~0.33 s |
-| `v10_speedlines.jpg` | Drama beat | Speed lines are re-randomised every frame (boiling). Exit via a physical arm whip |
+| [`01/cardpop`](videos/01-launch-behind-the-scenes/frame-strips/cardpop.jpg) | Screenshot entry | **Hard cut-in, 0 frames of tween**, landing on the name's first syllable. White outer glow ~6 px |
+| [`01/fanstack`](videos/01-launch-behind-the-scenes/frame-strips/fanstack.jpg) | Stack build | Each new card appears instantly *behind/beside* the last. Tilt ±6–10°. The pill note appears on the same frame as card 3 |
+| [`01/typewriter`](videos/01-launch-behind-the-scenes/frame-strips/typewriter.jpg) | Heavy-caps typewriter | ~2 characters per frame (~30–35 chars/s). Starts within 1 frame of the first spoken word. The ellipsis types last |
+| [`01/cta`](videos/01-launch-behind-the-scenes/frame-strips/cta.jpg) | CTA pop | Scale from ~40% to 100% over ~3 frames (0.1 s), no visible overshoot. The handwritten keyword types on ~1 s later, on "comment" |
+| [`02/arrow`](videos/02-it-factor/frame-strips/arrow.jpg) | Arrow draw | Head appears first, then the shaft extends ~1.0 s with ease-out. Only *after* it lands does the list start |
+| [`02/meme`](videos/02-it-factor/frame-strips/meme.jpg) | Meme insert | Hard cut-in above the head. The handwritten label types on in ~0.2 s. Swaps to the next meme with no transition |
+| [`03/hook`](videos/03-top-1-percent-investors/frame-strips/hook.jpg) | Counter + headline | Counter 18→90 in ~1.2 s, **ease-out** (big jumps first). Headline slides from the left in ~0.2 s. B-roll swaps underneath every ~0.5 s |
+| [`03/highlight`](videos/03-top-1-percent-investors/frame-strips/highlight.jpg) | Highlighter | Article hard-cuts in, slow push-in ~1.2 s, cut to a tight crop, then a yellow marker sweeps left→right in ~0.75 s, matched to the phrase |
+| [`03/gauge`](videos/03-top-1-percent-investors/frame-strips/gauge.jpg) | Radial gauge | Title + dot first, then arc + number count together, **ease-out ~1.3 s**. Secondary labels fade in last |
+| [`05/cards`](videos/05-modified-dca/frame-strips/cards.jpg) | Before/after | Card 1 on "from this", card 2 on "to this": two hard pops 0.6 s apart, at hand height |
+| [`05/flow`](videos/05-modified-dca/frame-strips/flow.jpg) | Flowchart | Box A pops on the condition. Arrow + Box B appear together on the result. Empty white space is held between them so the eye waits |
+| [`07/hook`](videos/07-stocks-will-crash/frame-strips/hook.jpg) | Strobe swap | Two lower-half images alternate for ~0.3 s (1-frame flickers) before settling: a news-glitch feel |
+| [`07/cta`](videos/07-stocks-will-crash/frame-strips/cta.jpg) | Keyword blink | `'ALERT'` flashes 1 frame on → 3 frames off → on. A double-blink, timed to the keyword |
+| [`08/grid`](videos/08-reel-breakdown-b-content/frame-strips/grid.jpg) | Collage wall | Speaker rotoscoped over a reel-cover grid that drifts/shifts. The dashboard card stays fixed in front |
+| [`08/arrows`](videos/08-reel-breakdown-b-content/frame-strips/arrows.jpg) | Annotations | Handwritten note + curved arrow pop together (no draw-on), each on its exact phrase |
+| [`09/glass`](videos/09-should-i-buy-meta/frame-strips/glass.jpg) | Receipt stack | Background darkens ~60%. Card 1 dissolves in over ~0.27 s. Later cards slide in. All stay visible as a collage |
+| [`09/zoom`](videos/09-should-i-buy-meta/frame-strips/zoom.jpg) | Number punch | Two snap-zooms (no easing) into one number, with a highlight added at the second step |
+| [`09/box`](videos/09-should-i-buy-meta/frame-strips/box.jpg) | Draw-around | Green rounded rectangle stroke draws in ~0.5 s on "key areas" |
+| [`10/flashback`](videos/10-money-lies-parents-told-you/frame-strips/flashback.jpg) | Parody switch | Hard cut to B&W + letterbox. Label scale-pops in 1–2 frames. Exit = practical gag + red X drawn in 2 strokes over ~0.33 s |
+| [`10/speedlines`](videos/10-money-lies-parents-told-you/frame-strips/speedlines.jpg) | Drama beat | Speed lines are re-randomised every frame (boiling). Exit via a physical arm whip |
 
 ### Timing rules that showed up in every video
 1. **Graphics land on the word, not before it.** Entry is within 0–2 frames of the noun or number being spoken.
