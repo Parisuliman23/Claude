@@ -1,4 +1,4 @@
-# Claude Cut Studio: edit your reels with Claude Code, no CapCut grind
+# One Take Studio: edit your reels with Claude Code, no CapCut grind
 
 **Film once. Claude edits it. You stay in creative control.**
 
@@ -70,7 +70,7 @@ brew install ffmpeg python
 
 # 3. get this folder (or download the ZIP from GitHub and unzip it)
 git clone https://github.com/parisuliman23/claude.git
-cd claude/claudecut
+cd claude/onetake
 
 # 4. Python packages
 python3 -m pip install -r requirements.txt
@@ -85,8 +85,8 @@ Windows works too: install Python and ffmpeg (`winget install ffmpeg`), then do 
 
 ## Every reel
 
-1. Put your clips in **`claudecut/drop-in-order/`**. They're used in name order, so `1.mov`, `2.mov`… works.
-2. Open Claude Code **in the `claudecut` folder** (`cd claudecut` then `claude`) and say:
+1. Put your clips in **`onetake/drop-in-order/`**. They're used in name order, so `1.mov`, `2.mov`… works.
+2. Open Claude Code **in the `onetake` folder** (`cd onetake` then `claude`) and say:
    > I have a new reel to edit
 
    (or type `/new-reel`).

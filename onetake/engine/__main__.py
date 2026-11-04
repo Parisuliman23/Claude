@@ -1,4 +1,4 @@
-"""Command line: python3 -m engine <command>   (run from the claudecut folder)
+"""Command line: python3 -m engine <command>   (run from the onetake folder)
 
   setup                     check tools, make built-in sounds
   new [name]                make a project from the clips in drop-in-order/

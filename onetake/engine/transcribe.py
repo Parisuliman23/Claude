@@ -21,7 +21,7 @@ def model():
     global _model
     if _model is None:
         from faster_whisper import WhisperModel
-        name = os.environ.get("CLAUDECUT_WHISPER_MODEL") or config.settings()["whisper_model"]
+        name = os.environ.get("ONETAKE_WHISPER_MODEL") or config.settings()["whisper_model"]
         _model = WhisperModel(name, device="cpu", compute_type="int8")
     return _model
 

@@ -74,7 +74,7 @@ def render_full(name):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClaudeCutStudio"
+    server_version = "OneTakeStudio"
 
     def log_message(self, fmt, *args):
         pass
