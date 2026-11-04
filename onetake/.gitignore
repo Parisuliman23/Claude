@@ -1,0 +1,11 @@
+# Your own media and projects stay on your computer
+projects/*
+!projects/.keep
+drop-in-order/*
+!drop-in-order/.keep
+library/*/*
+!library/*/.keep
+settings.json
+__pycache__/
+*.pyc
+.DS_Store

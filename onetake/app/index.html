@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Take Studio</title>
+<link rel="stylesheet" href="/app/style.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand"><span class="logo">✂</span><div><b>One Take Studio</b><small id="ptitle"></small></div></div>
+  <nav id="tabs">
+    <button data-tab="cut">✂ Cut</button>
+    <button data-tab="visuals">✦ Visuals</button>
+    <button data-tab="sound">♪ Sound</button>
+    <button data-tab="finish">✓ Finish</button>
+  </nav>
+  <div class="tools">
+    <button id="undo" title="Undo (⌘Z)">↶</button>
+    <button id="redo" title="Redo (⇧⌘Z)">↷</button>
+    <button id="claudeBtn" title="Requests to Claude">✳ Claude <span id="claudeBadge" class="badge" hidden>0</span></button>
+    <button id="helpBtn" title="Show me around">?</button>
+    <button id="themeBtn" title="Light / dark">◐</button>
+  </div>
+</header>
+
+<div id="claudeTray" class="tray" hidden></div>
+
+<main id="main">
+  <section id="panel"></section>
+  <aside id="previewCol">
+    <div id="phone">
+      <div id="stageWrap">
+        <div id="stage">
+          <video id="v" playsinline preload="auto"></video>
+          <video id="bv" playsinline muted preload="auto"></video>
+          <canvas id="fc" width="1080" height="1920"></canvas>
+          <div id="ovl"></div>
+          <div id="cap"></div>
+        </div>
+      </div>
+      <span class="pv">Preview</span>
+    </div>
+    <div class="pcontrols">
+      <span id="ptime">0:00 / 0:00</span>
+      <button id="back5" title="Back 3s">⟲</button>
+      <button id="play" class="round" title="Play (space)">▶</button>
+      <button id="fwd5" title="Forward 3s">⟳</button>
+    </div>
+    <audio id="music" loop preload="auto"></audio>
+  </aside>
+</main>
+
+<footer id="bottom">
+  <button id="play2" class="round" title="Play (space)">▶</button>
+  <div class="clock"><b id="clock">0:00</b><small id="clockOf">of 0:00</small></div>
+  <div class="tlwrap">
+    <div class="tltools">
+      <button data-op="split" title="Split line at playhead (B)">⫶ Split</button>
+      <button data-op="cutBefore" title="Cut this line before the playhead (Q)">⇤ Cut before playhead</button>
+      <button data-op="cutAfter" title="Cut this line after the playhead (W)">⇥ Cut after playhead</button>
+      <button data-op="delete" title="Cut the selected words (Delete)">🗑 Delete</button>
+      <span class="spacer"></span>
+      <button data-op="zoomOut" title="Zoom out">−</button>
+      <input id="zoom" type="range" min="1" max="12" step="0.5" value="1">
+      <button data-op="zoomIn" title="Zoom in">+</button>
+    </div>
+    <div id="tlScroll"><canvas id="tl" height="76"></canvas></div>
+  </div>
+  <button id="nextBtn" class="primary">Next: Visuals ›</button>
+</footer>
+
+<div id="modal" class="modal" hidden><div class="mbox"><button class="mclose" title="Close">×</button><div id="mbody"></div></div></div>
+<div id="toasts"></div>
+
+<script src="/app/timeline.js"></script>
+<script src="/app/app.js"></script>
+</body>
+</html>
