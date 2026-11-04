@@ -95,7 +95,8 @@ function recompute() {
   const p = S.p;
   S.segs = buildSegments(p.words, p.duration, S.settings);
   S.T = totalLen(S.segs);
-  S.style = S.lookbook.captions.find(c => c.id === p.caption_style) || S.lookbook.captions[0];
+  S.style = Object.assign({}, S.lookbook.captions.find(c => c.id === p.caption_style) || S.lookbook.captions[0]);
+  if (p.caption_y != null) S.style.y = +p.caption_y;
   S.groups = p.captions === false ? [] : captionGroups(p.words, S.segs, S.style);
   S.spans = p.overlays.map(ov => [ov, overlaySpan(p, p.words, S.segs, ov)]).filter(x => x[1]);
   S.bspans = p.broll.map(b => [b, rangeOut(p.words, S.segs, b.w0, b.w1)]).filter(x => x[1]);
@@ -306,6 +307,7 @@ function renderVisuals() {
     <div class="chips">
       <label class="chip">Captions <select id="capStyle">${opts}</select></label>
       <button class="chip ${p.captions === false ? "" : "on"}" id="capToggle">${p.captions === false ? "Captions off" : "Captions on"}</button>
+      <label class="chip">Height <input type="range" id="capY" min="0.15" max="0.9" step="0.01" value="${S.style.y ?? 0.7}" style="width:90px"></label>
       <button class="chip" id="lookbookBtn">📖 Lookbook</button>
       <button class="chip" id="addLookBtn">✦ Add a look</button>
       <button class="chip" id="addMediaBtn">🖼 Add media</button>
@@ -329,6 +331,8 @@ function renderVisuals() {
   bindLines($("#panel"));
   $("#capStyle").onchange = e => mutate(p => p.caption_style = e.target.value);
   $("#capToggle").onclick = () => mutate(p => p.captions = p.captions === false);
+  $("#capY").oninput = e => { S.style.y = +e.target.value; S.lastCapKey = null; };
+  $("#capY").onchange = e => mutate(p => p.caption_y = +e.target.value, { render: false });
   $("#lookbookBtn").onclick = lookbookModal;
   $("#addLookBtn").onclick = addLookModal;
   $("#addMediaBtn").onclick = () => addMediaModal("gifs");

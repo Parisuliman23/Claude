@@ -200,7 +200,9 @@ class Composer:
             raise RuntimeError("Everything is cut — nothing to render.")
         self.T = timeline.total(segs)
         styles = {c["id"]: c for c in project.caption_styles()}
-        self.style = styles.get(p.get("caption_style")) or next(iter(styles.values()))
+        self.style = dict(styles.get(p.get("caption_style")) or next(iter(styles.values())))
+        if p.get("caption_y") is not None:  # per-reel caption height override
+            self.style["y"] = float(p["caption_y"])
         self.groups = timeline.caption_groups(words, segs, self.style) if p.get("captions", True) else []
         self.ovs = []
         for ov in p.get("overlays", []):
