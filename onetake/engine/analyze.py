@@ -213,6 +213,14 @@ def scan_burned_text(video, fps=4, progress=None):
         cy = [(b[2] + b[4]) / 2 for b in boxes]
         best = max((sum(1 for c in cy if s0 <= c <= s0 + 0.25), s0) for s0 in [k / 100 for k in range(0, 76)])[1]
         inband = [b for b, c in zip(boxes, cy) if best <= c <= best + 0.25]
+        # A logo or print on clothing sits in the same spot at the same size the whole time.
+        # Real captions change with every word, so their boxes move and change width.
+        import statistics
+        if len(inband) >= 5:
+            widths = [b[3] - b[1] for b in inband]
+            centers = [(b[1] + b[3]) / 2 for b in inband]
+            if statistics.pstdev(widths) < 0.03:  # same size every time (it may move with the body)
+                return {"coverage": 0.0, "boxes": [], "band": None, "static": True}
         res["band"] = [round(max(0.0, min(b[2] for b in inband) - 0.02), 3),
                        round(min(1.0, max(b[4] for b in inband) + 0.02), 3)]
         res["boxes"] = inband
@@ -248,3 +256,29 @@ def remove_burned_text(frame, band=None, scale=0.5, state=None):
     mb = cv2.resize(cv2.GaussianBlur(m.astype(np.float32), (5, 5), 0), (W, y1 - y0))[:, :, None]
     mb = np.clip(mb * 1.2, 0, 1)
     frame[y0:y1] = (big * mb + roi * (1 - mb)).astype(np.uint8)
+
+
+def face_focus(video, samples=10):
+    """Where the speaker's eyes usually are, as (x, y) fractions of the frame, for punch-ins
+    and split screens. Falls back to the upper third if no face is found."""
+    cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    cap = cv2.VideoCapture(str(video))
+    n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    pts = []
+    for k in range(samples):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(n * (k + 0.5) / samples))
+        ok, fr = cap.read()
+        if not ok:
+            continue
+        h, w = fr.shape[:2]
+        small = cv2.resize(fr, (360, int(h * 360 / w)))
+        g = cv2.equalizeHist(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY))
+        dets = cascade.detectMultiScale(g, 1.1, 6, minSize=(40, 40))
+        if len(dets):
+            x, y, fw, fh = max(dets, key=lambda d: d[2] * d[3])
+            pts.append(((x + fw / 2) / small.shape[1], (y + fh * 0.4) / small.shape[0]))  # eye line
+    cap.release()
+    if not pts:
+        return [0.5, 0.38]
+    xs, ys = sorted(p[0] for p in pts), sorted(p[1] for p in pts)
+    return [round(float(xs[len(xs) // 2]), 3), round(float(ys[len(ys) // 2]), 3)]

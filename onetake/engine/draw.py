@@ -10,6 +10,12 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from . import config
 
 ANIM_DUR = 0.3
+# Your style: pops are near-instant (40->100% in ~3 frames), headline cards slide up in 0.2 s.
+ANIM_DURS = {"snap": 0.1, "slide-up": 0.2, "slide-down": 0.2}
+
+
+def anim_dur(kind):
+    return ANIM_DURS.get(kind, ANIM_DUR)
 
 
 @lru_cache(maxsize=64)
@@ -57,6 +63,8 @@ def anim_state(kind, p):
     elif kind == "spin":
         st["rot"] = (1 - e) * 360
         st["scale"] = e
+    elif kind == "snap":
+        st["scale"] = 0.4 + 0.6 * e
     elif kind == "zoom":
         st["scale"] = 1 + (1 - e) * 1.5
         st["alpha"] = p
@@ -66,11 +74,18 @@ def anim_state(kind, p):
 def overlay_state(ov, t, s, e):
     """Animation state for an overlay visible from s to e at time t."""
     ai, ao = ov.get("anim_in", "pop"), ov.get("anim_out", "fade")
-    if ai and ai != "none" and t - s < ANIM_DUR:
-        return anim_state(ai, (t - s) / ANIM_DUR)
-    if ao and ao != "none" and e - t < ANIM_DUR:
-        return anim_state(ao, (e - t) / ANIM_DUR)
+    if ai and ai != "none" and t - s < anim_dur(ai):
+        return anim_state(ai, (t - s) / anim_dur(ai))
+    if ao and ao != "none" and e - t < anim_dur(ao):
+        return anim_state(ao, (e - t) / anim_dur(ao))
     return anim_state("none", 1)
+
+
+def push_scale(ov, t, s, e):
+    """Slow push-in on static screenshots/cards: grows ~6% over the time it's on screen."""
+    if not ov.get("push"):
+        return 1.0
+    return 1.0 + 0.06 * max(0.0, min(1.0, (t - s) / max(0.1, e - s)))
 
 
 _arr_cache = {}

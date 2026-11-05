@@ -111,18 +111,21 @@ def new(name=None, clips=None, log=print, move=True):
         "overlays": [],
         "broll": [],
         "faces": {"detected": [], "covers": []},
+        "camera": {"push_in": 7, "push_amount": 0.08, "punches": [], "punch_scale": 1.12},
         "sound": {"src": None, "volume": s["music_volume"], "offset": 0},
-        "hook_duration": 3.0,
+        "hook_duration": 5.0,
         "frames": [],
         "exports": {},
         "requests": [],
         "render": {"status": "none"},
         "rev": 0,
     }
+    from . import analyze as _an
+    p["focus"] = _an.face_focus(d / "source.mp4")  # where the eyes are: punch-ins and split screens aim here
     log("  checking for captions already in the video…")
     from . import analyze
     scan = analyze.scan_burned_text(d / "source.mp4")
-    if scan["coverage"] >= 0.25 and scan["band"]:
+    if scan["coverage"] >= 0.5 and scan["band"]:
         p["burned_captions"] = {"remove": True, **scan}
         # put our captions where the old ones were, so they cover any trace
         p["caption_y"] = round(min(0.85, max(0.15, (scan["band"][0] + scan["band"][1]) / 2)), 3)
@@ -136,8 +139,9 @@ def new(name=None, clips=None, log=print, move=True):
         ls = [l for l in project.lines(p) if not l["cut"]]
         p["overlays"].append({
             "id": project.new_id(), "kind": "look", "look": s["default_hook_look"], "role": "hook",
-            "w0": ls[0]["w0"], "w1": ls[0]["w1"], "x": 0.5, "y": 0.2, "scale": 1.0,
-            "anim_in": "pop", "anim_out": "fade", "params": {"text": ls[0]["text"]},
+            "w0": ls[0]["w0"], "w1": ls[0]["w1"], "x": 0.5, "y": 0.13, "scale": 1.0,
+            # your style: the headline types on from frame 1 and hard-cuts off
+            "anim_in": "none", "anim_out": "none", "params": {"text": ls[0]["text"]},
         })
     sounds = sorted((config.LIBRARY / "sounds").glob("*"))
     sounds = [x for x in sounds if x.suffix.lower() in config.AUDIO_EXT]

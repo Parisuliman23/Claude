@@ -189,6 +189,9 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)(/rev)?", path)
             if m:
                 p = project.load(m.group(1))
+                if "focus" not in p and not m.group(2):  # projects from before face focus existed
+                    foc = analyze.face_focus(config.absolute(p["source"]))
+                    p = project.update(m.group(1), lambda q: q.update({"focus": foc}))
                 if m.group(2):
                     return self.send_json({"rev": p.get("rev", 0), "jobs": jobs_for(m.group(1)),
                                            "requests": p.get("requests", [])})

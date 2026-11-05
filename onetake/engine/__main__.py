@@ -10,6 +10,7 @@
   retext NAME A-B "new words"   fix words the transcript got wrong (captions only)
   set NAME KEY --json VALUE  set a top-level field (caption_style, sound, carousel, trials, story, hook_duration…)
   overlay NAME ID --json {…} change an overlay (merge)    add-overlay NAME --json {…}   remove-overlay NAME ID
+  add-broll NAME --json {…}  cut-away / split screen: {"w0","w1","src": video|image|null, "color": "#FFFFFF", "layout": "full"|"split"}
   remove-captions NAME [--off]  find captions burned into the video and paint them out (or keep them)
   faces NAME                find faces (for Cover a face)
   still NAME SECONDS        render one frame to check a look (projects/NAME/cache/still.png)
@@ -166,7 +167,7 @@ def main(argv=None):
                 ov = json.loads(a.json)
                 ov.setdefault("id", project.new_id())
                 for k, d in (("x", 0.5), ("y", 0.4), ("scale", 1.0 if ov.get("kind") == "look" else 0.45),
-                             ("anim_in", "pop"), ("anim_out", "fade"), ("min_dur", 1.2)):
+                             ("anim_in", "snap"), ("anim_out", "none"), ("min_dur", 1.2)):
                     ov.setdefault(k, d)
                 ov.setdefault("w1", ov["w0"])
                 p["overlays"].append(ov)
@@ -185,6 +186,20 @@ def main(argv=None):
             p["edit_rev"] = p.get("edit_rev", 0) + 1
         project.update(args[0], fn)
         return show(args[0])
+    if c == "add-broll":
+        b = json.loads(a.json)
+        b.setdefault("id", project.new_id("b"))
+        b.setdefault("w1", b["w0"])
+        b.setdefault("clip_start", 0)
+        b.setdefault("layout", "full")
+        if b.get("src") and config.absolute(b["src"]).suffix.lower() in config.VIDEO_EXT and "clip_start" not in json.loads(a.json):
+            from . import analyze
+            p0 = project.load(args[0])
+            sp = project.timeline.range_out(p0["words"], project.segments(p0), b["w0"], b["w1"])
+            b["clip_start"] = analyze.best_moment(config.absolute(b["src"]), (sp[1] - sp[0]) if sp else 3)
+        project.update(args[0], lambda p: (p.setdefault("broll", []).append(b), p.update({"edit_rev": p.get("edit_rev", 0) + 1})))
+        print("Added cut-away", b["id"])
+        return
     if c == "remove-captions":
         from . import analyze
         nm = args[0]
