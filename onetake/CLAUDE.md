@@ -113,7 +113,9 @@ def render(ctx):   # called for every frame; return a PIL RGBA image of just the
 - Finish with `--options <slug>_1,<slug>_2,<slug>_3`.
 
 ### kind: `edit` — "Ask Claude" / a note on an overlay
-Free-form instruction about words `w0`–`w1` (and maybe a specific `overlay` id). Make the change with
+Free-form instruction, usually about words `w0`–`w1` (and maybe a specific `overlay` id). From the studio's
+**Ask Claude** box there are no word indexes: use `text`, plus `at` (playhead time) and `playhead_line`
+(the line the user was on) when they say "this line" or "here". Find the words with `show NAME`. Make the change with
 the CLI (`overlay`, `add-overlay`, `cut`, `highlight`, `set`…). If it needs a new kind of motion the
 built-in animations can't do, write a custom look (as above) and swap the overlay to it. Explain what
 you did in `--note`.
