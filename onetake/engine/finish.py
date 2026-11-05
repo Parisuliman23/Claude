@@ -149,7 +149,8 @@ THEME = {"accent": "#5B4BDB", "highlight": "#FFE14D", "highlight_text": "#111111
 
 
 def _images(name, p, n):
-    imgs = [config.absolute(f["file"]) for f in p.get("frames", [])]
+    frs = sorted(p.get("frames", []), key=lambda f: 0 if f.get("star") else 1)  # starred cover first
+    imgs = [config.absolute(f["file"]) for f in frs]
     imgs += [config.absolute(x) for x in p.get("finish_images", [])]
     if not imgs:
         imgs = [config.absolute(x) for x in auto_frames(name)]
@@ -289,3 +290,160 @@ def capcut(name, progress=None):
         progress(1.0)
     project.update(name, lambda q: q.setdefault("exports", {}).update({"capcut": config.rel(z)}))
     return config.rel(z)
+
+
+# ---------- safe zone (edge check) ----------
+# Instagram/TikTok cover the top bar, the caption + username at the bottom, and the like/comment/share
+# buttons down the right. Looks there may be partly hidden; looks off the frame get cut.
+SAFE = {"top": 0.045, "bottom": 0.80, "right_buttons_x": 0.86, "right_buttons_y": 0.45, "edge": 0.03}
+
+
+def _box(p, ov, words, segs, W=1080, H=1920):
+    """The overlay's box (x0, y0, x1, y1 as fractions) at the middle of its time on screen."""
+    from . import looks as _looks
+    sp = timeline.overlay_span(p, words, segs, ov)
+    if not sp:
+        return None
+    a, b = sp
+    if ov["kind"] == "look":
+        img = _looks.frame(ov["look"], ov.get("params", {}), max(0.0, (b - a) - 0.05), b - a, W, H)  # fully built
+        if img is None:
+            return None
+        sc = float(ov.get("scale", 1.0))
+        bb = img.getchannel("A").point(lambda v: 255 if v > 40 else 0).getbbox()  # visible pixels only
+        if not bb:
+            return None
+        cx, cy = float(ov.get("x", 0.5)) * W, float(ov.get("y", 0.5)) * H
+        x0 = cx + (bb[0] - img.width / 2) * sc
+        x1 = cx + (bb[2] - img.width / 2) * sc
+        y0 = cy + (bb[1] - img.height / 2) * sc
+        y1 = cy + (bb[3] - img.height / 2) * sc
+        return (x0 / W, y0 / H, x1 / W, y1 / H), a
+    else:
+        src = draw.emoji(ov["emoji"]) if ov["kind"] == "emoji" else draw.media_image(str(config.absolute(ov["src"])), 0)
+        if src is None:
+            return None
+        w = float(ov.get("scale", 0.45)) * W
+        h = w * src.height / max(1, src.width)
+    cx, cy = float(ov.get("x", 0.5)) * W, float(ov.get("y", 0.5)) * H
+    return ((cx - w / 2) / W, (cy - h / 2) / H, (cx + w / 2) / W, (cy + h / 2) / H), a
+
+
+def edge_check(p):
+    """[{id, name, at, issue}] for looks that are partly hidden by the app's buttons/text or run off the frame."""
+    words, segs = p["words"], project.segments(p)
+    out = []
+    for ov in p.get("overlays", []):
+        r = _box(p, ov, words, segs)
+        if not r:
+            continue
+        (x0, y0, x1, y1), at = r
+        name = ov.get("look") or ov.get("emoji") or (ov.get("src") or "").split("/")[-1]
+        issue = None
+        if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1:
+            issue = "runs off the edge"
+        elif y0 < SAFE["top"]:
+            issue = "under the top bar"
+        elif y1 > SAFE["bottom"]:
+            issue = "under your caption and username"
+        elif x1 > SAFE["right_buttons_x"] and y1 > SAFE["right_buttons_y"]:
+            issue = "under the like / comment / share buttons"
+        if issue:
+            out.append({"id": ov["id"], "name": name, "at": round(at, 2), "issue": issue})
+    return out
+
+
+def fix_edges(p):
+    """Move (and if needed shrink) the flagged looks into the safe area. Returns how many moved."""
+    words, segs = p["words"], project.segments(p)
+    flagged = {x["id"] for x in edge_check(p)}
+    n = 0
+    for ov in p.get("overlays", []):
+        if ov["id"] not in flagged:
+            continue
+        r = _box(p, ov, words, segs)
+        if not r:
+            continue
+        (x0, y0, x1, y1), _ = r
+        w, h = x1 - x0, y1 - y0
+        top, bottom, edge = SAFE["top"], SAFE["bottom"], SAFE["edge"]
+        right = SAFE["right_buttons_x"] if (y1 > SAFE["right_buttons_y"]) else 1 - edge
+        maxw, maxh = right - edge, bottom - top
+        k = min(1.0, maxw / max(w, 1e-6), maxh / max(h, 1e-6))
+        if k < 1.0:
+            ov["scale"] = round(float(ov.get("scale", 1.0 if ov["kind"] == "look" else 0.45)) * k * 0.98, 3)
+        r2 = _box(p, ov, words, segs)  # after any shrink
+        (x0, y0, x1, y1), _ = r2
+        m = 0.01  # land a little inside the safe area, not on its edge
+        dx = (max(0.0, edge - x0) + (m if x0 < edge else 0)) - (max(0.0, x1 - right) + (m if x1 > right else 0))
+        dy = (max(0.0, top - y0) + (m if y0 < top else 0)) - (max(0.0, y1 - bottom) + (m if y1 > bottom else 0))
+        ov["x"] = round(float(ov.get("x", 0.5)) + dx, 3)
+        ov["y"] = round(float(ov.get("y", 0.5)) + dy, 3)
+        n += 1
+    return n
+
+
+# ---------- storyboard ----------
+
+def storyboard(name, progress=None, cols=4):
+    """Every line of the reel as a numbered still (what it will really look like), in one image."""
+    from PIL import ImageFont
+    p = project.load(name)
+    comp = render.Composer(name, p=p)
+    segs = comp.segs
+    ls = [l for l in project.lines(p) if not l["cut"]]
+    shots = []
+    for k, l in enumerate(ls):
+        sp = timeline.range_out(p["words"], segs, l["w0"], l["w1"])
+        if not sp:
+            continue
+        t = min(sp[0] + min(1.2, (sp[1] - sp[0]) * 0.6), comp.T - 0.05)
+        import cv2
+        fr = comp.frame(t)
+        im = Image.fromarray(cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)).resize((270, 480))
+        shots.append((im, t, l["text"]))
+        if progress:
+            progress((k + 1) / max(1, len(ls)))
+    rows = (len(shots) + cols - 1) // cols
+    sheet = Image.new("RGB", (cols * 290 + 20, rows * 560 + 20), (245, 243, 238))
+    d = ImageDraw.Draw(sheet)
+    fb = draw.font("Montserrat_900Black", 26)
+    ft = draw.font("Inter_700Bold", 15)
+    for k, (im, t, text) in enumerate(shots):
+        x, y = 20 + (k % cols) * 290, 20 + (k // cols) * 560
+        sheet.paste(im, (x, y))
+        d.rounded_rectangle([x + 8, y + 430, x + 62, y + 466], radius=8, fill=(20, 20, 24))
+        d.text((x + 35, y + 448), f"{k + 1:02d}", font=fb, fill=(255, 255, 255), anchor="mm")
+        label = f"{int(t // 60)}:{int(t % 60):02d}  {text}"
+        while ft.getlength(label) > 268 and len(label) > 8:
+            label = label[:-2]
+        if label != f"{int(t // 60)}:{int(t % 60):02d}  {text}":
+            label = label.rstrip() + "…"
+        d.text((x, y + 492), label, font=ft, fill=(40, 40, 48))
+    out = project.pdir(name) / "exports" / "storyboard.jpg"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out, quality=88)
+    project.update(name, lambda q: q.setdefault("exports", {}).update({"storyboard": config.rel(out)}))
+    return config.rel(out)
+
+
+# ---------- phone copy + cover ----------
+
+def phone_copy(src, out):
+    """A small copy to check on your phone like a viewer would (540x960, small file)."""
+    subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-vf", "scale=540:960",
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", "-b:a", "96k",
+                    "-movflags", "+faststart", str(out)], check=True)
+    return out
+
+
+def cover(name):
+    """Copy the starred frame (or the first saved one) to exports/cover.jpg."""
+    p = project.load(name)
+    fr = [f for f in p.get("frames", []) if f.get("star")] or p.get("frames", [])
+    if not fr:
+        return None
+    out = project.pdir(name) / "exports" / "cover.jpg"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(config.absolute(fr[0]["file"]), out)
+    return config.rel(out)

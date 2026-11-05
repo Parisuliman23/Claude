@@ -89,6 +89,8 @@ Run `python3 -m engine` with no arguments for the full list.
      on a slide or punch-in, typing under typed text, riser + ka-ching on money counters, ding on the CTA). To
      change one, edit `sfx` with `set NAME sfx --json '[…]'` (each: `src`, `anchor` {"ov": id} / {"broll": id} /
      {"w": word}, `offset` s, `volume`, `muted`); `sfx-list` shows every effect. Keep the last 3–5 s quiet too.
+   - **Safe area**: `python3 -m engine edge-check NAME` lists looks hidden under Instagram's top bar, caption/username
+     area or right-side buttons, or running off the frame; `--fix` moves them in. Run it before opening the studio.
    - **Check your work**: `still NAME <seconds>` → look at `projects/NAME/cache/still.png` for the hook, a busy
      moment and the CTA. Face clear? One accent color? Text readable? Fix before opening the studio.
 5. **Open the studio** in the background: `python3 -m engine open NAME` and tell the user it's at

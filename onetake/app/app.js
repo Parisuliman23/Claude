@@ -168,7 +168,7 @@ async function poll() {
 }
 
 function jobDone(kind, j) {
-  const msg = { render: "Your reel is rendered!", capcut: "CapCut pack is ready.", carousel: "Carousel ready.", story: "Story ready.", trials: "Trial reels are ready.", faces: `Found ${j.result} face(s).` }[kind] || `${kind} done`;
+  const msg = { storyboard: "Storyboard ready.", render: "Your reel is rendered!", capcut: "CapCut pack is ready.", carousel: "Carousel ready.", story: "Story ready.", trials: "Trial reels are ready.", faces: `Found ${j.result} face(s).` }[kind] || `${kind} done`;
   toast(msg);
   reload();
 }
@@ -960,15 +960,23 @@ function renderFinish() {
     ${!done ? `<div class="muted">Nothing is rendered yet — everything so far has been a live preview.</div>` : ""}
     ${stale() ? `<div class="muted">You've made changes since the last render.</div>` : ""}
     <div class="row" style="margin:8px 0"><button class="primary" id="lock">${done ? "Render again" : "🔒 Lock in my looks"}</button></div>${jobBar("render")}
+    <div id="edgeCard"></div>
     ${done ? `<video class="finalv" controls src="${media(r.file)}?v=${p.edit_rev || 0}-${p.rev}"></video>
       <div class="row" style="margin-top:10px"><a download href="${media(r.file)}"><button>⬇ Download MP4</button></a>
+      ${r.phone ? `<a download href="${media(r.phone)}"><button title="A small copy to check on your phone like a viewer would">📱 Phone copy</button></a>` : ""}
+      ${ex.cover ? `<a download href="${media(ex.cover)}"><button>⬇ Cover</button></a>` : ""}
       <button id="capcut">Send to CapCut (layers)</button>${ex.capcut ? `<a download href="${media(ex.capcut)}"><button>⬇ CapCut pack (.zip)</button></a>` : ""}</div>${jobBar("capcut")}
       <small class="muted">The CapCut pack has your video, graphics and captions as separate layers (plus music and an .srt), so you can keep editing.</small>` : ""}
   </div>
   <div class="card"><h3 style="margin-top:0">2 · Frames & photos</h3>
-    <div class="muted">Pause on a moment you love and press <b>Save this frame</b> (or <b>S</b>). Or let Claude pick your best stills.</div>
+    <div class="muted">Your snaps: stills for your cover or a carousel. Pause on a frame and press <b>Save this frame</b> (or <b>S</b>), then <b>☆ star</b> your cover.</div>
     <div class="row" style="margin-top:8px"><button id="saveFrame">📸 Save this frame</button><button id="addPhotos">＋ Add photos</button></div>
-    <div class="files">${(p.frames || []).map(f => `<img src="${media(f.file)}">`).join("")}${(p.finish_images || []).map(f => `<img src="${media(f)}">`).join("")}</div>
+    <div class="files">${(p.frames || []).map((f, k) => `<div class="snap"><img src="${media(f.file)}"><button class="star ${f.star ? "on" : ""}" data-star="${k}" title="Use as my cover">${f.star ? "★ Cover" : "☆"}</button><button class="del" data-delsnap="${k}" title="Remove">×</button></div>`).join("")}${(p.finish_images || []).map(f => `<img src="${media(f)}">`).join("")}</div>
+  </div>
+  <div class="card"><h3 style="margin-top:0">Storyboard</h3>
+    <div class="muted">Every line of your reel as a numbered still, exactly as it will look, to check before you export.</div>
+    <div class="row" style="margin-top:8px"><button id="mkBoard">▦ Make storyboard</button></div>${jobBar("storyboard")}
+    ${ex.storyboard ? `<a href="${media(ex.storyboard)}" target="_blank"><img src="${media(ex.storyboard)}?v=${p.rev}" style="width:100%;border-radius:10px;margin-top:8px;border:1px solid var(--line)"></a>` : ""}
   </div>
   <div class="card"><h3 style="margin-top:0">3 · Make a carousel or story</h3>
     <div class="muted">Claude writes it from what you said in the video, using your frames.</div>
@@ -985,10 +993,33 @@ function renderFinish() {
   $("#lock").onclick = lockIn;
   const cc = $("#capcut"); if (cc) cc.onclick = () => runExport("capcut");
   $("#saveFrame").onclick = saveFrame;
+  $("#mkBoard").onclick = () => runExport("storyboard");
+  $("#panel").querySelectorAll("[data-star]").forEach(b => b.onclick = () => mutate(p => {
+    const k = +b.dataset.star, on = !p.frames[k].star;
+    p.frames.forEach(f => f.star = false); p.frames[k].star = on;
+  }));
+  $("#panel").querySelectorAll("[data-delsnap]").forEach(b => b.onclick = () => mutate(p => p.frames.splice(+b.dataset.delsnap, 1)));
+  drawEdgeCard();
   $("#addPhotos").onclick = addPhotosModal;
   $("#mkCar").onclick = () => claudeOr("carousel", "Writing your carousel");
   $("#mkStory").onclick = () => claudeOr("story", "Writing your story");
   $("#mkTrials").onclick = () => claudeOr("trials", "Writing your trial reels");
+}
+async function drawEdgeCard() {
+  const box = $("#edgeCard"); if (!box) return;
+  if (S.dirty) await save();
+  let r; try { r = await api(`/api/project/${S.name}/edge-check`, {}); } catch { return; }
+  if (!r.flags.length || S.edgeOk === S.p.edit_rev) { box.innerHTML = ""; return; }
+  box.innerHTML = `<div class="card" style="background:var(--hl);margin:8px 0"><b>Some of your looks may be partly hidden or run off the edge. Okay with that?</b>
+    <div class="muted" style="font-size:12px">Instagram puts its buttons on the right and your caption at the bottom. Your reel exports either way.</div>
+    <div class="row" style="margin-top:8px"><button id="edgeOk">✓ Yes, they're fine</button><button class="primary" id="edgeFix">✥ Move them for me</button>
+    <button class="ghost" id="edgeWhich">Which ones? (${r.flags.length})</button></div><div id="edgeList"></div></div>`;
+  $("#edgeOk").onclick = () => { S.edgeOk = S.p.edit_rev; box.innerHTML = ""; };
+  $("#edgeFix").onclick = async () => { const x = await api(`/api/project/${S.name}/edge-fix`, {}); await reload(); toast(`Moved ${x.moved} look(s) into the safe area.`); };
+  $("#edgeWhich").onclick = () => {
+    $("#edgeList").innerHTML = r.flags.map(f => `<div class="row" style="margin-top:6px"><button class="ghost" data-jump="${f.at}">▶ ${fmt(f.at)}</button><b>${esc(f.name)}</b><small class="muted">${esc(f.issue)}</small></div>`).join("");
+    $("#edgeList").querySelectorAll("[data-jump]").forEach(b => b.onclick = () => seek(+b.dataset.jump));
+  };
 }
 function renderJobsOnly() { if (S.tab === "finish" || (S.tab === "visuals" && S.faceCard)) renderPanel(); }
 
