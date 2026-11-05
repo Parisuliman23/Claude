@@ -95,7 +95,7 @@ async function loadProject(name) {
   document.title = `${p.title} · One Take Studio`;
   for (const r of p.requests || []) S.reqStatus[r.id] = r.status;
   setTab(localStorage.getItem("cc_tab_" + name) || "cut");
-  updateMusic();
+  updateMusic(); applyFilter();
   fitStage();
   requestAnimationFrame(tick);
 }
@@ -237,6 +237,8 @@ function selTool(mode) {
   const hl = p.words.slice(S.sel.a, S.sel.b + 1).some(w => w.hl);
   return `<div class="seltool"><span>${t}</span>
     <button data-a="fix">✎ Fix text</button><button data-a="hl">${hl ? "Remove highlight" : "★ Highlight"}</button>
+    <button data-a="cbreak" title="Start a new caption at this word">${p.words[S.sel.a].cbreak ? "Join captions" : "T Captions here"}</button>
+    <button data-a="splitline" title="Start a new line at this word">⫶ Split line here</button><button data-a="note">✎ Add a note</button>
     <button data-a="look">✦ Add a look</button><button data-a="media">🖼 Add media</button>
     <button data-a="broll">🎬 Cut away</button><button data-a="punch">${(p.camera?.punches || []).includes(S.sel.a) ? "Remove punch-in" : "⤢ Punch in"}</button>
     <button data-a="ask">✳ Ask Claude</button><button data-a="clear">✕</button></div>`;
@@ -262,6 +264,12 @@ function selAction(a) {
   if (a === "clear") { S.sel = null; return renderPanel(); }
   if (a === "cut" || a === "restore") mutate(p => { for (let i = x; i <= y; i++) { p.words[i].cut = a === "cut"; if (a === "cut") p.words[i].why = "you"; } });
   if (a === "fix") return fixTextModal();
+  if (a === "cbreak") return mutate(p => { p.words[x].cbreak = !p.words[x].cbreak; });
+  if (a === "note") return askClaudeModal("e.g. make this word pop bigger, or add a 🔥 here");
+  if (a === "splitline") return mutate(p => {
+    const l = linesOf(p).find(l => l.w0 <= x && x <= l.w1); if (!l || x === l.w0) return;
+    p.words.forEach((w, j) => { if (w.l > l.id) w.l += 1; else if (w.l === l.id && j >= x) w.l = l.id + 1; });
+  });
   if (a === "punch") return mutate(p => {
     p.camera = p.camera || {};
     const ps = new Set(p.camera.punches || []);
@@ -392,6 +400,7 @@ function renderVisuals() {
       <button class="chip ${p.captions === false ? "" : "on"}" id="capToggle">${p.captions === false ? "Captions off" : "Captions on"}</button>
       ${p.burned_captions ? `<button class="chip ${p.burned_captions.remove ? "on" : ""}" id="burnToggle" title="Captions that were already in your video">${p.burned_captions.remove ? "Video's own captions: removed" : "Video's own captions: kept"}</button>` : ""}
       <label class="chip">Height <input type="range" id="capY" min="0.15" max="0.9" step="0.01" value="${S.style.y ?? 0.7}" style="width:90px"></label>
+      <label class="chip">Filter <select id="filterSel">${(S.lookbook.filters || []).map(x => `<option value="${x.id}" ${x.id === (p.filter || "none") ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select></label>
       <button class="chip" id="lookbookBtn">📖 Lookbook</button>
       <button class="chip" id="addLookBtn">✦ Add a look</button>
       <button class="chip" id="addMediaBtn">🖼 Add media</button>
@@ -420,6 +429,7 @@ function renderVisuals() {
   $("#capY").oninput = e => { S.style.y = +e.target.value; S.lastCapKey = null; };
   $("#capY").onchange = e => mutate(p => p.caption_y = +e.target.value, { render: false });
   $("#lookbookBtn").onclick = lookbookModal;
+  $("#filterSel").onchange = e => { mutate(p => p.filter = e.target.value, { render: false }); applyFilter(); };
   $("#addLookBtn").onclick = addLookModal;
   $("#addMediaBtn").onclick = () => addMediaModal("gifs");
   $("#brollBtn").onclick = () => addMediaModal("broll");
@@ -547,9 +557,12 @@ function addMediaModal(tab) {
     if (tab === "emoji") return `<div class="emojis">${S.lookbook.emoji.map(c => `<img src="/assets/emoji/${c}.png" data-emoji="${c}">`).join("")}</div>`;
     const items = lib[tab] || [];
     if (!items.length) return `<div class="card muted">Nothing here yet. Upload from your computer below, or drop files in <b>library/${tab}</b>.</div>`;
-    return `<div class="grid">${items.map(f => tab === "broll"
-      ? `<div class="tile" data-src="${esc(f.path)}"><video src="${media(f.path)}#t=1" muted preload="metadata"></video>${esc(f.name)}</div>`
-      : `<div class="tile" data-src="${esc(f.path)}"><img src="${media(f.path)}" loading="lazy">${esc(f.name)}</div>`).join("")}</div>`;
+    const favs = new Set(lib.favorites || []);
+    const sorted = items.slice().sort((a, b) => (favs.has(b.path) ? 1 : 0) - (favs.has(a.path) ? 1 : 0));
+    const fstar = f => `<button class="favstar ${favs.has(f.path) ? "on" : ""}" data-fav="${esc(f.path)}" title="Keep in my favorites">${favs.has(f.path) ? "★" : "☆"}</button>`;
+    return `<div class="grid">${sorted.map(f => tab === "broll"
+      ? `<div class="tile fav" data-src="${esc(f.path)}">${fstar(f)}<video src="${media(f.path)}#t=1" muted preload="metadata"></video>${esc(f.name)}</div>`
+      : `<div class="tile fav" data-src="${esc(f.path)}">${fstar(f)}<img src="${media(f.path)}" loading="lazy">${esc(f.name)}</div>`).join("")}</div>`;
   };
   const draw = () => openModal(`<h1>${tab === "broll" ? "Cut away to a clip" : "Add an image, GIF or emoji"}</h1>
     <div class="muted">At: “${esc(t.text)}”${tab === "broll" ? " — Claude's engine watches the clip and picks the best moment; you can adjust it after." : ""}</div>
@@ -562,6 +575,11 @@ function addMediaModal(tab) {
       root.querySelectorAll("[data-tab2]").forEach(b => b.onclick = () => { tab = b.dataset.tab2; draw(); });
       const ai = () => root.querySelector("#ain")?.value || "pop", ao = () => root.querySelector("#aout")?.value || "fade";
       root.querySelectorAll("[data-emoji]").forEach(el => el.onclick = () => addOverlay({ kind: "emoji", emoji: el.dataset.emoji, scale: 0.2, anim_in: ai(), anim_out: ao() }));
+      root.querySelectorAll("[data-fav]").forEach(el => el.onclick = async e => {
+        e.stopPropagation();
+        const on = !(lib.favorites || []).includes(el.dataset.fav);
+        lib.favorites = (await api("/api/favorite", { path: el.dataset.fav, on })).favorites; draw();
+      });
       root.querySelectorAll("[data-src]").forEach(el => el.onclick = async () => {
         if (tab === "broll") return addBroll(el.dataset.src, t);
         addOverlay({ kind: tab === "gifs" ? "gif" : "image", src: el.dataset.src, anim_in: ai(), anim_out: ao() });
@@ -783,11 +801,38 @@ function faceCardHTML() {
       ${cov ? `<button class="chip" data-cs="none">Remove cover</button>` : ""}</div>
     <div class="emojis">${S.lookbook.emoji.map(c => `<img src="/assets/emoji/${c}.png" data-ce="${c}" class="${cov?.style === "emoji" && cov.emoji === c ? "on" : ""}">`).join("")}</div>
     ${cov ? `<div class="row" style="margin-top:10px"><small>Size</small><input type="range" id="cscale" min="0.8" max="2.5" step="0.05" value="${cov.scale || 1.3}"></div>` : ""}
+    ${cov && f.detected.length > 1 ? `<div class="row" style="margin-top:8px"><button id="everyFace">Use on every face</button></div>` : ""}
+    ${faceChecks()}
     <div class="row" style="margin-top:8px"><button id="refind">Find faces again</button><small class="muted">Check the preview — it tracks them across the video.</small></div></div>`;
   return h;
 }
+function faceChecks() {
+  // moments where a covered face was turned away / out of view, so the cover held its last spot
+  const f = S.p.faces, out = [];
+  for (const c of f.covers) {
+    const d = f.detected.find(d => d.id === c.face); if (!d) continue;
+    const tr = d.track;
+    for (let k = 1; k < tr.length; k++) {
+      if (tr[k][0] - tr[k - 1][0] > 0.7) {
+        const o = srcToOut(S.segs, tr[k - 1][0] + 0.3);
+        if (o != null) out.push(o);
+      }
+    }
+  }
+  const uniq = [...new Set(out.map(t => Math.round(t * 2) / 2))].sort((a, b) => a - b).slice(0, 12);
+  if (!uniq.length) return "";
+  return `<div style="margin-top:10px"><b style="font-size:13px">Check these moments</b>
+    <div class="muted" style="font-size:12px">A face turned away or left the frame here, so the cover held its spot. Tap to look.</div>
+    <div class="row" style="margin-top:6px">${uniq.map(t => `<button class="chip" data-fjump="${t}">▶ ${fmt(t)}</button>`).join("")}</div></div>`;
+}
 function bindFaceCard() {
   const r = $("#panel");
+  r.querySelectorAll("[data-fjump]").forEach(b => b.onclick = () => seek(+b.dataset.fjump));
+  const ev = r.querySelector("#everyFace");
+  if (ev) ev.onclick = () => mutate(p => {
+    const c = p.faces.covers.find(c => c.face === (S.faceSel || p.faces.detected[0].id));
+    p.faces.covers = p.faces.detected.map(d => Object.assign({}, c, { face: d.id }));
+  });
   const ff = r.querySelector("#findFaces") || r.querySelector("#refind");
   if (ff) ff.onclick = async () => { S.jobs.faces = await api(`/api/project/${S.name}/faces`, {}); renderPanel(); };
   const cur = () => S.faceSel || S.p.faces.detected[0]?.id;
@@ -1107,6 +1152,7 @@ function drawTray() {
     tray.innerHTML = `<b>Ask Claude</b>
       <div class="muted" style="font-size:12px;margin:4px 0 8px">Tell Claude what to change, like you'd tell an editor. It updates the studio when it's done.</div>
       <textarea id="askAny" placeholder="e.g. change “fan” to “friend”, make the hook shorter, swap the music for something upbeat"></textarea>
+      <label class="row" style="font-size:12px;margin-top:6px"><input type="checkbox" id="askDefault"> Make this my default for every reel</label>
       <div class="row" style="margin:8px 0 4px">${micBtn("askAny")}<span style="flex:1"></span><button class="primary" id="askAnySend">✳ Send</button></div>
       <div id="reqList"></div>`;
     bindMic(tray);
@@ -1114,8 +1160,10 @@ function drawTray() {
       const ta = tray.querySelector("#askAny"), text = ta.value.trim();
       if (!text) return toast("Type what you'd like Claude to change.");
       const i = Math.max(0, S.curWord), l = linesOf(S.p).find(l => l.w0 <= i && i <= l.w1);
-      sendRequest({ kind: "edit", text, at: fmt(S.outT), playhead_line: l ? l.text : "" }, "Sent to Claude. The studio updates by itself when it's done.");
-      ta.value = "";
+      const def = tray.querySelector("#askDefault").checked;
+      sendRequest({ kind: "edit", text, at: fmt(S.outT), playhead_line: l ? l.text : "", default: def },
+        def ? "Sent to Claude, and saved as your default for every reel." : "Sent to Claude. The studio updates by itself when it's done.");
+      ta.value = ""; tray.querySelector("#askDefault").checked = false;
     };
   }
   const reqs = (S.requests || []).slice().reverse();
@@ -1262,6 +1310,20 @@ function seekWord(i, toZero) {
   let j = i; while (j < w.length && w[j].cut) j++;
   const o = j < w.length ? wordOut(w, S.segs, j) : null;
   if (o) seek(o[0] + 0.001);
+}
+function applyFilter() {  // CSS approximation of engine/draw.py apply_filter
+  const fl = (S.lookbook?.filters || []).find(x => x.id === (S.p.filter || "none")) || {};
+  const parts = [];
+  if (fl.gray) parts.push(`grayscale(${fl.gray})`);
+  if (fl.sat && fl.sat !== 1) parts.push(`saturate(${fl.sat})`);
+  if (fl.contrast && fl.contrast !== 1) parts.push(`contrast(${fl.contrast})`);
+  const br = (fl.bright || 1) * (1 + (fl.lift || 0) * 0.5);
+  if (br !== 1) parts.push(`brightness(${br.toFixed(3)})`);
+  if (fl.lift) parts.push(`contrast(${(1 - fl.lift).toFixed(3)})`);
+  if (fl.warm > 0) parts.push(`sepia(${(fl.warm * 2.2).toFixed(2)})`);
+  if (fl.warm < 0) parts.push(`hue-rotate(${Math.round(fl.warm * 120)}deg) saturate(1.05)`);
+  const css = parts.join(" ") || "none";
+  for (const el of [v, bv, $("#bimg")]) el.style.filter = css;
 }
 function applySpeed() {  // talk faster without chipmunk voices; the export does the same
   const r = +(S.p.speed || 1);

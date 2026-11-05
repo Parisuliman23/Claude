@@ -56,12 +56,15 @@ def library():
         out[kind] = [{"path": config.rel(f), "name": f.stem} for f in files]
     from . import sfx
     out["sfx"] = sfx.library()
+    fav = config.LOOKBOOK / "favorites.json"
+    out["favorites"] = json.loads(fav.read_text()) if fav.exists() else []
     return out
 
 
 def lookbook():
     return {"captions": project.caption_styles(), "looks": looks.all_looks(), "saved": project.saved_looks(),
-            "emoji": draw.emoji_codes()}
+            "emoji": draw.emoji_codes(),
+            "filters": json.loads((config.LOOKBOOK / "filters.json").read_text()) if (config.LOOKBOOK / "filters.json").exists() else []}
 
 
 def thumb(name, t, w=360):
@@ -227,6 +230,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(p)
             return self.send_error(404)
 
+        if path == "/api/favorite":  # star/unstar a library item (favorites show first)
+            b = self.jbody()
+            fav = config.LOOKBOOK / "favorites.json"
+            favs = json.loads(fav.read_text()) if fav.exists() else []
+            favs = [x for x in favs if x != b["path"]] + ([b["path"]] if b.get("on") else [])
+            fav.write_text(json.dumps(favs, indent=1))
+            return self.send_json({"favorites": favs})
         if path == "/api/stock-key":
             from . import stock
             stock.save_key(self.jbody().get("key", ""))

@@ -79,6 +79,9 @@ Run `python3 -m engine` with no arguments for the full list.
      `"audio": "under"` (the clip's own sound plays quietly under the voice; default muted).
    - **Rhythm check**: a new visual every 2–4 s (A/B) or 1.5–2 s (C), a meme/emoji every 15–20 s, an audience
      call-out, a specific CTA keyword, and the **last 3–5 s clean**. Use `show NAME` to check coverage.
+   - Color: `set NAME filter --json '"moody-finance"'` (ids in `lookbook/filters.json`: warm, moody-finance,
+     bright-clean, punchy, cool, bw). Look C usually suits `moody-finance`.
+   - Caption breaks: put `"cbreak": true` on a word to start a new caption there (e.g. to land a punchline alone).
    - Captions: must not cover the mouth/chin (side/chest styles avoid this). If needed: `set NAME caption_y --json 0.62`.
    - **Captions already in the video** (e.g. a CapCut export): the import detects them and paints them out
      (`burned_captions.remove`), then ours replace them. If it missed some (text in a `still`): `remove-captions NAME`.
@@ -148,7 +151,9 @@ def render(ctx):   # called for every frame; return a PIL RGBA image of just the
 ### kind: `edit` — "Ask Claude" / a note on an overlay
 Free-form instruction, usually about words `w0`–`w1` (and maybe a specific `overlay` id). From the studio's
 **Ask Claude** box there are no word indexes: use `text`, plus `at` (playhead time) and `playhead_line`
-(the line the user was on) when they say "this line" or "here". Find the words with `show NAME`. Make the change with
+(the line the user was on) when they say "this line" or "here". If the request has `"default": true`, the user
+wants this for **every reel**: do it here, and also add it as a short line under "Things I've told Claude" in
+`lookbook/STYLE.md`. Find the words with `show NAME`. Make the change with
 the CLI (`overlay`, `add-overlay`, `cut`, `highlight`, `set`…). If it needs a new kind of motion the
 built-in animations can't do, write a custom look (as above) and swap the overlay to it. Explain what
 you did in `--note`.

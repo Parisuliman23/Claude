@@ -2,6 +2,7 @@
 Nothing is rendered while you edit — the studio previews everything live in
 the browser, and this runs only when you press "Lock in my looks"."""
 import copy
+import json
 import subprocess
 from pathlib import Path
 
@@ -287,6 +288,9 @@ class Composer:
         bc = p.get("burned_captions") or {}
         self.burn_band = (bc.get("band") or [0.0, 1.0]) if bc.get("remove") else None
         self.burn_state = {}
+        fid = p.get("filter") or "none"
+        self.filter = next((x for x in json.loads((config.LOOKBOOK / "filters.json").read_text()) if x["id"] == fid), None) \
+            if (config.LOOKBOOK / "filters.json").exists() else None
         self.transparent = layer in ("captions", "graphics")
         self.cap_cache = {}
 
@@ -301,7 +305,7 @@ class Composer:
             split = bool(br and br[0].get("layout") == "split")
             if br and not split:
                 b, sp, rd = br
-                frame = _broll_frame(b, rd, t - sp[0], W, H)
+                frame = draw.apply_filter(_broll_frame(b, rd, t - sp[0], W, H), self.filter)
                 if b.get("trans") == "fade":  # "Comes in: Fade" — cross-dissolve with the speaker
                     k = min(1.0, (t - sp[0]) / BROLL_FADE, (sp[1] - t) / BROLL_FADE)
                     if k < 1.0:
@@ -310,7 +314,7 @@ class Composer:
                 frame = self.speaker(ts, t)
                 if split:  # top half: the clip/graphic, bottom half: the speaker (eyes kept in view)
                     b, sp, rd = br
-                    top = _broll_frame(b, rd, t - sp[0], W, H // 2)
+                    top = draw.apply_filter(_broll_frame(b, rd, t - sp[0], W, H // 2), self.filter)
                     if b.get("trans") == "fade":
                         k = min(1.0, (t - sp[0]) / BROLL_FADE, (sp[1] - t) / BROLL_FADE)
                         if k < 1.0:
@@ -362,6 +366,7 @@ class Composer:
         frame = cover_fit(self.src.at(ts), W, H)
         if self.burn_band:  # paint out captions that were already in the video
             analyze.remove_burned_text(frame, self.burn_band, state=self.burn_state)
+        frame = draw.apply_filter(frame, self.filter)  # color filter on footage only, not covers or graphics
         for c in self.covers:
             pos = analyze.face_at(self.tracks[c["face"]], ts)
             if pos:

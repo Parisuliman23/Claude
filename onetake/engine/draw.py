@@ -286,3 +286,29 @@ def emoji(code):
 
 def emoji_codes():
     return sorted(p.stem for p in config.EMOJI.glob("*.png"))
+
+
+def apply_filter(frame, fl):
+    """Color filter on a BGR frame. Mirrored (approximately) by CSS filters in the studio preview."""
+    if not fl or fl.get("id") in (None, "none"):
+        return frame
+    x = frame.astype(np.float32)
+    if fl.get("gray"):
+        g = x @ np.array([0.114, 0.587, 0.299], np.float32)
+        x = x * (1 - fl["gray"]) + g[..., None] * fl["gray"]
+    sat = fl.get("sat", 1.0)
+    if sat != 1.0:
+        g = (x @ np.array([0.114, 0.587, 0.299], np.float32))[..., None]
+        x = g + (x - g) * sat
+    c = fl.get("contrast", 1.0)
+    if c != 1.0:
+        x = (x - 128.0) * c + 128.0
+    x = x * fl.get("bright", 1.0)
+    w = fl.get("warm", 0.0)
+    if w:
+        x[..., 2] *= 1 + w  # red
+        x[..., 0] *= 1 - w  # blue
+    lift = fl.get("lift", 0.0)
+    if lift:
+        x = lift * 255.0 + x * (1 - lift)
+    return np.clip(x, 0, 255).astype(np.uint8)

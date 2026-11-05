@@ -74,7 +74,7 @@ function captionGroups(words, segs, style) {
       const [st, en] = wordOut(words, segs, i);
       const joined = cur ? cur.w.map(j => words[j].t).join(" ") + " " + w.t : "";
       const brk = cur === null || cur.w.length >= maxWords || joined.length > maxChars ||
-        (prev !== null && words[prev].l !== w.l) ||
+        (prev !== null && words[prev].l !== w.l) || !!w.cbreak ||
         (prev !== null && PUNCT_END.test(words[prev].t.trim())) ||
         (prev !== null && st - cur.end > 0.6);
       if (brk) { cur = { w: [], start: st, end: en }; groups.push(cur); }
