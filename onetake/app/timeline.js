@@ -63,6 +63,12 @@ function srcToOut(segs, ts) {
   return null;
 }
 
+function newSentence(prev, w) {  // mirror of timeline.py _new_sentence
+  const t = w.t.trim().replace(/^["'“(]+/, "");
+  if (!t || t[0] !== t[0].toUpperCase() || t[0] === t[0].toLowerCase() || ["I", "I'm", "I've", "I'll", "I'd"].includes(t) || t === t.toUpperCase()) return false;
+  return w.s - prev.e > 0.15;
+}
+
 function captionGroups(words, segs, style) {
   const maxWords = style.mode === "single" ? 1 : (style.max_words || 3);
   const maxChars = style.max_chars || 18;
@@ -74,7 +80,7 @@ function captionGroups(words, segs, style) {
       const [st, en] = wordOut(words, segs, i);
       const joined = cur ? cur.w.map(j => words[j].t).join(" ") + " " + w.t : "";
       const brk = cur === null || cur.w.length >= maxWords || joined.length > maxChars ||
-        (prev !== null && words[prev].l !== w.l) || !!w.cbreak ||
+        (prev !== null && words[prev].l !== w.l) || !!w.cbreak || (prev !== null && newSentence(words[prev], w)) ||
         (prev !== null && PUNCT_END.test(words[prev].t.trim())) ||
         (prev !== null && st - cur.end > 0.6);
       if (brk) { cur = { w: [], start: st, end: en }; groups.push(cur); }
