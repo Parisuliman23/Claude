@@ -324,6 +324,15 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_error(404)
 
 
+def open_url(url):
+    """Open a link in the normal browser (works on Chromebook Linux too)."""
+    import subprocess
+    try:
+        subprocess.Popen(["bash", str(config.ROOT / "open-url.sh"), url])
+    except Exception:
+        webbrowser.open(url)
+
+
 def serve(name=None, open_browser=True, port=None):
     port = port or config.settings()["port"]
     url = f"http://localhost:{port}/" + (f"#{name}" if name else "")
@@ -332,11 +341,11 @@ def serve(name=None, open_browser=True, port=None):
     except OSError:  # already running (e.g. Claude started it earlier) — just show it
         print(f"Studio is already running at {url}")
         if open_browser:
-            webbrowser.open(url)
+            open_url(url)
         return
     print(f"Studio running at {url}  (Ctrl+C to stop)")
     if open_browser:
-        threading.Timer(0.6, lambda: webbrowser.open(url)).start()
+        threading.Timer(0.6, lambda: open_url(url)).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

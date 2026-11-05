@@ -5,7 +5,7 @@
 # opens in your browser, showing progress until the reel is ready.
 cd "$(dirname "$0")"
 [ -f .venv/bin/activate ] && source .venv/bin/activate
-export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.local/bin:/usr/bin:$PATH"
 
 if [ -t 1 ]; then
   exec claude "I have a new reel to edit"
@@ -24,17 +24,17 @@ fi
 
 if [ -z "$(ls -A drop-in-order | grep -v '^\.keep$')" ]; then
   echo "{\"status\": \"noclips\", \"started\": $(date +%s)}" > "$STATUS"
-  python3 -m webbrowser -t "$URL" >/dev/null 2>&1
+  bash ./open-url.sh "$URL"
   exit 0
 fi
 
 if [ -f "$STATUS" ] && grep -q '"running"' "$STATUS"; then  # already editing: just show it
-  python3 -m webbrowser -t "$URL" >/dev/null 2>&1
+  bash ./open-url.sh "$URL"
   exit 0
 fi
 
 echo "{\"status\": \"running\", \"started\": $(date +%s)}" > "$STATUS"
-python3 -m webbrowser -t "$URL" >/dev/null 2>&1 &
+bash ./open-url.sh "$URL" &
 
 PROMPT="I have a new reel to edit. You were started from the One Take app icon and are running in the background:
 the studio is already running, so skip starting it, and there's nobody to answer questions, so make sensible

@@ -5,13 +5,13 @@ set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 APPS="$HOME/.local/share/applications"
 mkdir -p "$APPS"
-chmod +x "$DIR/studio.sh" "$DIR/new-reel.sh"
+chmod +x "$DIR/studio.sh" "$DIR/new-reel.sh" "$DIR/open-url.sh"
 cat > "$APPS/onetake-studio.desktop" <<DESK
 [Desktop Entry]
 Type=Application
 Name=One Take Studio
 Comment=Open your reels studio in the browser
-Exec=$DIR/studio.sh
+Exec=/bin/bash "$DIR/studio.sh"
 Icon=$DIR/assets/icon.png
 Terminal=false
 Categories=AudioVideo;Video;
@@ -21,7 +21,7 @@ cat > "$APPS/onetake-new-reel.desktop" <<DESK
 Type=Application
 Name=One Take – New reel
 Comment=Have Claude edit the clips in drop-in-order
-Exec=$DIR/new-reel.sh
+Exec=/bin/bash "$DIR/new-reel.sh"
 Icon=$DIR/assets/icon.png
 Terminal=false
 Categories=AudioVideo;Video;
