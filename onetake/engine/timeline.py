@@ -87,6 +87,15 @@ def out_to_src(segs, t):
     return None, 0.0
 
 
+def _new_sentence(prev, w):
+    """A capitalised word after a short pause starts a new sentence, even when the transcript
+    missed the full stop ("…pay it on" / "We need…"). Mirrored in app/timeline.js."""
+    t = w["t"].strip().lstrip("\"'“(")
+    if not t or not t[0].isupper() or t in ("I", "I'm", "I've", "I'll", "I'd") or t.isupper():
+        return False
+    return w["s"] - prev["e"] > 0.15
+
+
 def caption_groups(words, segs, style):
     """Split the kept words into the chunks that appear on screen together."""
     max_words = 1 if style.get("mode") == "single" else int(style.get("max_words", 3))
@@ -104,6 +113,7 @@ def caption_groups(words, segs, style):
                 or len(" ".join(words[j]["t"] for j in cur["w"]) + " " + w["t"]) > max_chars
                 or (prev is not None and words[prev].get("l") != w.get("l"))
                 or bool(w.get("cbreak"))
+                or (prev is not None and _new_sentence(words[prev], w))
                 or (prev is not None and PUNCT_END.search(words[prev]["t"].strip()))
                 or (prev is not None and st - cur["end"] > 0.6)
             )
