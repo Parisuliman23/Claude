@@ -103,6 +103,7 @@ def caption_groups(words, segs, style):
                 or len(cur["w"]) >= max_words
                 or len(" ".join(words[j]["t"] for j in cur["w"]) + " " + w["t"]) > max_chars
                 or (prev is not None and words[prev].get("l") != w.get("l"))
+                or bool(w.get("cbreak"))
                 or (prev is not None and PUNCT_END.search(words[prev]["t"].strip()))
                 or (prev is not None and st - cur["end"] > 0.6)
             )
