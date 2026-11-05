@@ -75,6 +75,8 @@ Run `python3 -m engine` with no arguments for the full list.
      white panels/graphics instead. Name searches by what's literally on screen ("red stock ticker falling").
    - **Look C** cut-aways / split screens: `add-broll NAME --json '{"w0":50,"w1":61,"src":"library/broll/x.mp4","layout":"split"}'`
      (`"src": null, "color": "#FFFFFF"` = white panel; put an `equation`/`highlight_card` look at y ~0.25 on it).
+     Optional: `"trans": "fade"` (cross-dissolve in/out; default is a hard cut, which suits this style) and
+     `"audio": "under"` (the clip's own sound plays quietly under the voice; default muted).
    - **Rhythm check**: a new visual every 2–4 s (A/B) or 1.5–2 s (C), a meme/emoji every 15–20 s, an audience
      call-out, a specific CTA keyword, and the **last 3–5 s clean**. Use `show NAME` to check coverage.
    - Captions: must not cover the mouth/chin (side/chest styles avoid this). If needed: `set NAME caption_y --json 0.62`.

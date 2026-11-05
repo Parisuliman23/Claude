@@ -451,14 +451,15 @@ function lookParams(look, text) {
 function lookbookModal() {
   const lb = S.lookbook, p = S.p;
   const capTiles = lb.captions.map(c => `<div class="tile ${c.id === p.caption_style ? "on" : ""}" data-cap="${c.id}">
-    <div class="capdemo">${captionDemo(c)}</div>${esc(c.name)}</div>`).join("");
+    ${captionTile(c)}${esc(c.name)}</div>`).join("");
   const hooks = lb.looks.filter(l => l.group === "hook");
+  const hookText = (p.overlays.find(o => o.role === "hook")?.params?.text) || linesOf(p).find(l => !l.cut)?.text || "Your hook";
   const saved = lb.saved || [];
   openModal(`<h1>Your lookbook</h1><div class="muted">Your saved styles. The more you save, the more Claude learns your look.</div>
     <h3>Caption styles</h3><div class="grid">${capTiles}</div>
-    <h3>Hooks</h3><div class="grid">${hooks.map(l => `<div class="tile" data-hook="${l.id}"><div class="sprbox"><div class="spr" data-spr="${l.id}"></div></div>${esc(l.name)}</div>`).join("")}
-      ${saved.filter(s => s.group === "hook").map(s => `<div class="tile" data-hooksaved="${s.id}"><div class="sprbox"><div class="spr" data-spr="${s.look}" data-params='${esc(JSON.stringify(s.params || {}))}'></div></div>${esc(s.name)}</div>`).join("")}</div>
-    <h3>Saved looks</h3><div class="grid">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}"><div class="sprbox"><div class="spr" data-spr="${s.look}" data-params='${esc(JSON.stringify(s.params || {}))}'></div></div>${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>`,
+    <h3>Hooks</h3><div class="grid frames">${hooks.map(l => `<div class="tile" data-hook="${l.id}">${onFrame(l.id, { text: hookText }, 0.8)}${esc(l.name)}</div>`).join("")}
+      ${saved.filter(s => s.group === "hook").map(s => `<div class="tile" data-hooksaved="${s.id}">${onFrame(s.look, Object.assign({}, s.params, { text: hookText }), 0.8)}${esc(s.name)}</div>`).join("")}</div>
+    <h3>Saved looks</h3><div class="grid frames">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}">${onFrame(s.look, s.params, timeOfWord(Math.max(0, S.curWord)))}${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>`,
     root => {
       root.querySelectorAll("[data-cap]").forEach(t => t.onclick = () => { mutate(p => p.caption_style = t.dataset.cap); closeModal(); });
       const setHook = (look, params) => mutate(p => {
@@ -470,8 +471,17 @@ function lookbookModal() {
       root.querySelectorAll("[data-hook]").forEach(t => t.onclick = () => { setHook(t.dataset.hook, {}); closeModal(); });
       root.querySelectorAll("[data-hooksaved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.hooksaved); setHook(s.look, s.params); closeModal(); });
       root.querySelectorAll("[data-saved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.saved); addOverlay({ kind: "look", look: s.look, params: Object.assign({}, s.params, lookParams(s.look, target().text)), scale: s.scale ?? 1, y: s.y ?? .4, anim_in: s.anim_in ?? "pop", anim_out: s.anim_out ?? "fade" }); });
-      mountSprites(root);
+      mountSprites(root, true);
     });
+}
+
+function captionTile(c) {  // the caption style on your frame, with your words
+  const i = Math.max(0, S.curWord), l = linesOf(S.p).find(l => l.w0 <= i && i <= l.w1) || linesOf(S.p)[0];
+  const ws = S.p.words.slice(l.w0, l.w1 + 1).filter(w => !w.cut).slice(0, c.mode === "single" ? 1 : Math.min(3, c.max_words || 3));
+  const k = 130 / 1080, st = Object.assign({}, c, { size: c.size * k * 1.15, _base: c.size * 2.4, stroke_w: (c.stroke_w || 0) });
+  const html = ws.map((w, n) => wordSpan(w, n === 0, st, caseText(w.t, st))).join(" ");
+  const box = c.box ? `background:${c.box.length === 9 ? hexA(c.box) : c.box};border-radius:4px;padding:0 4px;` : "";
+  return `<div class="sprbox frame" style="background-image:url('${thumbUrl(timeOfWord(l.w0))}')"><div class="capline" style="top:${(c.y ?? .7) * 100}%;left:${(c.x ?? .5) * 100}%;${box}">${html}</div></div>`;
 }
 
 function captionDemo(c) {
@@ -496,19 +506,20 @@ function addLookModal() {
   const t = target();
   const lk = S.lookbook.looks.filter(l => !l.error);
   openModal(`<h1>Add a look</h1><div class="muted">At: “${esc(t.text)}”</div>
-    <div class="grid" style="margin-top:12px">${lk.map(l => `<div class="tile" data-look="${l.id}"><div class="sprbox"><div class="spr" data-spr="${l.id}" data-params='${esc(JSON.stringify(lookParams(l.id, t.text)))}'></div></div><b>${esc(l.name)}</b><small>${esc(l.description || "")}</small></div>`).join("")}</div>
+    <div class="muted" style="font-size:12px;margin-top:6px">Shown on your own video, at the size and height it will really be. Hover to play.</div>
+    <div class="grid frames" style="margin-top:8px">${lk.map(l => `<div class="tile" data-look="${l.id}">${onFrame(l.id, lookParams(l.id, t.text), timeOfWord(t.w0))}<b>${esc(l.name)}</b><small>${esc(l.description || "")}</small></div>`).join("")}</div>
     <h3>Don't see one you like? Describe it to Claude</h3>
     <div class="muted">Show or tell Claude what you're picturing. You'll get three options to choose from.</div>
     <textarea id="lookAsk" placeholder="e.g. a count-up to 800+ people in my community, in my colors"></textarea>
     <div class="row" style="margin-top:8px">${micBtn("lookAsk")}<span style="flex:1"></span><button class="primary" id="lookSend">✳ Send to Claude</button></div>`,
     root => {
       root.querySelectorAll("[data-look]").forEach(el => el.onclick = () => {
-        const id = el.dataset.look, meta = lookMeta(id);
-        addOverlay({ kind: "look", look: id, params: lookParams(id, t.text), scale: id === "count_up" ? 0.8 : 1, y: meta.group === "hook" ? 0.2 : 0.4, min_dur: 2 });
+        const id = el.dataset.look;
+        addOverlay({ kind: "look", look: id, params: lookParams(id, t.text), scale: 1, y: lookY(id), min_dur: 2 });
       });
       bindMic(root);
       $("#lookSend").onclick = () => sendRequest({ kind: "look", text: $("#lookAsk").value, w0: t.w0, w1: t.w1, words: t.text });
-      mountSprites(root);
+      mountSprites(root, true);
     });
 }
 
@@ -606,22 +617,66 @@ async function addBroll(src, t) {
 }
 
 function brollEditor(id) {
-  const b = S.p.broll.find(x => x.id === id);
-  const ls = linesOf(S.p);
-  const endOpts = S.p.words.map((w, i) => i >= b.w0 && i <= b.w0 + 60 && !w.cut ? `<option value="${i}" ${i === b.w1 ? "selected" : ""}>${esc(w.t)} (${i})</option>` : "").join("");
+  const orig = S.p.broll.find(x => x.id === id);
+  if (!orig) return;
+  const b = JSON.parse(JSON.stringify(orig));  // edit a copy; Apply saves it
   const isVid = b.src && !/\.(png|jpe?g|webp|gif)$/i.test(b.src);
-  openModal(`<h1>Cut-away</h1><div class="muted">${esc(b.src ? b.src.split("/").pop() : "Plain panel " + (b.color || "#FFFFFF"))}</div>
-    ${isVid ? `<video id="bprev" src="${media(b.src)}" style="width:200px;border-radius:10px;margin:10px 0" muted></video>` : b.src ? `<img src="${media(b.src)}" style="width:200px;border-radius:10px;margin:10px 0">` : ""}
-    <div class="kv"><label>Start in clip</label><div class="row"><input id="bcs" type="range" min="0" max="60" step="0.1" value="${b.clip_start}" style="flex:1"><span id="bcsv">${(+b.clip_start).toFixed(1)}s</span></div>
-    <label>Ends at word</label><select id="bend">${endOpts}</select>
-    <label>Layout</label><select id="blay"><option value="full" ${b.layout !== "split" ? "selected" : ""}>Full screen</option><option value="split" ${b.layout === "split" ? "selected" : ""}>Split: clip on top, you below</option></select></div>
-    <div class="row" style="margin-top:14px"><button id="bdel">Remove</button><span style="flex:1"></span><button class="primary" id="bok">Done</button></div>`,
+  const kept = i => !S.p.words[i]?.cut;
+  const step = (i, d) => { let j = i + d; while (j >= 0 && j < S.p.words.length && !kept(j)) j += d; return j >= 0 && j < S.p.words.length ? j : i; };
+  const span = () => rangeOut(S.p.words, S.segs, b.w0, b.w1) || [0, 0];
+  openModal(`<div class="muted" style="font-size:11px;letter-spacing:.08em">CUT-AWAY · YOUR VOICE KEEPS GOING</div>
+    <h1>${esc(b.src ? b.src.split("/").pop() : "Plain panel " + (b.color || "#FFFFFF"))}</h1>
+    <div class="row" style="align-items:flex-start;gap:16px;margin-top:10px">
+      ${isVid ? `<video id="bprev" src="${media(b.src)}" style="width:150px;border-radius:10px" muted playsinline></video>` : b.src ? `<img src="${media(b.src)}" style="width:150px;border-radius:10px">` : ""}
+      <div style="flex:1" class="kv">
+        ${isVid ? `<label>Which moment plays</label><div><div class="row"><input id="bcs" type="range" min="0" max="60" step="0.1" value="${b.clip_start || 0}" style="flex:1"></div>
+          <small id="bcsv" class="muted"></small> <button class="ghost" id="bpick">✦ Engine's pick</button></div>` : ""}
+        <label>When it's on screen</label><div><b id="bwhen"></b><div class="muted" id="bwords" style="font-size:12px"></div></div>
+        <label>Starts</label><div class="row"><button data-mv="s-">A word earlier</button><button data-mv="s+">A word later</button></div>
+        <label>Ends</label><div class="row"><button data-mv="e-">A word earlier</button><button data-mv="e+">A word later</button></div>
+        ${isVid ? `<label>Its sound</label><div class="row"><button class="chip" data-au="muted">Muted</button><button class="chip" data-au="under">On, under my voice</button></div>` : ""}
+        <label>Comes in</label><div class="row"><button class="chip" data-tr="cut">Cut</button><button class="chip" data-tr="fade">Fade</button></div>
+        <label>Layout</label><div class="row"><button class="chip" data-lay="full">Full screen</button><button class="chip" data-lay="split">Split: clip on top, you below</button></div>
+      </div></div>
+    <div class="row" style="margin-top:16px"><button id="bdel">Remove</button><span style="flex:1"></span><button id="bcancel">Cancel</button><button class="primary" id="bok">Apply</button></div>`,
     root => {
       const pv = root.querySelector("#bprev"), cs = root.querySelector("#bcs");
-      if (pv) pv.onloadedmetadata = () => { cs.max = Math.max(0, pv.duration - 0.5).toFixed(1); pv.currentTime = b.clip_start; };
-      cs.oninput = () => { if (pv) pv.currentTime = +cs.value; root.querySelector("#bcsv").textContent = (+cs.value).toFixed(1) + "s"; };
+      const refresh = () => {
+        const [a, z] = span(), dur = z - a;
+        root.querySelector("#bwhen").textContent = `${fmt(a)} · ${dur.toFixed(1)}s`;
+        root.querySelector("#bwords").textContent = "“" + S.p.words.slice(b.w0, b.w1 + 1).filter((w, k) => kept(b.w0 + k)).map(w => w.t).join(" ") + "”";
+        if (cs) {
+          const total = pv && pv.duration ? pv.duration : 0;
+          root.querySelector("#bcsv").textContent = total ? `${(+cs.value).toFixed(1)}s to ${(+cs.value + dur).toFixed(1)}s of your ${total.toFixed(1)}s clip` : `from ${(+cs.value).toFixed(1)}s`;
+        }
+        root.querySelectorAll("[data-au]").forEach(x => x.classList.toggle("on", (b.audio || "muted") === x.dataset.au));
+        root.querySelectorAll("[data-tr]").forEach(x => x.classList.toggle("on", (b.trans || "cut") === x.dataset.tr));
+        root.querySelectorAll("[data-lay]").forEach(x => x.classList.toggle("on", (b.layout || "full") === x.dataset.lay));
+      };
+      if (pv) pv.onloadedmetadata = () => { cs.max = Math.max(0, pv.duration - 0.3).toFixed(1); pv.currentTime = b.clip_start || 0; refresh(); };
+      if (cs) cs.oninput = () => { b.clip_start = +cs.value; if (pv) pv.currentTime = b.clip_start; refresh(); };
+      const pk = root.querySelector("#bpick");
+      if (pk) pk.onclick = async () => {
+        const [a, z] = span();
+        pk.textContent = "Watching the clip…";
+        const r = await api(`/api/project/${S.name}/broll-moment`, { src: b.src, dur: z - a });
+        b.clip_start = r.clip_start; cs.value = r.clip_start; if (pv) pv.currentTime = r.clip_start; pk.textContent = "✦ Engine's pick"; refresh();
+      };
+      root.querySelectorAll("[data-mv]").forEach(x => x.onclick = () => {
+        const m = x.dataset.mv;
+        if (m === "s-") b.w0 = step(b.w0, -1);
+        if (m === "s+" && step(b.w0, 1) <= b.w1) b.w0 = step(b.w0, 1);
+        if (m === "e-" && step(b.w1, -1) >= b.w0) b.w1 = step(b.w1, -1);
+        if (m === "e+") b.w1 = step(b.w1, 1);
+        refresh();
+      });
+      root.querySelectorAll("[data-au]").forEach(x => x.onclick = () => { b.audio = x.dataset.au; refresh(); });
+      root.querySelectorAll("[data-tr]").forEach(x => x.onclick = () => { b.trans = x.dataset.tr; refresh(); });
+      root.querySelectorAll("[data-lay]").forEach(x => x.onclick = () => { b.layout = x.dataset.lay; refresh(); });
       root.querySelector("#bdel").onclick = () => { mutate(p => p.broll = p.broll.filter(x => x.id !== id)); closeModal(); };
-      root.querySelector("#bok").onclick = () => { mutate(p => { const x = p.broll.find(x => x.id === id); x.clip_start = +cs.value; x.w1 = +root.querySelector("#bend").value; x.layout = root.querySelector("#blay").value; }); closeModal(); seekWord(b.w0); };
+      root.querySelector("#bcancel").onclick = closeModal;
+      root.querySelector("#bok").onclick = () => { mutate(p => { const i = p.broll.findIndex(x => x.id === id); p.broll[i] = b; }); closeModal(); seekWord(b.w0); };
+      refresh();
     });
 }
 
@@ -1029,21 +1084,34 @@ async function optionsModal(rid) {
   S.lookbook = await api("/api/lookbook");
   const q = S.p.requests.find(r => r.id === rid) || (S.requests || []).find(r => r.id === rid);
   if (!q) return;
-  openModal(`<h1>Pick a sketch</h1><div class="muted">“${esc(q.text)}” — hover to play, tap to use.</div>
-    <div class="grid" style="margin-top:12px;grid-template-columns:repeat(3,1fr)">${q.options.map((id, k) => {
+  let picked = q.options[0];
+  const t = timeOfWord(q.w0 ?? 0);
+  openModal(`<div class="muted" style="font-size:11px;letter-spacing:.08em">SANDBOX · YOUR IDEA</div><h1>Pick a sketch</h1>
+    <div class="muted">Three quick takes on “${esc(q.text.split("\n\nChanges:")[0])}”, on your own video. Hover to play, tap one to pick it.</div>
+    <div class="grid frames" style="margin-top:12px;grid-template-columns:repeat(3,1fr)">${q.options.map((id, k) => {
       const m = lookMeta(id);
-      return `<div class="tile" data-pick="${id}"><div class="sprbox" style="height:200px"><div class="spr" data-spr="${id}" style="height:200px"></div></div><b>Sketch ${k + 1}</b><small>${esc(m?.description || m?.name || id)}</small></div>`;
+      return `<div class="tile ${k === 0 ? "on" : ""}" data-pick="${id}">${onFrame(id, {}, t)}<b>Sketch ${k + 1}</b><small>${esc(m?.description || m?.name || id)}</small></div>`;
     }).join("")}</div>
-    <h3>What should change?</h3><textarea id="chg" placeholder="e.g. like sketch 2 but in my brand colors, and slower"></textarea>
-    <div class="row" style="margin-top:8px">${micBtn("chg")}<span style="flex:1"></span><button id="revise">✳ Make 3 new versions</button></div>`, root => {
+    <h3>What should change?</h3><textarea id="chg" placeholder="e.g. like sketch 2 but bigger, and hold it until I stop talking"></textarea>
+    <div class="row" style="margin-top:10px">${micBtn("chg")}<button id="cancelIdea" class="ghost">Cancel this idea</button>
+      <span style="flex:1"></span><button id="remix">↻ Remix</button><button class="primary" id="lockIt">✓ Lock it in</button></div>`, root => {
     bindMic(root);
     mountSprites(root, true);
     root.querySelectorAll("[data-pick]").forEach(el => el.onclick = () => {
-      const look = el.dataset.pick;
-      mutate(p => { const r = p.requests.find(r => r.id === rid); if (r) r.picked = look; }, { render: false });
-      addOverlay({ kind: "look", look, params: {}, scale: 1, y: 0.4, min_dur: 2, w0: q.w0 ?? 0, w1: q.w1 ?? q.w0 ?? 0 });
+      picked = el.dataset.pick;
+      root.querySelectorAll("[data-pick]").forEach(x => x.classList.toggle("on", x === el));
     });
-    root.querySelector("#revise").onclick = () => sendRequest({ kind: "look", text: `${q.text}\n\nChanges: ${root.querySelector("#chg").value}`, previous: q.options, w0: q.w0, w1: q.w1, words: q.words });
+    const mark = val => mutate(p => { const r = p.requests.find(r => r.id === rid); if (r) r.picked = val; }, { render: false });
+    root.querySelector("#lockIt").onclick = () => {
+      mark(picked);
+      addOverlay({ kind: "look", look: picked, params: {}, scale: 1, y: lookY(picked), min_dur: 2, w0: q.w0 ?? 0, w1: q.w1 ?? q.w0 ?? 0 });
+    };
+    root.querySelector("#cancelIdea").onclick = () => { mark("cancelled"); closeModal(); toast("Idea cancelled."); };
+    root.querySelector("#remix").onclick = () => {
+      const chg = root.querySelector("#chg").value.trim() || "Three genuinely different new takes (remix).";
+      sendRequest({ kind: "look", text: `${q.text.split("\n\nChanges:")[0]}\n\nChanges: ${chg}`, previous: q.options, w0: q.w0, w1: q.w1, words: q.words },
+        "Sent to Claude: three new sketches are on the way.");
+    };
   });
 }
 
@@ -1078,6 +1146,17 @@ function getSprite(look, params, dur) {
   }
   return null;
 }
+// A look drawn on your own frame, at the height it will really sit, at its real size.
+const thumbUrl = t => `/api/project/${S.name}/thumb?t=${Math.max(0, +t || 0).toFixed(1)}`;
+function lookY(id) {
+  const g = lookMeta(id)?.group;
+  return g === "hook" || g === "structure" ? 0.14 : g === "cta" ? 0.16 : 0.4;
+}
+function onFrame(look, params, t, extra = "") {
+  return `<div class="sprbox frame" style="background-image:url('${thumbUrl(t)}')"><div class="spr" data-spr="${look}" data-y="${lookY(look)}" data-params='${esc(JSON.stringify(params || {}))}' ${extra}></div></div>`;
+}
+function timeOfWord(i) { const o = wordOut(S.p.words, S.segs, Math.max(0, i || 0)); return o ? o[0] + 0.4 : 1; }
+
 function mountSprites(root, hoverOnly) {
   const els = [...root.querySelectorAll("[data-spr]")];
   const anim = () => {
@@ -1085,6 +1164,19 @@ function mountSprites(root, hoverOnly) {
       const params = el.dataset.params ? JSON.parse(el.dataset.params) : {};
       const m = getSprite(el.dataset.spr, params, 3);
       if (!m) continue;
+      if (el.parentElement.classList.contains("frame")) {  // true scale on a 1080-wide frame
+        const box = el.parentElement, bw = box.clientWidth, bh = box.clientHeight;
+        const sc = bw / 1080 * (+el.dataset.scale || 1);
+        const w = m.w * sc, h = m.h * sc;
+        el.style.width = w + "px"; el.style.height = h + "px";
+        el.style.left = (bw - w) / 2 + "px"; el.style.top = Math.max(0, Math.min(bh - h, (+el.dataset.y || 0.4) * bh - h / 2)) + "px";
+        el.style.backgroundImage = `url("${m.url}")`;
+        el.style.backgroundSize = `${m.n * w}px ${h}px`;
+        const playing = !hoverOnly || el.closest(".tile")?.matches(":hover");
+        const f = playing ? Math.floor(performance.now() / 1000 * m.fps) % m.n : Math.floor(m.n * 0.6);
+        el.style.backgroundPosition = `${-f * w}px 0`;
+        continue;
+      }
       // size the box to exactly one frame so neighbouring frames never show
       const pw = el.parentElement.clientWidth - 8, ph = parseFloat(el.dataset.h || (el.dataset.h = el.getBoundingClientRect().height));
       const sc = Math.min(pw / m.w, ph / m.h) * 0.95;
@@ -1208,12 +1300,15 @@ function drawBroll(t) {
     if (bv.dataset.src !== b.src) { bv.src = media(b.src); bv.dataset.src = b.src; }
     const want = (b.clip_start || 0) + t - sp[0];
     if (Math.abs(bv.currentTime - want) > 0.3) bv.currentTime = want;
+    bv.muted = b.audio !== "under"; bv.volume = 0.35;
     if (S.playing && bv.paused) bv.play().catch(() => {});
     if (!S.playing && !bv.paused) bv.pause();
   }
   for (const o of [bv, bimg, bpanel]) if (o !== el) { if (o === bv) { o.style.visibility = "hidden"; } else o.style.display = "none"; }
   if (el === bv) bv.style.visibility = "visible"; else el.style.display = "block";
   el.style.top = box.top; el.style.height = box.height;
+  const FADE = 0.25;  // "Comes in: Fade" (mirrors render.py)
+  el.style.opacity = b.trans === "fade" ? Math.min(1, (t - sp[0]) / FADE, (sp[1] - t) / FADE) : 1;
   S.inBroll = !split; S.inSplit = split;
 }
 

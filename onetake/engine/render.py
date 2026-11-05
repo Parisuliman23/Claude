@@ -41,6 +41,9 @@ class FrameReader:
         return self.frame
 
 
+BROLL_FADE = 0.25
+
+
 class StillReader:
     """A photo/screenshot used as a cut-away (same interface as FrameReader)."""
 
@@ -110,6 +113,12 @@ def apply_variant(p, v):
     return p, order
 
 
+def _has_audio(path):
+    out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index", "-of", "csv=p=0",
+                          str(path)], capture_output=True, text=True).stdout
+    return bool(out.strip())
+
+
 def _audio(p, segs, T, out):
     src = str(config.absolute(p["source"]))
     parts, fl = [], []
@@ -129,6 +138,21 @@ def _audio(p, segs, T, out):
         fl.append(f"[{n_in}:a]atrim={off}:{off + T},asetpts=PTS-STARTPTS,volume={float(snd.get('volume', 0.12))},"
                   f"afade=t=in:d=0.3,afade=t=out:st={max(0, T - 1.5):.3f}:d=1.5[m]")
         mix.append("[m]")
+        n_in += 1
+    for k, b in enumerate(p.get("broll", [])):  # cut-away clips whose sound plays under the voice
+        if b.get("audio") != "under" or not b.get("src"):
+            continue
+        path = config.absolute(b["src"])
+        if path.suffix.lower() not in config.VIDEO_EXT or not _has_audio(path):
+            continue
+        sp = timeline.range_out(p["words"], segs, b["w0"], b["w1"])
+        if not sp:
+            continue
+        cs = float(b.get("clip_start", 0))
+        cmd += ["-i", str(path)]
+        fl.append(f"[{n_in}:a]atrim={cs:.3f}:{cs + sp[1] - sp[0]:.3f},asetpts=PTS-STARTPTS,aresample=48000,volume=0.35,"
+                  f"afade=t=in:d=0.15,afade=t=out:st={max(0, sp[1] - sp[0] - 0.2):.3f}:d=0.2,adelay={int(sp[0] * 1000)}:all=1[br{k}]")
+        mix.append(f"[br{k}]")
         n_in += 1
     if p.get("sfx_on", True):  # sound effects, each delayed to its moment
         from . import sfx
@@ -278,11 +302,19 @@ class Composer:
             if br and not split:
                 b, sp, rd = br
                 frame = _broll_frame(b, rd, t - sp[0], W, H)
+                if b.get("trans") == "fade":  # "Comes in: Fade" — cross-dissolve with the speaker
+                    k = min(1.0, (t - sp[0]) / BROLL_FADE, (sp[1] - t) / BROLL_FADE)
+                    if k < 1.0:
+                        frame = cv2.addWeighted(frame, k, self.speaker(ts, t), 1 - k, 0)
             else:
                 frame = self.speaker(ts, t)
                 if split:  # top half: the clip/graphic, bottom half: the speaker (eyes kept in view)
                     b, sp, rd = br
                     top = _broll_frame(b, rd, t - sp[0], W, H // 2)
+                    if b.get("trans") == "fade":
+                        k = min(1.0, (t - sp[0]) / BROLL_FADE, (sp[1] - t) / BROLL_FADE)
+                        if k < 1.0:
+                            top = cv2.addWeighted(top, k, frame[:H // 2], 1 - k, 0)
                     # keep the eyes ~40% down the bottom half
                     y0 = int(min(max(0, timeline.focus(self.p)[1] * H - 0.4 * (H // 2)), H - (H - H // 2)))
                     bottom = frame[y0:y0 + (H - H // 2)].copy()
