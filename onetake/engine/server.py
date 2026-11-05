@@ -54,6 +54,8 @@ def library():
         d = config.LIBRARY / kind
         files = sorted([f for f in d.glob("*") if f.suffix.lower() in exts], key=lambda f: f.name.lower()) if d.exists() else []
         out[kind] = [{"path": config.rel(f), "name": f.stem} for f in files]
+    from . import sfx
+    out["sfx"] = sfx.library()
     return out
 
 
@@ -216,7 +218,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(run_job("_library", "broll", fn))
         if path == "/api/upload":
             kind = q.get("kind", "images")
-            if kind not in ("gifs", "images", "broll", "sounds"):
+            if kind not in ("gifs", "images", "broll", "sounds", "sfx"):
                 return self.send_error(400)
             fname = re.sub(r"[^\w.\- ]", "_", Path(q.get("name", "upload")).name)
             dest = config.LIBRARY / kind / fname
@@ -234,6 +236,11 @@ class Handler(BaseHTTPRequestHandler):
             except project.ConflictError as e:
                 return self.send_json({"conflict": True, "rev": e.rev}, 409)
         b = self.jbody()
+        if action == "sfx-auto":
+            from . import sfx
+            p = project.update(name, lambda q: (sfx.auto(q, replace=bool(b.get("replace", True))),
+                                               q.update({"edit_rev": q.get("edit_rev", 0) + 1})))
+            return self.send_json({"sfx": p.get("sfx", [])})
         if action == "sprite":
             meta = looks.sprite(b["look"], b.get("params", {}), float(b.get("dur", 3)),
                                 project.pdir(name) / "cache")

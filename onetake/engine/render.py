@@ -121,12 +121,30 @@ def _audio(p, segs, T, out):
     fl.append("".join(parts) + f"concat=n={len(segs)}:v=0:a=1[voice]")
     cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", src]
     snd = p.get("sound") or {}
+    mix = ["[voice]"]
+    n_in = 1
     if snd.get("src") and config.absolute(snd["src"]).exists():
         cmd += ["-stream_loop", "-1", "-i", str(config.absolute(snd["src"]))]
         off = float(snd.get("offset", 0))
-        fl.append(f"[1:a]atrim={off}:{off + T},asetpts=PTS-STARTPTS,volume={float(snd.get('volume', 0.12))},"
+        fl.append(f"[{n_in}:a]atrim={off}:{off + T},asetpts=PTS-STARTPTS,volume={float(snd.get('volume', 0.12))},"
                   f"afade=t=in:d=0.3,afade=t=out:st={max(0, T - 1.5):.3f}:d=1.5[m]")
-        fl.append("[voice][m]amix=inputs=2:normalize=0:duration=first[out]")
+        mix.append("[m]")
+        n_in += 1
+    if p.get("sfx_on", True):  # sound effects, each delayed to its moment
+        from . import sfx
+        master = float(p.get("sfx_volume", 0.6))
+        for k, (fx, t) in enumerate(sfx.times(p, segs)):
+            path = config.absolute(fx["src"]) if fx.get("src") else None
+            if fx.get("muted") or not path or not path.exists() or t >= T:
+                continue
+            cmd += ["-i", str(path)]
+            ms = int(t * 1000)
+            fl.append(f"[{n_in}:a]aresample=48000,volume={float(fx.get('volume', 0.4)) * master:.3f},"
+                      f"adelay={ms}:all=1[fx{k}]")
+            mix.append(f"[fx{k}]")
+            n_in += 1
+    if len(mix) > 1:
+        fl.append("".join(mix) + f"amix=inputs={len(mix)}:normalize=0:duration=first[out]")
     else:
         fl.append("[voice]anull[out]")
     script = Path(out).with_suffix(".filter.txt")

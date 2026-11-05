@@ -14,6 +14,8 @@
   broll-find "search words" [--n 5]   download free stock clips from Pixabay into library/broll
   broll-starter                       download a starter pack of ~30 money/finance clips
   broll-key KEY                       save your free Pixabay API key (pixabay.com/api/docs)
+  sfx-auto NAME [--keep]    give every look, cut-away and punch-in a matching sound effect
+  sfx-list                  list sound effects you can use (built-in + library/sfx)
   remove-captions NAME [--off]  find captions burned into the video and paint them out (or keep them)
   faces NAME                find faces (for Cover a face)
   still NAME SECONDS        render one frame to check a look (projects/NAME/cache/still.png)
@@ -92,7 +94,8 @@ def setup():
             print(f"✗ Python package {mod} missing — run: python3 -m pip install -r requirements.txt")
             ok = False
     if ok:
-        from . import synth
+        from . import synth, sfx
+        sfx.ensure_builtin()
         made = synth.make_all()
         if made:
             print("Made built-in sounds:", ", ".join(made))
@@ -112,6 +115,7 @@ def main(argv=None):
     ap.add_argument("--params", default="{}")
     ap.add_argument("--json", default=None)
     ap.add_argument("--n", type=int, default=5)
+    ap.add_argument("--keep", action="store_true")
     ap.add_argument("--out", default=None)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--keep-drop", action="store_true", help="don't empty drop-in-order/ after importing")
@@ -202,6 +206,15 @@ def main(argv=None):
         except stock.NoKey as e:
             raise SystemExit(str(e) + "  Or: python3 -m engine broll-key YOUR_KEY")
         print("\n".join(got) or "Nothing found. Try other words.")
+        return
+    if c in ("sfx-auto", "sfx-list"):
+        from . import sfx
+        if c == "sfx-list":
+            for x in sfx.library():
+                print(f"{x['path']}  ({x['dur']}s, {x['source']})  {x['tags']}")
+            return
+        p = project.update(args[0], lambda q: (sfx.auto(q, replace=not a.keep), q.update({"edit_rev": q.get("edit_rev", 0) + 1})))
+        print(f"{len(p['sfx'])} sound effects placed.")
         return
     if c == "add-broll":
         b = json.loads(a.json)

@@ -80,8 +80,13 @@ Run `python3 -m engine` with no arguments for the full list.
    - Captions: must not cover the mouth/chin (side/chest styles avoid this). If needed: `set NAME caption_y --json 0.62`.
    - **Captions already in the video** (e.g. a CapCut export): the import detects them and paints them out
      (`burned_captions.remove`), then ours replace them. If it missed some (text in a `still`): `remove-captions NAME`.
-   - Sound: pick a track from `library/sounds/` that fits the energy:
+   - Sound: pick a music bed from `library/sounds/` that fits the energy:
      `set NAME sound --json '{"src":"library/sounds/<file>","volume":0.12,"offset":0}'`.
+   - **Sound effects** (every moment that moves has a sound): once the looks are placed, run
+     `python3 -m engine sfx-auto NAME`. It matches each look/cut-away/punch-in to an effect (pop on a snap, whoosh
+     on a slide or punch-in, typing under typed text, riser + ka-ching on money counters, ding on the CTA). To
+     change one, edit `sfx` with `set NAME sfx --json '[…]'` (each: `src`, `anchor` {"ov": id} / {"broll": id} /
+     {"w": word}, `offset` s, `volume`, `muted`); `sfx-list` shows every effect. Keep the last 3–5 s quiet too.
    - **Check your work**: `still NAME <seconds>` → look at `projects/NAME/cache/still.png` for the hook, a busy
      moment and the CTA. Face clear? One accent color? Text readable? Fix before opening the studio.
 5. **Open the studio** in the background: `python3 -m engine open NAME` and tell the user it's at

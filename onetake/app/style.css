@@ -186,3 +186,10 @@ small { color: var(--ink2); }
   #bottom { grid-template-columns: auto 1fr; }
   #bottom .clock, #nextBtn { display: none; }
 }
+
+.fxrow { display: flex; gap: 6px; align-items: center; padding: 5px 8px; margin: 4px 0; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; }
+.fxrow button { padding: 2px 8px; font-size: 12px; }
+.fxrow button.on { background: var(--ink); color: var(--panel); }
+.fxrow .fxt { font-variant-numeric: tabular-nums; color: var(--accent); min-width: 34px; }
+.fxrow .fxn { font-family: "Montserrat_700Bold"; }
+.fxrow.muted-fx { opacity: .5; }
