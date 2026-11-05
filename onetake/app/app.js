@@ -820,14 +820,30 @@ function renderTray(reqs) {
   if (!$("#claudeTray").hidden) drawTray();
 }
 function drawTray() {
+  const tray = $("#claudeTray");
+  if (!tray.querySelector("#reqList")) {  // build once so typing isn't wiped by updates
+    tray.innerHTML = `<b>Ask Claude</b>
+      <div class="muted" style="font-size:12px;margin:4px 0 8px">Tell Claude what to change, like you'd tell an editor. It updates the studio when it's done.</div>
+      <textarea id="askAny" placeholder="e.g. change “fan” to “friend”, make the hook shorter, swap the music for something upbeat"></textarea>
+      <div class="row" style="margin:8px 0 4px">${micBtn("askAny")}<span style="flex:1"></span><button class="primary" id="askAnySend">✳ Send</button></div>
+      <div id="reqList"></div>`;
+    bindMic(tray);
+    tray.querySelector("#askAnySend").onclick = () => {
+      const ta = tray.querySelector("#askAny"), text = ta.value.trim();
+      if (!text) return toast("Type what you'd like Claude to change.");
+      const i = Math.max(0, S.curWord), l = linesOf(S.p).find(l => l.w0 <= i && i <= l.w1);
+      sendRequest({ kind: "edit", text, at: fmt(S.outT), playhead_line: l ? l.text : "" }, "Sent to Claude. The studio updates by itself when it's done.");
+      ta.value = "";
+    };
+  }
   const reqs = (S.requests || []).slice().reverse();
-  $("#claudeTray").innerHTML = `<b>Requests to Claude</b>${S.claude ? "" : `<div class="muted" style="font-size:12px;margin:6px 0">Claude Code isn't connected to the studio, so requests wait until you tell Claude: “check my studio requests”.</div>`}` +
-    (reqs.length ? reqs.map(r => `<div class="req"><span class="st ${r.status}">${r.status}</span> <b>${esc(r.kind)}</b> ${esc((r.text || "").slice(0, 80))}
+  tray.querySelector("#reqList").innerHTML = (S.claude ? "" : `<div class="muted" style="font-size:12px;margin:6px 0">Claude isn't connected to the studio right now, so requests wait until you tell Claude in the Terminal: “check my studio requests”.</div>`) +
+    (reqs.length ? `<b style="display:block;margin-top:8px">Earlier requests</b>` + reqs.map(r => `<div class="req"><span class="st ${r.status}">${r.status === "running" ? "working…" : r.status}</span> ${esc((r.text || r.kind).slice(0, 90))}
       ${r.note ? `<div class="muted">${esc(r.note)}</div>` : ""}
-      ${r.status === "done" && r.options?.length ? `<button data-rev="${r.id}" style="margin-top:6px">${r.picked ? "Options" : "Review options"}</button>` : ""}</div>`).join("") : `<div class="muted">Nothing yet.</div>`);
-  $("#claudeTray").querySelectorAll("[data-rev]").forEach(b => b.onclick = () => optionsModal(b.dataset.rev));
+      ${r.status === "done" && r.options?.length ? `<button data-rev="${r.id}" style="margin-top:6px">${r.picked ? "Options" : "Review options"}</button>` : ""}</div>`).join("") : "");
+  tray.querySelectorAll("[data-rev]").forEach(b => b.onclick = () => optionsModal(b.dataset.rev));
 }
-$("#claudeBtn").onclick = () => { $("#claudeTray").hidden = !$("#claudeTray").hidden; drawTray(); };
+$("#claudeBtn").onclick = () => { $("#claudeTray").hidden = !$("#claudeTray").hidden; drawTray(); if (!$("#claudeTray").hidden) $("#askAny").focus(); };
 
 async function optionsModal(rid) {
   S.lookbook = await api("/api/lookbook");

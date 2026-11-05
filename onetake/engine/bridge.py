@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import threading
 import time
+from pathlib import Path
 
 from . import config, project
 
@@ -20,7 +21,15 @@ Follow the "Studio requests" section of CLAUDE.md to handle it: read the request
 
 
 def claude_bin():
-    return shutil.which("claude")
+    # the app icons start the studio without the Terminal's PATH, so also look where Claude Code installs itself
+    found = shutil.which("claude")
+    if found:
+        return found
+    for p in (Path.home() / ".local" / "bin" / "claude", Path.home() / ".claude" / "local" / "claude",
+              Path("/usr/local/bin/claude")):
+        if p.exists():
+            return str(p)
+    return None
 
 
 def submit(name, req):
