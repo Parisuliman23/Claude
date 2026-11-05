@@ -99,7 +99,11 @@ Run `python3 -m engine` with no arguments for the full list.
 5. **Open the studio** in the background: `python3 -m engine open NAME` and tell the user it's at
    http://localhost:5178. Give a 3–5 bullet summary of what you cut and styled, and remind them:
    they can bring back anything you cut, swap any look, and nothing renders until **Lock in my looks**.
-6. Don't render the final reel yourself unless asked — that's the user's "lock in" moment.
+6. **CapCut**: if the user wants to keep editing in CapCut, `python3 -m engine export NAME capcut-project` writes a real
+   CapCut project (cut on the original footage, each look on its own track, editable caption text, every sound its own
+   clip). On a computer with CapCut desktop it lands straight in CapCut's projects; otherwise it's a zip with one-click
+   installers (Windows/Mac). `export NAME capcut` makes a layer pack for any other editor.
+7. Don't render the final reel yourself unless asked — that's the user's "lock in" moment.
    (If they ask: `python3 -m engine render NAME`.)
 
 ## Studio requests

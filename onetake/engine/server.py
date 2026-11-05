@@ -83,6 +83,13 @@ def thumb(name, t, w=360):
     return out
 
 
+def capcut_project(name, prog):
+    from . import capcut_draft
+    r = capcut_draft.build(name, progress=prog)
+    project.update(name, lambda q: q.setdefault("exports", {}).update({"capcut_project": r}))
+    return r
+
+
 def render_full(name):
     def fn(prog):
         p = project.load(name)
@@ -296,7 +303,8 @@ class Handler(BaseHTTPRequestHandler):
             fns = {"carousel": lambda prog: finish.carousel(name), "story": lambda prog: finish.story(name),
                    "trials": lambda prog: finish.trials(name, progress=prog),
                    "capcut": lambda prog: finish.capcut(name, progress=prog),
-                   "storyboard": lambda prog: finish.storyboard(name, progress=prog)}
+                   "storyboard": lambda prog: finish.storyboard(name, progress=prog),
+                   "capcut_project": lambda prog: capcut_project(name, prog)}
             return self.send_json(run_job(name, kind, fns[kind]))
         if action == "edge-check":
             return self.send_json({"flags": finish.edge_check(project.load(name))})

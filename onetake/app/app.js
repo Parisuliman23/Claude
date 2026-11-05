@@ -168,7 +168,7 @@ async function poll() {
 }
 
 function jobDone(kind, j) {
-  const msg = { storyboard: "Storyboard ready.", render: "Your reel is rendered!", capcut: "CapCut pack is ready.", carousel: "Carousel ready.", story: "Story ready.", trials: "Trial reels are ready.", faces: `Found ${j.result} face(s).` }[kind] || `${kind} done`;
+  const msg = { capcut_project: "Your CapCut project is ready.", storyboard: "Storyboard ready.", render: "Your reel is rendered!", capcut: "CapCut pack is ready.", carousel: "Carousel ready.", story: "Story ready.", trials: "Trial reels are ready.", faces: `Found ${j.result} face(s).` }[kind] || `${kind} done`;
   toast(msg);
   reload();
 }
@@ -1026,8 +1026,21 @@ function renderFinish() {
       <div class="row" style="margin-top:10px"><a download href="${media(r.file)}"><button>⬇ Download MP4</button></a>
       ${r.phone ? `<a download href="${media(r.phone)}"><button title="A small copy to check on your phone like a viewer would">📱 Phone copy</button></a>` : ""}
       ${ex.cover ? `<a download href="${media(ex.cover)}"><button>⬇ Cover</button></a>` : ""}
-      <button id="capcut">Send to CapCut (layers)</button>${ex.capcut ? `<a download href="${media(ex.capcut)}"><button>⬇ CapCut pack (.zip)</button></a>` : ""}</div>${jobBar("capcut")}
-      <small class="muted">The CapCut pack has your video, graphics and captions as separate layers (plus music and an .srt), so you can keep editing.</small>` : ""}
+      </div>` : ""}
+  </div>
+  <div class="card"><h3 style="margin-top:0">Send to CapCut</h3>
+    <div class="muted">A CapCut project you keep editing: your cut on the original footage (drag any clip edge to bring a cut back),
+    every look on its own track, captions as editable CapCut text, and every sound as its own clip.</div>
+    <div class="row" style="margin-top:8px"><button class="primary" id="ccProj">✂ Send to CapCut</button>
+      <button id="capcut" title="For other editors: video, graphics and captions as separate full-length layers">Layer pack (any editor)</button>
+      ${ex.capcut ? `<a download href="${media(ex.capcut)}"><button>⬇ Layer pack (.zip)</button></a>` : ""}</div>
+    ${jobBar("capcut_project")}${jobBar("capcut")}
+    ${ex.capcut_project ? (ex.capcut_project.in_capcut
+      ? `<div class="card" style="margin-top:8px;background:var(--hl)"><b>It's in your CapCut projects.</b> Open CapCut desktop and look for <b>${esc(ex.capcut_project.folder.split(/[\\/]/).pop())}</b>.</div>`
+      : `<div class="card" style="margin-top:8px;background:var(--hl)"><b>CapCut desktop isn't on this computer</b>, so your project is packed in a zip.
+         Download it on a Windows or Mac computer with CapCut, unzip it, close CapCut, and double-click
+         <b>Install in CapCut</b> (Windows .bat or Mac .command). It shows up in CapCut's projects.
+         <div class="row" style="margin-top:8px"><a download href="${media(ex.capcut_project.zip)}"><button class="primary">⬇ CapCut project (.zip)</button></a></div></div>`) : ""}
   </div>
   <div class="card"><h3 style="margin-top:0">2 · Frames & photos</h3>
     <div class="muted">Your snaps: stills for your cover or a carousel. Pause on a frame and press <b>Save this frame</b> (or <b>S</b>), then <b>☆ star</b> your cover.</div>
@@ -1053,6 +1066,7 @@ function renderFinish() {
   $("#panel").innerHTML = h;
   $("#lock").onclick = lockIn;
   const cc = $("#capcut"); if (cc) cc.onclick = () => runExport("capcut");
+  const cp = $("#ccProj"); if (cp) cp.onclick = () => runExport("capcut_project");
   $("#saveFrame").onclick = saveFrame;
   $("#mkBoard").onclick = () => runExport("storyboard");
   $("#panel").querySelectorAll("[data-star]").forEach(b => b.onclick = () => mutate(p => {
