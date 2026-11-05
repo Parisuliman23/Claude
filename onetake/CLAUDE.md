@@ -68,6 +68,11 @@ Run `python3 -m engine` with no arguments for the full list.
    - **Camera**: the hook push-in is on by default. Add a punch-in at each thought change:
      `set NAME camera --json '{"push_in":7,"push_amount":0.08,"punch_scale":1.12,"punches":[42,97,160]}'`
      (word indexes where a new thought starts).
+   - **B-roll**: when a moment needs footage (a metaphor like "casino", an emotion like "panic selling", or
+     look C's 1.5–4 s shot rhythm), check `library/broll/` first; if nothing fits, download free stock clips:
+     `python3 -m engine broll-find "slot machine casino" --n 3` (Pixabay, free to use). If it says the
+     key is missing, tell the user to add their free Pixabay key (studio: Add media → Videos) and carry on with
+     white panels/graphics instead. Name searches by what's literally on screen ("red stock ticker falling").
    - **Look C** cut-aways / split screens: `add-broll NAME --json '{"w0":50,"w1":61,"src":"library/broll/x.mp4","layout":"split"}'`
      (`"src": null, "color": "#FFFFFF"` = white panel; put an `equation`/`highlight_card` look at y ~0.25 on it).
    - **Rhythm check**: a new visual every 2–4 s (A/B) or 1.5–2 s (C), a meme/emoji every 15–20 s, an audience
