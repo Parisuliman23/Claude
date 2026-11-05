@@ -23,7 +23,7 @@ Name=One Take – New reel
 Comment=Have Claude edit the clips in drop-in-order
 Exec=$DIR/new-reel.sh
 Icon=$DIR/assets/icon.png
-Terminal=true
+Terminal=false
 Categories=AudioVideo;Video;
 DESK
 echo "Added. Look for 'One Take Studio' and 'One Take – New reel' in your app launcher"

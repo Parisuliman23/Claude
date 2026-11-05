@@ -3,6 +3,7 @@ import json
 import mimetypes
 import re
 import threading
+import time
 import traceback
 import urllib.parse
 import webbrowser
@@ -175,6 +176,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(lookbook())
             if path == "/api/library":
                 return self.send_json(library())
+            if path == "/api/newreel":  # progress of an edit started from the "New reel" app icon
+                st_f, log_f = config.PROJECTS / ".newreel.json", config.PROJECTS / ".newreel.log"
+                info = json.loads(st_f.read_text()) if st_f.exists() else {"status": "none"}
+                info["log"] = log_f.read_text()[-3000:] if log_f.exists() and info.get("status") in ("done", "failed") else ""
+                info["now"] = time.time()
+                return self.send_json(info)
             if path == "/api/status":
                 st = config.settings()
                 return self.send_json({"claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",

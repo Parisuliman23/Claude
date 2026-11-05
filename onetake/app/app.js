@@ -52,7 +52,7 @@ async function boot() {
   const st = await api("/api/status");
   S.settings = st.settings; S.claude = st.claude;
   const name = decodeURIComponent(location.hash.slice(1));
-  if (!name) return home();
+  if (!name || name === "newreel") return home();
   await loadProject(name);
   setInterval(poll, 2500);
 }
@@ -62,9 +62,25 @@ async function home() {
   $("#previewCol").hidden = true; $("#bottom").hidden = true; $("#tabs").hidden = true;
   $("#main").style.gridTemplateColumns = "1fr";
   const list = await api("/api/projects");
-  $("#panel").innerHTML = `<div class="projlist"><h1>Your reels</h1>
-    <p class="muted">To start a new one: put your clips in the <b>drop-in-order</b> folder (they're used in name order),
-    then tell Claude <i>"I have a new reel to edit"</i>.</p>
+  const nr = await api("/api/newreel").catch(() => ({ status: "none" }));
+  const mins = t => Math.max(0, Math.round((nr.now - t) / 60));
+  const banner = {
+    running: `<div class="card"><h3 style="margin-top:0">✳ Claude is editing your new reel…</h3>
+      <div class="muted">Started ${mins(nr.started)} min ago. It usually takes 5–15 minutes. This page updates by itself.</div>
+      <div class="progress"><i style="width:100%;opacity:.35"></i></div></div>`,
+    noclips: `<div class="card"><h3 style="margin-top:0">No video found</h3>
+      <div class="muted">Put your video in <b>Linux files → Claude → onetake → drop-in-order</b>, then click <b>One Take – New reel</b> again.</div></div>`,
+    done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>
+      <div class="muted" style="white-space:pre-wrap">${esc(nr.log || "")}</div>
+      ${list.length ? `<button class="primary" style="margin-top:10px" onclick="location.hash='${list[0].name}';location.reload()">Open it</button>` : ""}</div>`,
+    failed: `<div class="card"><h3 style="margin-top:0">Claude couldn't finish the edit</h3>
+      <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").slice(-800))}</div>
+      <div class="muted">Try again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div></div>`,
+  }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
+  if (nr.status === "running") setTimeout(home, 5000);
+  $("#panel").innerHTML = `<div class="projlist">${banner}<h1>Your reels</h1>
+    <p class="muted">To start a new one: put your video in the <b>drop-in-order</b> folder, then click the
+    <b>One Take – New reel</b> app icon (or tell Claude <i>"I have a new reel to edit"</i>).</p>
     ${list.length ? list.map(p => `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} raw · ${p.render === "done" ? "rendered" : "in progress"}</small></div>
       <button class="primary" onclick="location.hash='${p.name}';location.reload()">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
 }
