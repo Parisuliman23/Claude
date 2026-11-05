@@ -322,29 +322,45 @@ function renderCut() {
     <div class="muted">Tap a word to jump there. Select words (shift-click to extend) to cut them, and tap a struck word to bring it back.
     Double-click a word to fix a typo in the captions.
     Trim on the timeline below like CapCut: drag a clip's edge, cut before/after the playhead, and zoom in for precision.</div>
-    <small>${changes ? changes + " word(s) changed by you" : "No changes yet"} · ${fmt(S.T)} long (from ${fmt(p.duration)})</small></div>`;
+    <div class="row" style="margin-top:6px"><small>${changes ? changes + " word(s) changed by you" : "No changes yet"} · ${fmt(S.T / (p.speed || 1))} long (from ${fmt(p.duration)})</small>
+    <span style="flex:1"></span><small>Speed</small>${[1, 1.1, 1.15, 1.2, 1.25].map(v => `<button class="chip ${(p.speed || 1) === v ? "on" : ""}" data-speed="${v}">${v}×</button>`).join("")}</div></div>`;
   h += selTool("cut");
-  if (ec.length) {
-    h += `<details class="engine" ${S.openEngine ? "open" : ""}><summary>› ${ec.length} line${ec.length > 1 ? "s" : ""} the engine cut</summary>`;
-    for (const c of ec) {
-      const l = ls.find(x => x.id === c.line), kept = ls.find(x => x.id === c.kept);
-      const back = l && !l.cut;
-      h += `<div class="ecut"><small>${esc(c.reason)}</small><s>${esc(l ? l.text : c.text)}</s>
-        ${back ? `<small>restored</small>` : `<button data-bring="${c.line}">Bring back</button>`}
-        ${kept && !back ? `<button data-swap="${c.line}" data-kept="${c.kept}" title="Use this take and cut the one the engine kept">Use this take</button>` : ""}</div>`;
-    }
-    h += `</details>`;
-  }
   h += `<div class="lines">`;
-  for (const l of ls) {
-    h += `<div class="line ${l.cut ? "lcut" : ""}" data-l="${l.id}"><div class="ln">${String(l.id + 1).padStart(2, "0")}<small>${lineTime(l)}</small></div>
+  // fully-cut lines stay where they were, folded into "› N lines the engine cut" (open one to bring a line back)
+  const engineOf = id => ec.find(c => c.line === id);
+  for (let k = 0; k < ls.length; k++) {
+    const l = ls[k];
+    if (l.cut) {
+      let j = k; while (j + 1 < ls.length && ls[j + 1].cut) j++;
+      const grp = ls.slice(k, j + 1), key = grp[0].id;
+      const byEngine = grp.every(g => engineOf(g.id) || p.words.slice(g.w0, g.w1 + 1).every(w => w.why === "filler" || w.why === "retake"));
+      const open = S.openCut?.[key];
+      h += `<div class="cutgrp ${open ? "open" : ""}"><button class="cutfold" data-fold="${key}">${open ? "⌄" : "›"} ${grp.length} line${grp.length > 1 ? "s" : ""} ${byEngine ? "the engine cut" : "you cut"}</button>`;
+      if (open) for (const g of grp) {
+        const e = engineOf(g.id), kept = e && ls.find(x => x.id === e.kept && !x.cut);
+        h += `<div class="line lcut" data-l="${g.id}"><div class="ln">${String(g.id + 1).padStart(2, "0")}<small>${e ? esc(e.reason) : "cut"}</small></div>
+          <div class="words">${wordsHTML(g, "cut")}</div>
+          <div class="lact" style="opacity:1"><button data-restore-line="${g.id}">↺ Bring back</button>
+          ${kept ? `<button data-swap="${g.id}" data-kept="${e.kept}" title="Use this take and cut the one the engine kept">Use this take</button>` : ""}
+          <button data-cnote="${g.id}">✎ Add a note</button></div></div>`;
+      }
+      h += `</div>`;
+      k = j;
+      continue;
+    }
+    h += `<div class="line" data-l="${l.id}"><div class="ln">${String(l.id + 1).padStart(2, "0")}<small>${lineTime(l)}</small></div>
       <div class="words">${wordsHTML(l, "cut")}</div>
-      <div class="lact">${l.cut ? `<button data-restore-line="${l.id}">↺ Bring back</button>` : `<button data-cut-line="${l.id}">✂ Cut line</button>`}</div></div>`;
+      <div class="lact"><button data-cut-line="${l.id}">✂ Cut line</button></div></div>`;
   }
   h += `</div>`;
   $("#panel").innerHTML = h;
   bindLines($("#panel"));
-  const det = $("#panel details"); if (det) det.ontoggle = () => S.openEngine = det.open;
+  $("#panel").querySelectorAll("[data-speed]").forEach(b => b.onclick = () => { mutate(p => p.speed = +b.dataset.speed); applySpeed(); });
+  $("#panel").querySelectorAll("[data-fold]").forEach(b => b.onclick = () => { S.openCut ||= {}; S.openCut[b.dataset.fold] = !S.openCut[b.dataset.fold]; renderPanel(); });
+  $("#panel").querySelectorAll("[data-cnote]").forEach(b => b.onclick = () => {
+    const l = linesOf(S.p).find(x => x.id === +b.dataset.cnote); S.sel = { a: l.w0, b: l.w1 };
+    askClaudeModal("e.g. keep only the second half of this line, or bring it back but cut the “um”");
+  });
   const setLine = (id, cut) => mutate(p => { const l = linesOf(p).find(x => x.id === id); for (let i = l.w0; i <= l.w1; i++) { p.words[i].cut = cut; if (cut) p.words[i].why = "you"; } });
   $("#panel").querySelectorAll("[data-cut-line]").forEach(b => b.onclick = () => setLine(+b.dataset.cutLine, true));
   $("#panel").querySelectorAll("[data-restore-line],[data-bring]").forEach(b => b.onclick = () => setLine(+(b.dataset.restoreLine ?? b.dataset.bring), false));
@@ -1247,7 +1263,13 @@ function seekWord(i, toZero) {
   const o = j < w.length ? wordOut(w, S.segs, j) : null;
   if (o) seek(o[0] + 0.001);
 }
+function applySpeed() {  // talk faster without chipmunk voices; the export does the same
+  const r = +(S.p.speed || 1);
+  v.playbackRate = r; bv.playbackRate = r; music.playbackRate = r;
+  v.preservesPitch = bv.preservesPitch = music.preservesPitch = true;
+}
 function play() {
+  applySpeed();
   if (!S.segs.length) return;
   if (S.outT >= S.T - 0.05) seek(0);
   S.playing = true;
@@ -1295,8 +1317,9 @@ function tick() {
 function draw() {
   if (!S.p) return;
   const t = S.outT;
-  $("#ptime").textContent = `${fmt(t)} / ${fmt(S.T)}`;
-  $("#clock").textContent = fmt(t); $("#clockOf").textContent = "of " + fmt(S.T);
+  const sp = +(S.p.speed || 1);
+  $("#ptime").textContent = `${fmt(t / sp)} / ${fmt(S.T / sp)}`;
+  $("#clock").textContent = fmt(t / sp); $("#clockOf").textContent = "of " + fmt(S.T / sp);
   drawBroll(t); drawCamera(t); drawFaces(); drawOverlays(t); drawCaptions(t); drawPlayhead(); markWord(t);
 }
 

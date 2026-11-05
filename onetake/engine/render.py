@@ -431,6 +431,17 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
             _ENC = "prores_ks"
             return render(name, out, variant, layer, progress, p)
         raise RuntimeError("ffmpeg failed while encoding")
+    speed = float(c.p.get("speed") or 1.0)
+    if abs(speed - 1.0) > 1e-3:  # play the whole reel faster (pitch kept)
+        tmp = out.with_name(out.stem + "_speed" + out.suffix)
+        cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(out), "-filter:v", f"setpts=PTS/{speed}"]
+        if c.transparent:
+            cmd += _prores_alpha()
+        else:
+            cmd += ["-filter:a", f"atempo={speed}", "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-pix_fmt", "yuv420p",
+                    "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
+        subprocess.run(cmd + [str(tmp)], check=True)
+        tmp.replace(out)
     if progress:
         progress(1.0)
     return out
