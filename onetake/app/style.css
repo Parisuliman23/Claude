@@ -1,3 +1,11 @@
+@font-face { font-family: "NanumPenScript_400Regular"; src: url(/assets/fonts/NanumPenScript_400Regular.ttf); }
+@font-face { font-family: "CaveatBrush_400Regular"; src: url(/assets/fonts/CaveatBrush_400Regular.ttf); }
+@font-face { font-family: "InstrumentSerif_400Regular"; src: url(/assets/fonts/InstrumentSerif_400Regular.ttf); }
+@font-face { font-family: "InstrumentSerif_400Regular_Italic"; src: url(/assets/fonts/InstrumentSerif_400Regular_Italic.ttf); }
+@font-face { font-family: "Kalam_700Bold"; src: url(/assets/fonts/Kalam_700Bold.ttf); }
+@font-face { font-family: "Inter_700Bold"; src: url(/assets/fonts/Inter_700Bold.ttf); }
+@font-face { font-family: "Inter_800ExtraBold"; src: url(/assets/fonts/Inter_800ExtraBold.ttf); }
+@font-face { font-family: "Poppins_800ExtraBold"; src: url(/assets/fonts/Poppins_800ExtraBold.ttf); }
 @font-face { font-family: "Montserrat_900Black"; src: url(/assets/fonts/Montserrat_900Black.ttf); }
 @font-face { font-family: "Montserrat_800ExtraBold"; src: url(/assets/fonts/Montserrat_800ExtraBold.ttf); }
 @font-face { font-family: "Montserrat_700Bold"; src: url(/assets/fonts/Montserrat_700Bold.ttf); }
@@ -66,10 +74,13 @@ small { color: var(--ink2); }
 #stage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 #bv { visibility: hidden; }
 #fc { position: absolute; inset: 0; width: 100%; height: 100%; }
+#dim { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+#bimg, #bpanel { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+#v, #fc { transform-origin: 50% 38%; }
 #ovl, #cap { position: absolute; inset: 0; pointer-events: none; }
 #ovl .ov { position: absolute; left: 0; top: 0; pointer-events: auto; cursor: grab; transform-origin: center; }
 #ovl .ov.sel { outline: 6px dashed rgba(255,255,255,.8); }
-#cap .cg { position: absolute; left: 0; width: 100%; display: flex; flex-direction: column; align-items: center; }
+#cap .cg { position: absolute; width: max-content; max-width: 1000px; display: flex; flex-direction: column; align-items: center; }
 #cap .cl { display: flex; white-space: pre; }
 #cap .cw { paint-order: stroke fill; }
 .pv { position: absolute; top: 10px; right: 12px; font-size: 11px; color: #fff; background: rgba(0,0,0,.45); padding: 3px 8px; border-radius: 10px; }

@@ -99,6 +99,8 @@ function overlaySpan(p, words, segs, ov) {
 
 // ---- animation (engine/draw.py anim_state)
 const ANIM_DUR = 0.3;
+const ANIM_DURS = { "snap": 0.1, "slide-up": 0.2, "slide-down": 0.2 };
+const animDur = k => ANIM_DURS[k] ?? ANIM_DUR;
 const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
 const easeOutBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
 
@@ -114,6 +116,7 @@ function animState(kind, p) {
     case "slide-up": st.dy = (1 - e) * 0.5; break;
     case "slide-down": st.dy = -(1 - e) * 0.5; break;
     case "spin": st.rot = (1 - e) * 360; st.scale = e; break;
+    case "snap": st.scale = 0.4 + 0.6 * e; break;
     case "zoom": st.scale = 1 + (1 - e) * 1.5; st.alpha = p; break;
   }
   return st;
@@ -121,9 +124,23 @@ function animState(kind, p) {
 
 function overlayState(ov, t, s, e) {
   const ai = ov.anim_in ?? "pop", ao = ov.anim_out ?? "fade";
-  if (ai && ai !== "none" && t - s < ANIM_DUR) return animState(ai, (t - s) / ANIM_DUR);
-  if (ao && ao !== "none" && e - t < ANIM_DUR) return animState(ao, (e - t) / ANIM_DUR);
+  if (ai && ai !== "none" && t - s < animDur(ai)) return animState(ai, (t - s) / animDur(ai));
+  if (ao && ao !== "none" && e - t < animDur(ao)) return animState(ao, (e - t) / animDur(ao));
   return animState("none", 1);
+}
+
+const pushScale = (ov, t, s, e) => ov.push ? 1 + 0.06 * Math.max(0, Math.min(1, (t - s) / Math.max(0.1, e - s))) : 1;
+
+const CAM_ANCHOR = [0.5, 0.38];
+const focusOf = p => p.focus || CAM_ANCHOR;
+function cameraZoom(p, words, segs, t) {
+  const cam = p.camera || {};
+  const starts = (cam.punches || []).map(i => wordOut(words, segs, i)).filter(Boolean).map(s => s[0]).sort((a, b) => a - b);
+  const passed = starts.filter(s => s <= t).length;
+  let z = passed % 2 ? (cam.punch_scale ?? 1.12) : 1;
+  const push = +(cam.push_in || 0);
+  if (push > 0 && (!starts.length || t < starts[0])) { const k = Math.min(1, t / push); z *= 1 + (cam.push_amount ?? 0.08) * (1 - (1 - k) ** 2); }
+  return z;
 }
 
 // ---- faces (engine/analyze.py face_at)

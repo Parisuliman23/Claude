@@ -41,6 +41,31 @@ class FrameReader:
         return self.frame
 
 
+class StillReader:
+    """A photo/screenshot used as a cut-away (same interface as FrameReader)."""
+
+    def __init__(self, path):
+        im = cv2.imread(str(path), cv2.IMREAD_COLOR)
+        self.frame = im if im is not None else np.zeros((16, 16, 3), np.uint8)
+
+    def at(self, t):
+        return self.frame
+
+
+def _reader(src):
+    if not src:
+        return None  # a plain colour panel
+    path = config.absolute(src)
+    return StillReader(path) if path.suffix.lower() in config.IMAGE_EXT else FrameReader(path)
+
+
+def _broll_frame(b, rd, t_local, W, H):
+    if rd is None:
+        col = draw.rgba(b.get("color", "#FFFFFF"))
+        return np.full((H, W, 3), (col[2], col[1], col[0]), np.uint8)
+    return cover_fit(rd.at(float(b.get("clip_start", 0)) + t_local), W, H)
+
+
 def cover_fit(fr, W, H):
     h, w = fr.shape[:2]
     if (w, h) == (W, H):
@@ -213,7 +238,7 @@ class Composer:
         for b in p.get("broll", []):
             sp = timeline.range_out(words, segs, b["w0"], b["w1"])
             if sp:
-                self.brolls.append((b, sp, FrameReader(config.absolute(b["src"]))))
+                self.brolls.append((b, sp, _reader(b.get("src"))))
         self.tracks = {f["id"]: f["track"] for f in p.get("faces", {}).get("detected", [])}
         self.covers = [c for c in p.get("faces", {}).get("covers", []) if c.get("face") in self.tracks]
         self.src = FrameReader(config.absolute(p["source"]))
@@ -231,17 +256,22 @@ class Composer:
         else:
             sg, ts = timeline.out_to_src(segs, t)
             br = next(((b, sp, rd) for b, sp, rd in self.brolls if sp[0] <= t < sp[1]), None)
-            if br:
+            split = bool(br and br[0].get("layout") == "split")
+            if br and not split:
                 b, sp, rd = br
-                frame = cover_fit(rd.at(float(b.get("clip_start", 0)) + t - sp[0]), W, H)
+                frame = _broll_frame(b, rd, t - sp[0], W, H)
             else:
-                frame = cover_fit(self.src.at(ts), W, H)
-                if self.burn_band:  # paint out captions that were already in the video
-                    analyze.remove_burned_text(frame, self.burn_band, state=self.burn_state)
-                for c in self.covers:
-                    pos = analyze.face_at(self.tracks[c["face"]], ts)
-                    if pos:
-                        _cover(frame, pos, c, W, H)
+                frame = self.speaker(ts, t)
+                if split:  # top half: the clip/graphic, bottom half: the speaker (eyes kept in view)
+                    b, sp, rd = br
+                    top = _broll_frame(b, rd, t - sp[0], W, H // 2)
+                    # keep the eyes ~40% down the bottom half
+                    y0 = int(min(max(0, timeline.focus(self.p)[1] * H - 0.4 * (H // 2)), H - (H - H // 2)))
+                    bottom = frame[y0:y0 + (H - H // 2)].copy()
+                    frame = np.vstack([top, bottom])
+            dim = max((float(ov.get("dim", 0)) for ov, (a, b) in self.ovs if a <= t < b), default=0.0)
+            if dim > 0:  # receipt stacks: darken the background so the cards read
+                frame = (frame * (1 - min(0.8, dim))).astype(np.uint8)
             put = lambda img, x, y: draw.blend(frame, img, x, y)
         if layer in ("full", "graphics"):
             for ov, (a, b) in self.ovs:
@@ -250,6 +280,9 @@ class Composer:
                     if img is None:
                         continue
                     st = draw.overlay_state(ov, t, a, b)
+                    ps = draw.push_scale(ov, t, a, b)
+                    if ps != 1.0:
+                        st = dict(st, scale=st["scale"] * ps)
                     img = draw.transform(img, st)
                     put(img, (float(ov.get("x", 0.5)) + st["dx"]) * W, (float(ov.get("y", 0.5)) + st["dy"]) * H)
         if layer in ("full", "captions"):
@@ -268,7 +301,28 @@ class Composer:
                     if len(self.cap_cache) > 200:
                         self.cap_cache.clear()
                     self.cap_cache[key] = draw.caption_image(words, g, active, style, W, t_in if pop else None)
-                put(self.cap_cache[key], W / 2, style.get("y", 0.7) * H)
+                in_split = any(b.get("layout") == "split" and sp[0] <= t < sp[1] for b, sp, _ in self.brolls)
+                cy = 0.5 if in_split else style.get("y", 0.7)  # split screen: caption sits on the seam
+                put(self.cap_cache[key], float(style.get("x", 0.5)) * W, cy * H)
+        return frame
+
+    def speaker(self, ts, t):
+        """The talking-head frame at source time ts: old captions painted out, faces covered, camera zoom."""
+        W, H = self.W, self.H
+        frame = cover_fit(self.src.at(ts), W, H)
+        if self.burn_band:  # paint out captions that were already in the video
+            analyze.remove_burned_text(frame, self.burn_band, state=self.burn_state)
+        for c in self.covers:
+            pos = analyze.face_at(self.tracks[c["face"]], ts)
+            if pos:
+                _cover(frame, pos, c, W, H)
+        z = timeline.camera_zoom(self.p, self.words, self.segs, t)
+        if z > 1.001:
+            cw, ch = W / z, H / z
+            ax, ay = timeline.focus(self.p)
+            x0 = min(max(0, ax * W - cw * ax), W - cw)
+            y0 = min(max(0, ay * H - ch * ay), H - ch)
+            frame = cv2.resize(frame[int(y0):int(y0 + ch), int(x0):int(x0 + cw)], (W, H), interpolation=cv2.INTER_LINEAR)
         return frame
 
 

@@ -238,7 +238,8 @@ function selTool(mode) {
   return `<div class="seltool"><span>${t}</span>
     <button data-a="fix">✎ Fix text</button><button data-a="hl">${hl ? "Remove highlight" : "★ Highlight"}</button>
     <button data-a="look">✦ Add a look</button><button data-a="media">🖼 Add media</button>
-    <button data-a="broll">🎬 Cut away</button><button data-a="ask">✳ Ask Claude</button><button data-a="clear">✕</button></div>`;
+    <button data-a="broll">🎬 Cut away</button><button data-a="punch">${(p.camera?.punches || []).includes(S.sel.a) ? "Remove punch-in" : "⤢ Punch in"}</button>
+    <button data-a="ask">✳ Ask Claude</button><button data-a="clear">✕</button></div>`;
 }
 
 function bindLines(root) {
@@ -261,6 +262,12 @@ function selAction(a) {
   if (a === "clear") { S.sel = null; return renderPanel(); }
   if (a === "cut" || a === "restore") mutate(p => { for (let i = x; i <= y; i++) { p.words[i].cut = a === "cut"; if (a === "cut") p.words[i].why = "you"; } });
   if (a === "fix") return fixTextModal();
+  if (a === "punch") return mutate(p => {
+    p.camera = p.camera || {};
+    const ps = new Set(p.camera.punches || []);
+    ps.has(x) ? ps.delete(x) : ps.add(x);
+    p.camera.punches = [...ps].sort((m, n) => m - n);
+  });
   if (a === "hl") mutate(p => { const on = !p.words.slice(x, y + 1).some(w => w.hl); for (let i = x; i <= y; i++) p.words[i].hl = on; });
   if (a === "look") addLookModal();
   if (a === "media") addMediaModal("gifs");
@@ -374,6 +381,7 @@ function renderVisuals() {
       <button class="chip" id="addMediaBtn">🖼 Add media</button>
       <button class="chip ${S.faceCard ? "on" : ""}" id="faceBtn">🙂 Cover a face ${p.faces.covers.length ? `(${p.faces.covers.length})` : ""}</button>
       <button class="chip" id="brollBtn">🎬 Cut-away clip</button>
+      <button class="chip ${p.camera?.push_in ? "on" : ""}" id="pushBtn" title="Slow zoom toward you during the hook">⤢ Hook push-in ${p.camera?.push_in ? "on" : "off"}</button>
     </div>`;
   h += selTool("visuals");
   if (S.faceCard) h += faceCardHTML();
@@ -384,7 +392,7 @@ function renderVisuals() {
     h += `<div class="line" data-l="${l.id}"><div class="ln">${String(l.id + 1).padStart(2, "0")}<small>${lineTime(l)}</small></div>
       <div class="words">${wordsHTML(l, "visuals")}</div><div class="ochips">
       ${ovs.map(o => `<button class="ochip ${S.selOv === o.id ? "on" : ""}" data-ov="${o.id}">${ovThumb(o)}<span>${esc(ovName(o))}</span></button>`).join("")}
-      ${bs.map(b => `<button class="ochip" data-br="${b.id}"><span class="thumb">🎬</span><span>${esc(b.src.split("/").pop())}</span></button>`).join("")}
+      ${bs.map(b => `<button class="ochip" data-br="${b.id}"><span class="thumb">${b.layout === "split" ? "◫" : "🎬"}</span><span>${esc(b.src ? b.src.split("/").pop() : "white panel")}${b.layout === "split" ? " (split)" : ""}</span></button>`).join("")}
       </div></div>`;
   }
   h += `</div>`;
@@ -400,6 +408,7 @@ function renderVisuals() {
   $("#addMediaBtn").onclick = () => addMediaModal("gifs");
   $("#brollBtn").onclick = () => addMediaModal("broll");
   $("#faceBtn").onclick = () => { S.faceCard = !S.faceCard; renderPanel(); };
+  $("#pushBtn").onclick = () => mutate(p => { p.camera = p.camera || {}; p.camera.push_in = p.camera.push_in ? 0 : 7; });
   $("#panel").querySelectorAll("[data-ov]").forEach(b => b.onclick = () => overlayEditor(b.dataset.ov));
   $("#panel").querySelectorAll("[data-br]").forEach(b => b.onclick = () => brollEditor(b.dataset.br));
   if (S.faceCard) bindFaceCard();
@@ -420,7 +429,7 @@ function target() {
 
 function addOverlay(ov) {
   const t = target();
-  const full = Object.assign({ id: "o" + Date.now().toString(36), w0: t.w0, w1: t.w1, x: 0.5, y: 0.36, scale: 0.45, anim_in: "pop", anim_out: "fade", min_dur: 1.2 }, ov);
+  const full = Object.assign({ id: "o" + Date.now().toString(36), w0: t.w0, w1: t.w1, x: 0.5, y: 0.36, scale: 0.45, anim_in: "snap", anim_out: "none", min_dur: 1.2 }, ov);
   mutate(p => p.overlays.push(full));
   S.selOv = full.id;
   seekWord(full.w0);
@@ -518,7 +527,7 @@ function addMediaModal(tab) {
     <div class="mtabs">${Object.entries(tabs).map(([k, n]) => `<button class="chip ${k === tab ? "on" : ""}" data-tab2="${k}">${n}</button>`).join("")}</div>
     ${body()}
     ${tab !== "emoji" ? `<div class="row" style="margin-top:12px"><label class="chip">⬆ Upload from computer <input type="file" id="upl" multiple hidden></label></div>` : ""}
-    ${tab !== "broll" ? `<h3>Want it to do something? Tell Claude</h3><div class="row"><select id="ain">${animOpts("pop")}</select><small>in,</small><select id="aout">${animOpts("fade")}</select><small>out</small></div>` : ""}`,
+    ${tab !== "broll" ? `<h3>Want it to do something? Tell Claude</h3><div class="row"><select id="ain">${animOpts("snap")}</select><small>in,</small><select id="aout">${animOpts("none")}</select><small>out</small></div>` : ""}`,
     root => {
       root.querySelectorAll("[data-tab2]").forEach(b => b.onclick = () => { tab = b.dataset.tab2; draw(); });
       const ai = () => root.querySelector("#ain")?.value || "pop", ao = () => root.querySelector("#aout")?.value || "fade";
@@ -536,7 +545,7 @@ function addMediaModal(tab) {
   draw();
 }
 
-const ANIMS = ["none", "pop", "fade", "slide-left", "slide-right", "slide-up", "slide-down", "spin", "zoom"];
+const ANIMS = ["snap", "none", "pop", "fade", "slide-up", "slide-down", "slide-left", "slide-right", "spin", "zoom"];
 const animOpts = cur => ANIMS.map(a => `<option ${a === cur ? "selected" : ""}>${a}</option>`).join("");
 
 async function addBroll(src, t) {
@@ -555,17 +564,19 @@ function brollEditor(id) {
   const b = S.p.broll.find(x => x.id === id);
   const ls = linesOf(S.p);
   const endOpts = S.p.words.map((w, i) => i >= b.w0 && i <= b.w0 + 60 && !w.cut ? `<option value="${i}" ${i === b.w1 ? "selected" : ""}>${esc(w.t)} (${i})</option>` : "").join("");
-  openModal(`<h1>Cut-away clip</h1><div class="muted">${esc(b.src.split("/").pop())}</div>
-    <video id="bprev" src="${media(b.src)}" style="width:200px;border-radius:10px;margin:10px 0" muted></video>
+  const isVid = b.src && !/\.(png|jpe?g|webp|gif)$/i.test(b.src);
+  openModal(`<h1>Cut-away</h1><div class="muted">${esc(b.src ? b.src.split("/").pop() : "Plain panel " + (b.color || "#FFFFFF"))}</div>
+    ${isVid ? `<video id="bprev" src="${media(b.src)}" style="width:200px;border-radius:10px;margin:10px 0" muted></video>` : b.src ? `<img src="${media(b.src)}" style="width:200px;border-radius:10px;margin:10px 0">` : ""}
     <div class="kv"><label>Start in clip</label><div class="row"><input id="bcs" type="range" min="0" max="60" step="0.1" value="${b.clip_start}" style="flex:1"><span id="bcsv">${(+b.clip_start).toFixed(1)}s</span></div>
-    <label>Ends at word</label><select id="bend">${endOpts}</select></div>
+    <label>Ends at word</label><select id="bend">${endOpts}</select>
+    <label>Layout</label><select id="blay"><option value="full" ${b.layout !== "split" ? "selected" : ""}>Full screen</option><option value="split" ${b.layout === "split" ? "selected" : ""}>Split: clip on top, you below</option></select></div>
     <div class="row" style="margin-top:14px"><button id="bdel">Remove</button><span style="flex:1"></span><button class="primary" id="bok">Done</button></div>`,
     root => {
       const pv = root.querySelector("#bprev"), cs = root.querySelector("#bcs");
-      pv.onloadedmetadata = () => { cs.max = Math.max(0, pv.duration - 0.5).toFixed(1); pv.currentTime = b.clip_start; };
-      cs.oninput = () => { pv.currentTime = +cs.value; root.querySelector("#bcsv").textContent = (+cs.value).toFixed(1) + "s"; };
+      if (pv) pv.onloadedmetadata = () => { cs.max = Math.max(0, pv.duration - 0.5).toFixed(1); pv.currentTime = b.clip_start; };
+      cs.oninput = () => { if (pv) pv.currentTime = +cs.value; root.querySelector("#bcsv").textContent = (+cs.value).toFixed(1) + "s"; };
       root.querySelector("#bdel").onclick = () => { mutate(p => p.broll = p.broll.filter(x => x.id !== id)); closeModal(); };
-      root.querySelector("#bok").onclick = () => { mutate(p => { const x = p.broll.find(x => x.id === id); x.clip_start = +cs.value; x.w1 = +root.querySelector("#bend").value; }); closeModal(); seekWord(b.w0); };
+      root.querySelector("#bok").onclick = () => { mutate(p => { const x = p.broll.find(x => x.id === id); x.clip_start = +cs.value; x.w1 = +root.querySelector("#bend").value; x.layout = root.querySelector("#blay").value; }); closeModal(); seekWord(b.w0); };
     });
 }
 
@@ -587,6 +598,8 @@ function overlayEditor(id) {
       <label>Size</label><input id="osc" type="range" min="0.05" max="${ov.kind === "look" ? 2 : 1}" step="0.01" value="${ov.scale ?? 0.45}">
       <label>Animate in</label><select id="oin">${animOpts(ov.anim_in ?? "pop")}</select>
       <label>Animate out</label><select id="oout">${animOpts(ov.anim_out ?? "fade")}</select>
+      <label>Background</label><label class="row"><input type="checkbox" id="odim" ${ov.dim ? "checked" : ""}> dim it so this reads (receipt stacks)</label>
+      <label>Movement</label><label class="row"><input type="checkbox" id="opush" ${ov.push ? "checked" : ""}> slow push-in while it's on screen</label>
       ${paramRows}
     </div>
     <h3>Want something different? Tell Claude</h3>
@@ -602,6 +615,7 @@ function overlayEditor(id) {
         if (root.querySelector("#hdur")) p.hook_duration = +root.querySelector("#hdur").value;
         o.scale = +root.querySelector("#osc").value;
         o.anim_in = root.querySelector("#oin").value; o.anim_out = root.querySelector("#oout").value;
+        o.dim = root.querySelector("#odim").checked ? 0.5 : 0; o.push = root.querySelector("#opush").checked;
         o.note = root.querySelector("#onote").value;
         if (meta) { o.params = o.params || {}; root.querySelectorAll("[data-pk]").forEach(inp => { o.params[inp.dataset.pk] = inp.type === "checkbox" ? inp.checked : inp.dataset.num === "true" ? +inp.value : inp.value; }); }
       }, { render: false });
@@ -992,7 +1006,7 @@ function draw() {
   const t = S.outT;
   $("#ptime").textContent = `${fmt(t)} / ${fmt(S.T)}`;
   $("#clock").textContent = fmt(t); $("#clockOf").textContent = "of " + fmt(S.T);
-  drawBroll(t); drawFaces(); drawOverlays(t); drawCaptions(t); drawPlayhead(); markWord(t);
+  drawBroll(t); drawCamera(t); drawFaces(); drawOverlays(t); drawCaptions(t); drawPlayhead(); markWord(t);
 }
 
 function markWord(t) {
@@ -1009,14 +1023,43 @@ function markWord(t) {
 
 function drawBroll(t) {
   const hit = (S.bspans || []).find(([b, sp]) => sp[0] <= t && t < sp[1]);
-  if (!hit) { if (bv.style.visibility === "visible") { bv.style.visibility = "hidden"; bv.pause(); } S.inBroll = false; return; }
-  const [b, sp] = hit;
-  if (bv.dataset.src !== b.src) { bv.src = media(b.src); bv.dataset.src = b.src; }
-  const want = (b.clip_start || 0) + t - sp[0];
-  if (Math.abs(bv.currentTime - want) > 0.3) bv.currentTime = want;
-  if (S.playing && bv.paused) bv.play().catch(() => {});
-  if (!S.playing && !bv.paused) bv.pause();
-  bv.style.visibility = "visible"; S.inBroll = true;
+  const bimg = $("#bimg"), bpanel = $("#bpanel");
+  if (!hit) {
+    if (bv.style.visibility === "visible") { bv.style.visibility = "hidden"; bv.pause(); }
+    bimg.style.display = bpanel.style.display = "none";
+    S.inBroll = S.inSplit = false; return;
+  }
+  const [b, sp] = hit, split = b.layout === "split";
+  const isImg = b.src && /\.(png|jpe?g|webp|gif)$/i.test(b.src);
+  const box = split ? { top: "0", height: "50%" } : { top: "0", height: "100%" };
+  let el;
+  if (!b.src) { el = bpanel; bpanel.style.background = b.color || "#FFFFFF"; }
+  else if (isImg) { el = bimg; if (bimg.dataset.src !== b.src) { bimg.src = media(b.src); bimg.dataset.src = b.src; } }
+  else {
+    el = bv;
+    if (bv.dataset.src !== b.src) { bv.src = media(b.src); bv.dataset.src = b.src; }
+    const want = (b.clip_start || 0) + t - sp[0];
+    if (Math.abs(bv.currentTime - want) > 0.3) bv.currentTime = want;
+    if (S.playing && bv.paused) bv.play().catch(() => {});
+    if (!S.playing && !bv.paused) bv.pause();
+  }
+  for (const o of [bv, bimg, bpanel]) if (o !== el) { if (o === bv) { o.style.visibility = "hidden"; } else o.style.display = "none"; }
+  if (el === bv) bv.style.visibility = "visible"; else el.style.display = "block";
+  el.style.top = box.top; el.style.height = box.height;
+  S.inBroll = !split; S.inSplit = split;
+}
+
+function drawCamera(t) {
+  // speaker zoom (hook push-in, punch-ins) + split-screen shift; mirrored in engine/render.py speaker()
+  const z = cameraZoom(S.p, S.p.words, S.segs, t), [fx, fy] = focusOf(S.p);
+  const half = Math.floor(H / 2), y0 = Math.min(Math.max(0, fy * H - 0.4 * half), H - (H - half));
+  const shift = S.inSplit ? half - Math.floor(y0) : 0;
+  const tr = `translateY(${shift}px) scale(${z})`, org = `${fx * 100}% ${fy * 100}%`;
+  if (v.style.transform !== tr || v.style.transformOrigin !== org) {
+    v.style.transform = fc.style.transform = tr; v.style.transformOrigin = fc.style.transformOrigin = org;
+  }
+  const dim = Math.max(0, ...S.spans.filter(([ov, [a, b]]) => a <= t && t < b).map(([ov]) => +(ov.dim || 0)));
+  $("#dim").style.opacity = Math.min(0.8, dim);
 }
 
 const imgCache = {};
@@ -1096,7 +1139,7 @@ function drawOverlays(t) {
       w = (ov.scale ?? .45) * W; el.style.width = w + "px"; hgt = el.naturalHeight ? w * el.naturalHeight / el.naturalWidth : w;
     }
     const cx = ((ov.x ?? .5) + st.dx) * W, cy = ((ov.y ?? .5) + st.dy) * H;
-    el.style.transform = `translate(${cx - w / 2}px, ${cy - hgt / 2}px) rotate(${-st.rot}deg) scale(${st.scale})`;
+    el.style.transform = `translate(${cx - w / 2}px, ${cy - hgt / 2}px) rotate(${-st.rot}deg) scale(${st.scale * pushScale(ov, t, a, b)})`;
     el.style.opacity = st.alpha;
     el.classList.toggle("sel", S.selOv === ov.id && S.tab === "visuals");
   }
@@ -1128,7 +1171,7 @@ function drawCaptions(t) {
   for (const i of g.w) { const o = wordOut(S.p.words, S.segs, i); if (o && o[0] <= t) active = i; }
   const st = S.style, tin = t - g.start;
   const popF = st.pop ? Math.min(5, Math.floor(tin * 30)) : 0;
-  const key = `${S.groups.indexOf(g)}:${active}:${popF}:${st.id}`;
+  const key = `${S.groups.indexOf(g)}:${active}:${popF}:${st.id}:${S.inSplit ? 1 : 0}`;
   if (key === S.lastCapKey) return;
   S.lastCapKey = key;
   const { lines, space } = captionLayout(S.p.words, g.w, st, W);
@@ -1140,7 +1183,8 @@ function drawCaptions(t) {
       items.map((it, k) => wordSpan(S.p.words[it.i], it.i === active, st, it.text).replace('class="cw" style="', `class="cw" style="margin-right:${k < items.length - 1 ? space : 0}px;`)).join("") + `</div>`;
   }
   const sc = st.pop && tin < 0.15 ? 0.75 + 0.25 * easeOutBack(tin / 0.15) : 1;
-  root.innerHTML = `<div class="cg" style="top:${(st.y ?? .7) * H}px;transform:translateY(-50%) scale(${sc})">${h}</div>`;
+  const cy = S.inSplit ? 0.5 : (st.y ?? .7);  // split screen: caption sits on the seam
+  root.innerHTML = `<div class="cg" style="left:${(st.x ?? .5) * W}px;top:${cy * H}px;transform:translate(-50%,-50%) scale(${sc})">${h}</div>`;
 }
 const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24) & 255},${(n >>> 16) & 255},${(n >>> 8) & 255},${((n & 255) / 255).toFixed(2)})`; };
 

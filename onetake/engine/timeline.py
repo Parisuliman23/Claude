@@ -134,3 +134,26 @@ def overlay_span(project, words, segs, ov):
     if ov.get("min_dur") and e - s < ov["min_dur"]:
         e = s + ov["min_dur"]
     return (s, e)
+
+
+CAM_ANCHOR = (0.5, 0.38)  # zoom toward the eyes (upper third) unless the project knows where the face is
+
+
+def focus(p):
+    return tuple(p.get("focus") or CAM_ANCHOR)
+
+
+def camera_zoom(p, words, segs, t):
+    """Digital zoom of the speaker at output time t. Mirrored in app/timeline.js.
+    camera = {"push_in": seconds of slow push at the start (0 = off), "push_amount": 0.08,
+              "punches": [word indexes where a thought changes], "punch_scale": 1.12}"""
+    cam = p.get("camera") or {}
+    starts = sorted(s for s in (word_out(words, segs, i) for i in cam.get("punches", [])) if s)
+    starts = [s[0] for s in starts]
+    passed = sum(1 for s in starts if s <= t)
+    z = cam.get("punch_scale", 1.12) if passed % 2 else 1.0
+    push = float(cam.get("push_in", 0) or 0)
+    if push > 0 and (not starts or t < starts[0]):
+        k = min(1.0, t / push)
+        z *= 1.0 + cam.get("push_amount", 0.08) * (1 - (1 - k) ** 2)
+    return z

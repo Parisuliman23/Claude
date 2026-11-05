@@ -116,6 +116,21 @@ when the result is ready. If a request says *waiting*, tell Claude in your termi
 
 (or `/studio-requests`).
 
+## Your editing style (built in)
+
+One Take edits in the style captured from 10 reference reels (`lookbook/STYLE.md`, with the full analysis
+in `lookbook/style/`): every noun, number and claim gets a visual ON the word it's spoken, text paraphrases
+instead of transcribing, and the edit gets out of the way when the moment is personal.
+
+- **Three looks**: warm creator (handwriting + heavy caps, tiny one-word captions beside the face or on the
+  chest), editorial serif, and cinematic finance (split screens, receipts, counters, captions on a pill).
+- **Graphics for every beat**: typed headlines, handwritten notes with drawn arrows, "KEYWORD =" definition
+  cards, running checklists, chapter headers, receipt cards with a highlighter sweep, counters, IF→THEN rule
+  cards, name/logo badges, emoji rows, a red ✗, and a "comment KEYWORD" CTA.
+- **Motion**: snap pops and hard cuts (no slow fades), typewriter text, slow push-in on screenshots,
+  a camera push-in through the hook, and punch-ins at each thought change (Visuals → select a word → ⤢ Punch in).
+- **Split screen**: a clip, photo or white panel on top, you below, captions on the seam.
+
 ## Teach it your style
 
 - `lookbook/STYLE.md`: write your brand colors, fonts, the kind of hooks you like, and things you never want.
