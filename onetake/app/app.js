@@ -117,7 +117,7 @@ function recompute() {
   S.spans = p.overlays.map(ov => [ov, overlaySpan(p, p.words, S.segs, ov)]).filter(x => x[1]);
   S.bspans = p.broll.map(b => [b, rangeOut(p.words, S.segs, b.w0, b.w1)]).filter(x => x[1]);
   S.outT = Math.min(S.outT, S.T);
-  S.lastCapKey = null;
+  S.lastCapKey = null; S._fxt = null;
   drawTimeline();
 }
 
@@ -432,6 +432,8 @@ function addOverlay(ov) {
   const full = Object.assign({ id: "o" + Date.now().toString(36), w0: t.w0, w1: t.w1, x: 0.5, y: 0.36, scale: 0.45, anim_in: "snap", anim_out: "none", min_dur: 1.2 }, ov);
   mutate(p => p.overlays.push(full));
   S.selOv = full.id;
+  if (S.p.sfx_on !== false && (S.p.sfx || []).length)  // give the new look its sound too
+    save().then(() => api(`/api/project/${S.name}/sfx-auto`, { replace: false })).then(reload).catch(() => {});
   seekWord(full.w0);
   closeModal();
   toast("Added. Tap it to adjust timing, position or animation.");
@@ -742,14 +744,46 @@ function bindFaceCard() {
 // ---------- SOUND
 function renderSound() {
   const p = S.p, snds = S.library.sounds, cur = p.sound.src;
-  let h = `<div class="intro"><h1>Your sound</h1><div class="muted">Pick background music. Use the built-in tracks, sounds you've downloaded, or tracks from your music subscription — drop them in <b>library/sounds</b> or upload here. Everything is swappable.</div></div>
+  p.sfx ||= [];
+  const fxLib = S.library.sfx || [];
+  const fxName = src => (fxLib.find(x => x.path === src) || {}).name || (src || "").split("/").pop();
+  const ls = linesOf(p).filter(l => !l.cut);
+  const lineFor = fx => { const w = sfxLine(fx); if (w == null) return null; return ls.find(l => l.w0 <= w && w <= l.w1) || ls.find(l => l.w0 >= w) || ls[ls.length - 1]; };
+  const byLine = new Map();
+  for (const fx of p.sfx) { const l = lineFor(fx); if (!l) continue; if (!byLine.has(l.id)) byLine.set(l.id, []); byLine.get(l.id).push(fx); }
+  const fxTime = fx => { const t = sfxTimes().get(fx.id); return t == null ? "" : fmt(t) + "." + String(Math.floor((t % 1) * 10)); };
+  let h = `<div class="intro"><h1>Your sound</h1><div class="muted">Every moment that moves has a sound, timed to its motion. Play one, nudge it, or swap it. Then pick the music bed underneath.</div></div>
+    <div class="card"><div class="row"><b style="flex:1">Sound FX</b>
+      <label class="row"><input type="checkbox" id="fxOn" ${p.sfx_on === false ? "" : "checked"}> on</label></div>
+      <div class="row" style="margin-top:8px"><small>Effects volume</small><input type="range" id="fxVol" min="0" max="1.2" step="0.05" value="${p.sfx_volume ?? 0.6}" style="flex:1">
+      <button id="fxAuto">✳ ${p.sfx.length ? "Redo sounds for every look" : "Add sounds for every look"}</button></div>
+      ${p.sfx.length ? "" : `<div class="muted" style="margin-top:6px">No sound effects yet. Tap the button and every card, sticker, cut-away and punch-in gets a matching sound.</div>`}</div>
+    <div class="lines">`;
+  for (const l of ls) {
+    const fxs = (byLine.get(l.id) || []).slice().sort((a, b) => (sfxTimes().get(a.id) ?? 0) - (sfxTimes().get(b.id) ?? 0));
+    h += `<div class="line" data-l="${l.id}"><div class="ln">${String(l.id + 1).padStart(2, "0")}<small>${lineTime(l)}</small></div>
+      <div><div class="words">${wordsHTML(l, "visuals")}</div>
+      ${fxs.map(fx => `<div class="fxrow ${fx.muted ? "muted-fx" : ""}" data-fx="${fx.id}">
+        <small class="fxt">${fxTime(fx)}</small><span class="fxn">${esc(fxName(fx.src))}</span><small class="muted">${fx.auto ? "Matched to the motion" : "Added by you"}</small>
+        <span style="flex:1"></span>
+        <button data-fxa="play" title="Play">▶</button><button data-fxa="swap">⇄ Swap</button>
+        <button data-fxa="earlier" title="0.1 s earlier">‹</button><button data-fxa="later" title="0.1 s later">›</button>
+        <button data-fxa="mute" title="${fx.muted ? "Unmute" : "Mute"}" class="${fx.muted ? "on" : ""}">${fx.muted ? "🔇" : "🔈"}</button>
+        <button data-fxa="del" title="Delete">🗑</button></div>`).join("")}
+      <div class="row" style="margin-top:4px"><button class="ghost" data-fxadd="${l.w0}">＋ Add a sound</button><button class="ghost" data-fxnote="${l.id}">✳ Note for Claude</button></div></div><div></div></div>`;
+  }
+  h += `</div>
+    <div class="intro" style="margin-top:22px"><h1 style="font-size:20px">Music bed</h1><div class="muted">Built-in tracks, sounds you've downloaded, or tracks from your music subscription. Drop them in <b>library/sounds</b> or upload here.</div></div>
     <div class="card kv"><label>Volume</label><input type="range" id="vol" min="0" max="0.6" step="0.01" value="${p.sound.volume ?? .12}">
     <label>Start the song at</label><div class="row"><input type="number" id="off" min="0" step="0.5" value="${p.sound.offset || 0}" style="width:80px"><small>seconds into the track</small></div></div>
     <div class="lines"><div class="sound ${!cur ? "on" : ""}"><span>🔇</span><b>No music</b><button data-use="">${!cur ? "Using" : "Use"}</button></div>
     ${snds.map(s => `<div class="sound ${s.path === cur ? "on" : ""}"><button data-play="${esc(s.path)}">▶</button><b>${esc(s.name)}</b><button data-use="${esc(s.path)}">${s.path === cur ? "Using" : "Swap to this"}</button></div>`).join("")}</div>
-    <div class="row" style="margin-top:12px"><label class="chip">⬆ Upload a sound <input type="file" id="supl" accept="audio/*" multiple hidden></label></div>`;
+    <div class="row" style="margin-top:12px"><label class="chip">⬆ Upload music <input type="file" id="supl" accept="audio/*" multiple hidden></label>
+      <label class="chip">⬆ Upload a sound effect <input type="file" id="fxupl" accept="audio/*" multiple hidden></label></div>`;
   $("#panel").innerHTML = h;
+  bindLines($("#panel"));
   const pa = S.prevAudio || (S.prevAudio = new Audio());
+  const playSrc = src => { pa.pause(); pa.src = media(src); pa.currentTime = 0; pa.play().catch(() => {}); };
   $("#panel").querySelectorAll("[data-play]").forEach(b => b.onclick = () => {
     if (pa.dataset.src === b.dataset.play && !pa.paused) { pa.pause(); b.textContent = "▶"; return; }
     pa.src = media(b.dataset.play); pa.dataset.src = b.dataset.play; pa.play(); b.textContent = "❚❚";
@@ -758,11 +792,100 @@ function renderSound() {
   $("#vol").oninput = e => { S.p.sound.volume = +e.target.value; music.volume = Math.min(1, S.p.sound.volume * 2.5); };
   $("#vol").onchange = e => mutate(p => p.sound.volume = +e.target.value, { render: false });
   $("#off").onchange = e => mutate(p => p.sound.offset = +e.target.value, { render: false });
-  $("#supl").onchange = async e => {
-    for (const f of e.target.files) await fetch(`/api/upload?kind=sounds&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+  $("#fxOn").onchange = e => mutate(p => p.sfx_on = e.target.checked);
+  $("#fxVol").onchange = e => mutate(p => p.sfx_volume = +e.target.value, { render: false });
+  $("#fxAuto").onclick = async () => {
+    if (S.dirty) await save();
+    const r = await api(`/api/project/${S.name}/sfx-auto`, { replace: true });
+    await reload(); toast(`${r.sfx.length} sounds placed, each timed to its motion.`);
+  };
+  const upl = async (inp, kind) => {
+    for (const f of inp.files) await fetch(`/api/upload?kind=${kind}&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
     S.library = await api("/api/library"); renderPanel();
   };
+  $("#supl").onchange = e => upl(e.target, "sounds");
+  $("#fxupl").onchange = e => upl(e.target, "sfx");
+  $("#panel").querySelectorAll(".fxrow").forEach(row => {
+    const id = row.dataset.fx;
+    row.querySelectorAll("[data-fxa]").forEach(btn => btn.onclick = () => {
+      const a = btn.dataset.fxa, fx = S.p.sfx.find(x => x.id === id);
+      if (a === "play") return playSrc(fx.src);
+      if (a === "swap") return sfxPicker(src => mutate(p => { const x = p.sfx.find(x => x.id === id); x.src = src; x.auto = false; }), fx.src);
+      mutate(p => {
+        const x = p.sfx.find(x => x.id === id);
+        if (a === "earlier") { x.offset = +((x.offset || 0) - 0.1).toFixed(2); x.auto = false; }
+        if (a === "later") { x.offset = +((x.offset || 0) + 0.1).toFixed(2); x.auto = false; }
+        if (a === "mute") x.muted = !x.muted;
+        if (a === "del") p.sfx = p.sfx.filter(y => y.id !== id);
+      });
+    });
+  });
+  $("#panel").querySelectorAll("[data-fxadd]").forEach(b => b.onclick = () => {
+    const w = +b.dataset.fxadd;
+    const at = S.curWord >= 0 && linesOf(S.p).find(l => l.w0 === w && l.w0 <= S.curWord && S.curWord <= l.w1) ? S.curWord : w;
+    sfxPicker(src => mutate(p => p.sfx.push({ id: "s" + Date.now().toString(36), src, anchor: { w: at }, offset: 0, volume: 0.45, muted: false, auto: false })));
+  });
+  $("#panel").querySelectorAll("[data-fxnote]").forEach(b => b.onclick = () => {
+    const l = linesOf(S.p).find(l => l.id === +b.dataset.fxnote);
+    S.sel = { a: l.w0, b: l.w1 }; askClaudeModal("e.g. add a whoosh when I say “one-on-one”, or make the pop softer");
+  });
 }
+
+function sfxLine(fx) {
+  const a = fx.anchor || {};
+  if (a.ov) { const o = S.p.overlays.find(o => o.id === a.ov); return o ? (o.role === "hook" ? 0 : o.w0) : null; }
+  if (a.broll) { const b = S.p.broll.find(b => b.id === a.broll); return b ? b.w0 : null; }
+  return a.w ?? null;
+}
+function sfxTimes() {  // mirror of engine/sfx.py times()
+  if (S._fxt && S._fxtRev === S.segs) return S._fxt;
+  const m = new Map(), p = S.p;
+  for (const fx of p.sfx || []) {
+    const a = fx.anchor || {}; let t = null;
+    if (a.ov) { const hit = S.spans.find(([o]) => o.id === a.ov); t = hit ? hit[1][0] : null; }
+    else if (a.broll) { const hit = (S.bspans || []).find(([b]) => b.id === a.broll); t = hit ? hit[1][0] : null; }
+    else if (a.w != null) { const o = wordOut(p.words, S.segs, a.w); t = o ? o[0] : null; }
+    if (t != null) m.set(fx.id, Math.max(0, t + (+fx.offset || 0)));
+  }
+  S._fxt = m; S._fxtRev = S.segs; return m;
+}
+function sfxPicker(onPick, current) {
+  const all = S.library.sfx || [];
+  const pa = S.prevAudio || (S.prevAudio = new Audio());
+  const draw = q => {
+    const list = all.filter(x => !q || (x.name + " " + x.tags).toLowerCase().includes(q.toLowerCase()));
+    return list.map((x, k) => `<div class="sound ${x.path === current ? "on" : ""}"><button data-p="${k}">▶</button>
+      <div><b>${esc(x.name)}</b><br><small class="muted">${esc(x.source)} · ${x.dur}s</small></div><button data-u="${k}">${x.path === current ? "Using" : "Use"}</button></div>`).join("") || `<div class="muted" style="padding:12px">No sounds match.</div>`;
+  };
+  openModal(`<h1>Find a sound</h1><input id="fxq" placeholder="Search: whoosh, pop, click, money…" style="width:100%;margin:8px 0">
+    <div class="lines" id="fxlist">${draw("")}</div>
+    <div class="muted" style="margin-top:10px;font-size:12px">Add your own effects (or ones from your sound subscription) to <b>library/sfx</b>; they show up first.</div>`, root => {
+    const bind = list => {
+      const items = all.filter(x => !root.querySelector("#fxq").value || (x.name + " " + x.tags).toLowerCase().includes(root.querySelector("#fxq").value.toLowerCase()));
+      root.querySelectorAll("[data-p]").forEach(b => b.onclick = () => { pa.pause(); pa.src = media(items[+b.dataset.p].path); pa.play().catch(() => {}); });
+      root.querySelectorAll("[data-u]").forEach(b => b.onclick = () => { pa.pause(); onPick(items[+b.dataset.u].path); closeModal(); });
+    };
+    root.querySelector("#fxq").oninput = e => { root.querySelector("#fxlist").innerHTML = draw(e.target.value); bind(); };
+    bind();
+    root.querySelector("#fxq").focus();
+  });
+}
+
+// live preview: fire each sound effect as the playhead passes it
+const fxPool = {};
+function playSfxBetween(t0, t1) {
+  if (S.p.sfx_on === false || !(S.p.sfx || []).length || t1 <= t0 || t1 - t0 > 0.5) return;
+  const vol = +(S.p.sfx_volume ?? 0.6);
+  for (const fx of S.p.sfx) {
+    if (fx.muted) continue;
+    const t = sfxTimes().get(fx.id);
+    if (t == null || t < t0 || t >= t1) continue;
+    const a = new Audio(media(fx.src));
+    a.volume = Math.max(0, Math.min(1, (+fx.volume || 0.4) * vol * 1.6));
+    a.play().catch(() => {});
+  }
+}
+
 function updateMusic() {
   const src = S.p.sound.src;
   if (!src) { music.removeAttribute("src"); music.load(); return; }
@@ -852,10 +975,10 @@ async function sendRequest(req, msg) {
   poll();
 }
 
-function askClaudeModal() {
+function askClaudeModal(hint) {
   const t = target();
   openModal(`<h1>Ask Claude</h1><div class="muted">About: “${esc(t.text)}”</div>
-    <textarea id="askT" placeholder="e.g. zoom in a bit on this line, or add a subtle flash when I say “insane”"></textarea>
+    <textarea id="askT" placeholder="${esc(hint || "e.g. zoom in a bit on this line, or add a subtle flash when I say “insane”")}"></textarea>
     <div class="row" style="margin-top:8px">${micBtn("askT")}<span style="flex:1"></span><button class="primary" id="askSend">✳ Send to Claude</button></div>`, root => {
     bindMic(root);
     root.querySelector("#askSend").onclick = () => sendRequest({ kind: "edit", text: root.querySelector("#askT").value, w0: t.w0, w1: t.w1, words: t.text });
@@ -1037,7 +1160,9 @@ function tick() {
       else { pause(); S.outT = S.T; }
     }
     S.curSeg = sg;
+    const before = S.outT;
     if (S.playing && sg) S.outT = sg.o + Math.max(0, Math.min(sg.e, v.currentTime) - sg.s);
+    if (S.playing) playSfxBetween(before, S.outT);
     syncMusic(false);
   }
   draw();
@@ -1253,6 +1378,7 @@ function drawTimeline() {
     c.fillText(S.p.words.slice(sg.w0, sg.w1 + 1).map(w => w.t).join(" "), x + 5, 39); c.restore();
   });
   for (const [ov, [a, b]] of S.spans) { c.fillStyle = accent; c.globalAlpha = .8; c.beginPath(); c.roundRect(x0 + a * k, 56, Math.max(3, (b - a) * k), 7, 3); c.fill(); }
+  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(x0 + t * k, 16, 2.5, 0, 7); c.fill(); }
   for (const [bb, [a, b]] of S.bspans || []) { c.fillStyle = "#1F9D6B"; c.beginPath(); c.roundRect(x0 + a * k, 65, Math.max(3, (b - a) * k), 7, 3); c.fill(); }
   c.globalAlpha = 1;
   if (S.drag) { c.fillStyle = "#FFE14D"; c.fillRect(S.drag.x - 1, 16, 3, 40); }

@@ -113,6 +113,7 @@ def new(name=None, clips=None, log=print, move=True):
         "faces": {"detected": [], "covers": []},
         "camera": {"push_in": 7, "push_amount": 0.08, "punches": [], "punch_scale": 1.12},
         "sound": {"src": None, "volume": s["music_volume"], "offset": 0},
+        "sfx": [], "sfx_on": True, "sfx_volume": 0.6,
         "hook_duration": 5.0,
         "frames": [],
         "exports": {},
