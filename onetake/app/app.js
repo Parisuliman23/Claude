@@ -233,10 +233,10 @@ function selTool(mode) {
   const t = `“${esc(selText())}”`;
   if (mode === "cut") return `<div class="seltool"><span>${t}</span>
     ${cut ? `<button data-a="restore">↺ Bring back</button>` : `<button data-a="cut">✂ Cut</button>`}
-    <button data-a="clear">✕</button></div>`;
+    <button data-a="fix">✎ Fix text</button><button data-a="clear">✕</button></div>`;
   const hl = p.words.slice(S.sel.a, S.sel.b + 1).some(w => w.hl);
   return `<div class="seltool"><span>${t}</span>
-    <button data-a="hl">${hl ? "Remove highlight" : "★ Highlight"}</button>
+    <button data-a="fix">✎ Fix text</button><button data-a="hl">${hl ? "Remove highlight" : "★ Highlight"}</button>
     <button data-a="look">✦ Add a look</button><button data-a="media">🖼 Add media</button>
     <button data-a="broll">🎬 Cut away</button><button data-a="ask">✳ Ask Claude</button><button data-a="clear">✕</button></div>`;
 }
@@ -244,10 +244,14 @@ function selTool(mode) {
 function bindLines(root) {
   root.querySelectorAll(".w").forEach(el => el.onclick = e => {
     const i = +el.dataset.i;
+    // the list re-renders on every click, so spot a double-click ourselves
+    const dbl = S.lastClick && S.lastClick.i === i && performance.now() - S.lastClick.t < 450;
+    S.lastClick = { i, t: performance.now() };
     if (e.shiftKey && S.sel) S.sel = { a: Math.min(S.sel.a, i), b: Math.max(S.sel.b, i) };
     else S.sel = { a: i, b: i };
     seekWord(i);
     renderPanel();
+    if (dbl && !e.shiftKey) fixTextModal();
   });
   root.querySelectorAll(".seltool button").forEach(b => b.onclick = () => selAction(b.dataset.a));
 }
@@ -256,11 +260,50 @@ function selAction(a) {
   const { a: x, b: y } = S.sel || {};
   if (a === "clear") { S.sel = null; return renderPanel(); }
   if (a === "cut" || a === "restore") mutate(p => { for (let i = x; i <= y; i++) { p.words[i].cut = a === "cut"; if (a === "cut") p.words[i].why = "you"; } });
+  if (a === "fix") return fixTextModal();
   if (a === "hl") mutate(p => { const on = !p.words.slice(x, y + 1).some(w => w.hl); for (let i = x; i <= y; i++) p.words[i].hl = on; });
   if (a === "look") addLookModal();
   if (a === "media") addMediaModal("gifs");
   if (a === "broll") addMediaModal("broll");
   if (a === "ask") askClaudeModal();
+}
+
+// ---------- fixing words the transcript got wrong
+function replaceWords(p, a, b, text) {
+  // Replace words a..b with the words in `text`, sharing out their timing, and keep every
+  // overlay/cut-away anchored to the right words.
+  const olds = p.words.slice(a, b + 1);
+  const parts = text.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return;
+  const s0 = olds[0].s, e0 = olds[olds.length - 1].e, step = (e0 - s0) / parts.length;
+  const fresh = parts.map((t, k) => ({
+    t, s: +(s0 + k * step).toFixed(3), e: +(s0 + (k + 1) * step).toFixed(3), l: olds[0].l,
+    ...(olds.every(w => w.cut) ? { cut: true, why: olds[0].why } : {}),
+    ...(olds.some(w => w.hl) ? { hl: true } : {}),
+  }));
+  p.words.splice(a, b - a + 1, ...fresh);
+  const d = fresh.length - olds.length, last = a + fresh.length - 1;
+  const shift = i => i > b ? i + d : Math.min(i, last);
+  for (const o of [...p.overlays, ...p.broll, ...(p.requests || [])]) {
+    if (o.w0 != null) o.w0 = shift(o.w0);
+    if (o.w1 != null) o.w1 = shift(o.w1);
+  }
+  S.sel = { a, b: last };
+}
+
+function fixTextModal() {
+  if (!S.sel) return;
+  const { a, b } = S.sel;
+  openModal(`<h1>Fix the text</h1><div class="muted">Type what you actually said. This changes the captions; the video stays the same.</div>
+    <input id="fixT" style="width:100%;font-size:18px;margin-top:12px" value="${esc(selText())}">
+    <div class="row" style="margin-top:12px"><span style="flex:1"></span><button id="fixCancel">Cancel</button><button class="primary" id="fixOk">Save</button></div>`, root => {
+    const inp = root.querySelector("#fixT");
+    inp.focus(); inp.select();
+    const ok = () => { const v = inp.value.trim(); if (v && v !== selText()) mutate(p => replaceWords(p, a, b, v)); closeModal(); };
+    root.querySelector("#fixOk").onclick = ok;
+    root.querySelector("#fixCancel").onclick = closeModal;
+    inp.onkeydown = e => { if (e.key === "Enter") ok(); };
+  });
 }
 
 // ---------- CUT
@@ -270,6 +313,7 @@ function renderCut() {
   const ec = (p.engine_cuts || []);
   let h = `<div class="intro"><h1>Your cut</h1>
     <div class="muted">Tap a word to jump there. Select words (shift-click to extend) to cut them, and tap a struck word to bring it back.
+    Double-click a word to fix a typo in the captions.
     Trim on the timeline below like CapCut: drag a clip's edge, cut before/after the playhead, and zoom in for precision.</div>
     <small>${changes ? changes + " word(s) changed by you" : "No changes yet"} · ${fmt(S.T)} long (from ${fmt(p.duration)})</small></div>`;
   h += selTool("cut");

@@ -7,6 +7,7 @@
   cut NAME A-B              cut words A..B          restore NAME A-B   bring them back
   cut-line NAME L           cut line L              restore-line NAME L
   highlight NAME A-B [--off]
+  retext NAME A-B "new words"   fix words the transcript got wrong (captions only)
   set NAME KEY --json VALUE  set a top-level field (caption_style, sound, carousel, trials, story, hook_duration…)
   overlay NAME ID --json {…} change an overlay (merge)    add-overlay NAME --json {…}   remove-overlay NAME ID
   remove-captions NAME [--off]  find captions burned into the video and paint them out (or keep them)
@@ -136,6 +137,10 @@ def main(argv=None):
     if c in ("cut-line", "restore-line"):
         x, y = line_range(args[0], int(args[1]))
         set_cut(args[0], x, y, c == "cut-line")
+        return show(args[0])
+    if c == "retext":
+        x, y = _rng(args[1])
+        project.update(args[0], lambda p: project.replace_words(p, x, y, " ".join(args[2:])))
         return show(args[0])
     if c == "highlight":
         x, y = _rng(args[1])

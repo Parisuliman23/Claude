@@ -39,6 +39,9 @@ Run `python3 -m engine` with no arguments for the full list.
    - The first 1–3 seconds must be the hook — cut any warm-up before it.
    - Never change the meaning or cut the punchline. When unsure, keep it; the user can cut in the studio.
    - Commands: `cut NAME A-B`, `restore NAME A-B` (word indexes), `cut-line NAME L`, `restore-line NAME L`.
+   - Fix words the transcript misheard (they become the captions): `retext NAME A-B "friend"`. Watch for
+     names, brands, money amounts and odd words that don't fit the sentence. The user can also
+     double-click a word in the studio to fix it.
 4. **First styling pass** — follow `lookbook/STYLE.md`:
    - Caption style: `set NAME caption_style --json '"bold-pop"'` (ids in `lookbook/captions.json`).
    - **Captions already in the video** (e.g. a CapCut export): the user wants *ours*, not theirs. The import
