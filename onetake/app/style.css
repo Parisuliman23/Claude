@@ -193,3 +193,10 @@ small { color: var(--ink2); }
 .fxrow .fxt { font-variant-numeric: tabular-nums; color: var(--accent); min-width: 34px; }
 .fxrow .fxn { font-family: "Montserrat_700Bold"; }
 .fxrow.muted-fx { opacity: .5; }
+
+.grid.frames { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+.tile .sprbox.frame { height: auto; aspect-ratio: 9 / 16; background-size: cover; background-position: center; position: relative; background-color: #26252e; }
+.sprbox.frame .spr { position: absolute; background-repeat: no-repeat; }
+.sprbox.frame .capline { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
+.tile.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.sprbox.frame .capline .cw { paint-order: stroke fill; }
