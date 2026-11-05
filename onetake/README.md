@@ -92,7 +92,9 @@ bash install-launcher.sh
 ```
 
 Two apps appear in your launcher (on a Chromebook, in the **Linux apps** folder; right-click to pin to the shelf):
-- **One Take – New reel**: starts Claude and asks it to edit what's in `drop-in-order`.
+- **One Take – New reel**: Claude edits what's in `drop-in-order` in the background, and the studio opens in
+  your browser showing progress until the reel is ready. (To watch Claude work and chat with it, run
+  `./new-reel.sh` from a Terminal instead.)
 - **One Take Studio**: opens the studio in your browser.
 
 ## Every reel
