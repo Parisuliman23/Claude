@@ -20,7 +20,8 @@
   faces NAME                find faces (for Cover a face)
   still NAME SECONDS        render one frame to check a look (projects/NAME/cache/still.png)
   render NAME               lock in: render projects/NAME/exports/reel.mp4
-  export NAME carousel|story|trials|capcut
+  export NAME carousel|story|trials|capcut|storyboard
+  edge-check NAME [--fix]   find looks hidden by Instagram's buttons/text or off the frame (--fix moves them)
   requests [NAME]           list studio requests waiting for Claude
   request-done NAME ID --note "..." [--options a,b,c] [--failed]
   look-preview LOOK [--params JSON] [--out file.png]
@@ -116,6 +117,7 @@ def main(argv=None):
     ap.add_argument("--json", default=None)
     ap.add_argument("--n", type=int, default=5)
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--fix", action="store_true")
     ap.add_argument("--out", default=None)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--keep-drop", action="store_true", help="don't empty drop-in-order/ after importing")
@@ -216,6 +218,15 @@ def main(argv=None):
         p = project.update(args[0], lambda q: (sfx.auto(q, replace=not a.keep), q.update({"edit_rev": q.get("edit_rev", 0) + 1})))
         print(f"{len(p['sfx'])} sound effects placed.")
         return
+    if c == "edge-check":
+        from . import finish
+        if a.fix:
+            p = project.update(args[0], lambda q: (finish.fix_edges(q), q.update({"edit_rev": q.get("edit_rev", 0) + 1})))
+        flags = finish.edge_check(project.load(args[0]))
+        for f in flags:
+            print(f"  {f['id']} {f['name']} at {f['at']}s: {f['issue']}")
+        print("All looks are in the safe area." if not flags else f"{len(flags)} look(s) may be partly hidden.")
+        return
     if c == "add-broll":
         b = json.loads(a.json)
         b.setdefault("id", project.new_id("b"))
@@ -271,7 +282,12 @@ def main(argv=None):
         from . import render
         edit_rev = project.load(args[0]).get("edit_rev", 0)
         out = render.render(args[0], progress=lambda x: print(f"\r  rendering {x * 100:.0f}%", end="", flush=True))
-        project.update(args[0], lambda q: q.update({"render": {"status": "done", "file": config.rel(out), "edit_rev": edit_rev}}))
+        from . import finish
+        phone = finish.phone_copy(out, out.with_name("reel_phone.mp4"))
+        cov = finish.cover(args[0])
+        project.update(args[0], lambda q: (q.update({"render": {"status": "done", "file": config.rel(out), "edit_rev": edit_rev,
+                                                                "phone": config.rel(phone)}}),
+                                           q.setdefault("exports", {}).update({"cover": cov} if cov else {})))
         print(f"\nSaved {out}")
         return
     if c == "export":
@@ -280,7 +296,8 @@ def main(argv=None):
         prog = lambda x: print(f"\r  {kind} {x * 100:.0f}%", end="", flush=True)
         res = {"carousel": lambda: finish.carousel(args[0]), "story": lambda: finish.story(args[0]),
                "trials": lambda: finish.trials(args[0], progress=prog),
-               "capcut": lambda: finish.capcut(args[0], progress=prog)}[kind]()
+               "capcut": lambda: finish.capcut(args[0], progress=prog),
+               "storyboard": lambda: finish.storyboard(args[0], progress=prog)}[kind]()
         print("\n" + json.dumps(res, indent=1))
         return
     if c == "requests":

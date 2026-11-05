@@ -84,10 +84,14 @@ def render_full(name):
     def fn(prog):
         p = project.load(name)
         edit_rev = p.get("edit_rev", 0)
-        out = render.render(name, project.pdir(name) / "exports" / "reel.mp4", progress=prog, p=p)
+        out = render.render(name, project.pdir(name) / "exports" / "reel.mp4", progress=lambda x: prog(x * 0.96), p=p)
+        phone = finish.phone_copy(out, out.with_name("reel_phone.mp4"))
+        cov = finish.cover(name)
 
         def mark(q):
-            q["render"] = {"status": "done", "file": config.rel(out), "edit_rev": edit_rev}
+            q["render"] = {"status": "done", "file": config.rel(out), "edit_rev": edit_rev, "phone": config.rel(phone)}
+            if cov:
+                q.setdefault("exports", {})["cover"] = cov
         project.update(name, mark)
         return config.rel(out)
     return fn
@@ -281,8 +285,19 @@ class Handler(BaseHTTPRequestHandler):
             kind = b["kind"]
             fns = {"carousel": lambda prog: finish.carousel(name), "story": lambda prog: finish.story(name),
                    "trials": lambda prog: finish.trials(name, progress=prog),
-                   "capcut": lambda prog: finish.capcut(name, progress=prog)}
+                   "capcut": lambda prog: finish.capcut(name, progress=prog),
+                   "storyboard": lambda prog: finish.storyboard(name, progress=prog)}
             return self.send_json(run_job(name, kind, fns[kind]))
+        if action == "edge-check":
+            return self.send_json({"flags": finish.edge_check(project.load(name))})
+        if action == "edge-fix":
+            moved = {}
+
+            def fx(q):
+                moved["n"] = finish.fix_edges(q)
+                q["edit_rev"] = q.get("edit_rev", 0) + 1
+            project.update(name, fx)
+            return self.send_json({"moved": moved["n"], "flags": finish.edge_check(project.load(name))})
         if action == "request":
             return self.send_json(bridge.submit(name, b))
         if action == "save-look":
