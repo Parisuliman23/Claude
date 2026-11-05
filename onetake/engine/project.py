@@ -113,3 +113,29 @@ def save_look(entry):
     looks = [l for l in looks if l.get("id") != entry.get("id")]
     looks.append(entry)
     (config.LOOKBOOK / "saved.json").write_text(json.dumps(looks, indent=1))
+
+
+def replace_words(p, a, b, text):
+    """Fix words a..b of the transcript (e.g. "fan" -> "friend"). Timing is shared out over the
+    new words, and overlays/cut-aways stay attached to the right words. Mirrored in app.js."""
+    olds = p["words"][a:b + 1]
+    parts = text.split()
+    if not parts or not olds:
+        return
+    s0, e0 = olds[0]["s"], olds[-1]["e"]
+    step = (e0 - s0) / len(parts)
+    fresh = []
+    for k, t in enumerate(parts):
+        w = {"t": t, "s": round(s0 + k * step, 3), "e": round(s0 + (k + 1) * step, 3), "l": olds[0]["l"]}
+        if all(o.get("cut") for o in olds):
+            w.update(cut=True, why=olds[0].get("why"))
+        if any(o.get("hl") for o in olds):
+            w["hl"] = True
+        fresh.append(w)
+    p["words"][a:b + 1] = fresh
+    d, last = len(fresh) - len(olds), a + len(fresh) - 1
+    for o in p.get("overlays", []) + p.get("broll", []) + p.get("requests", []):
+        for k in ("w0", "w1"):
+            if o.get(k) is not None:
+                o[k] = o[k] + d if o[k] > b else min(o[k], last)
+    p["edit_rev"] = p.get("edit_rev", 0) + 1
