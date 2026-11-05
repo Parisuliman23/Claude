@@ -50,7 +50,7 @@ $("#modal").addEventListener("click", e => { if (e.target.id === "modal" || e.ta
 // ------------------------------------------------------------------ load
 async function boot() {
   const st = await api("/api/status");
-  S.settings = st.settings; S.claude = st.claude;
+  S.settings = st.settings; S.claude = st.claude; S.stock = st.stock;
   const name = decodeURIComponent(location.hash.slice(1));
   if (!name || name === "newreel") return home();
   await loadProject(name);
@@ -526,6 +526,7 @@ function addMediaModal(tab) {
     <div class="muted">At: “${esc(t.text)}”${tab === "broll" ? " — Claude's engine watches the clip and picks the best moment; you can adjust it after." : ""}</div>
     <div class="mtabs">${Object.entries(tabs).map(([k, n]) => `<button class="chip ${k === tab ? "on" : ""}" data-tab2="${k}">${n}</button>`).join("")}</div>
     ${body()}
+    ${tab === "broll" ? brollFinderHTML() : ""}
     ${tab !== "emoji" ? `<div class="row" style="margin-top:12px"><label class="chip">⬆ Upload from computer <input type="file" id="upl" multiple hidden></label></div>` : ""}
     ${tab !== "broll" ? `<h3>Want it to do something? Tell Claude</h3><div class="row"><select id="ain">${animOpts("snap")}</select><small>in,</small><select id="aout">${animOpts("none")}</select><small>out</small></div>` : ""}`,
     root => {
@@ -536,6 +537,7 @@ function addMediaModal(tab) {
         if (tab === "broll") return addBroll(el.dataset.src, t);
         addOverlay({ kind: tab === "gifs" ? "gif" : "image", src: el.dataset.src, anim_in: ai(), anim_out: ao() });
       });
+      bindBrollFinder(root, draw);
       const up = root.querySelector("#upl");
       if (up) up.onchange = async () => {
         for (const f of up.files) await fetch(`/api/upload?kind=${tab}&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
@@ -543,6 +545,47 @@ function addMediaModal(tab) {
       };
     });
   draw();
+}
+
+// ---------- free stock B-roll (Pixabay)
+function brollFinderHTML() {
+  if (!S.stock) return `<div class="card" style="margin-top:12px"><b>Find free B-roll</b>
+    <div class="muted" style="font-size:13px;margin:4px 0 8px">Free stock clips from Pixabay, allowed in your reels. Sign up free at <b>pixabay.com</b>, open
+    <b>pixabay.com/api/docs</b>, and copy the green key next to "key". Paste it here once; it stays on this computer.</div>
+    <div class="row"><input id="pxKey" placeholder="Paste your Pixabay API key" style="flex:1"><button class="primary" id="pxSave">Save</button></div></div>`;
+  const job = S.brollJob;
+  return `<div class="card" style="margin-top:12px"><b>Find free B-roll</b>
+    <div class="row" style="margin-top:8px"><input id="pxQ" placeholder="e.g. credit card debt, stock market crash, paying bills" style="flex:1">
+    <button class="primary" id="pxGo">Search</button></div>
+    <div class="row" style="margin-top:8px"><button id="pxStarter">⬇ Get the finance starter pack (~30 clips)</button>
+    <small class="muted">Clips from Pixabay · free to use</small></div>
+    ${job?.status === "running" ? `<div class="progress"><i style="width:${Math.max(5, job.progress * 100)}%"></i></div><small>Downloading clips…</small>` : ""}
+    ${job?.status === "error" ? `<small style="color:var(--warn)">${esc(job.error)}</small>` : ""}</div>`;
+}
+function bindBrollFinder(root, redraw) {
+  const save = root.querySelector("#pxSave");
+  if (save) save.onclick = async () => {
+    const k = root.querySelector("#pxKey").value.trim(); if (!k) return;
+    await api("/api/stock-key", { key: k }); S.stock = true; toast("Pixabay key saved."); redraw();
+  };
+  const go = async starter => {
+    const q = root.querySelector("#pxQ")?.value.trim();
+    if (!starter && !q) return toast("Type what you're looking for.");
+    S.brollJob = await api("/api/broll-find", starter ? { starter: true } : { query: q, n: 5 });
+    if (S.brollJob.need_key) { S.stock = false; return redraw(); }
+    redraw();
+    const tick = async () => {
+      S.brollJob = await api("/api/broll-job");
+      if (S.brollJob.status === "running") return setTimeout(tick, 1500);
+      S.library = await api("/api/library");
+      if (S.brollJob.status === "done") toast(`Added ${S.brollJob.result.length} clip(s) to your library.`);
+      if (!$("#modal").hidden) redraw();
+    };
+    setTimeout(tick, 1500);
+  };
+  const g = root.querySelector("#pxGo"); if (g) g.onclick = () => go(false);
+  const q = root.querySelector("#pxQ"); if (q) q.onkeydown = e => { if (e.key === "Enter") go(false); };
+  const st = root.querySelector("#pxStarter"); if (st) st.onclick = () => go(true);
 }
 
 const ANIMS = ["snap", "none", "pop", "fade", "slide-up", "slide-down", "slide-left", "slide-right", "spin", "zoom"];

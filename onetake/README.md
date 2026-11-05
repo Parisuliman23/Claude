@@ -130,6 +130,9 @@ instead of transcribing, and the edit gets out of the way when the moment is per
 - **Motion**: snap pops and hard cuts (no slow fades), typewriter text, slow push-in on screenshots,
   a camera push-in through the hook, and punch-ins at each thought change (Visuals → select a word → ⤢ Punch in).
 - **Split screen**: a clip, photo or white panel on top, you below, captions on the seam.
+- **Free B-roll**: Add media → Videos → Find free B-roll searches Pixabay's free stock videos (needs a free key
+  from pixabay.com/api/docs, pasted once), or grab a ~30-clip finance starter pack. Claude also finds clips
+  by itself while editing (`python3 -m engine broll-find "stock market crash"`).
 
 ## Teach it your style
 

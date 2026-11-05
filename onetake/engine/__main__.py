@@ -11,6 +11,9 @@
   set NAME KEY --json VALUE  set a top-level field (caption_style, sound, carousel, trials, story, hook_duration…)
   overlay NAME ID --json {…} change an overlay (merge)    add-overlay NAME --json {…}   remove-overlay NAME ID
   add-broll NAME --json {…}  cut-away / split screen: {"w0","w1","src": video|image|null, "color": "#FFFFFF", "layout": "full"|"split"}
+  broll-find "search words" [--n 5]   download free stock clips from Pixabay into library/broll
+  broll-starter                       download a starter pack of ~30 money/finance clips
+  broll-key KEY                       save your free Pixabay API key (pixabay.com/api/docs)
   remove-captions NAME [--off]  find captions burned into the video and paint them out (or keep them)
   faces NAME                find faces (for Cover a face)
   still NAME SECONDS        render one frame to check a look (projects/NAME/cache/still.png)
@@ -108,6 +111,7 @@ def main(argv=None):
     ap.add_argument("--failed", action="store_true")
     ap.add_argument("--params", default="{}")
     ap.add_argument("--json", default=None)
+    ap.add_argument("--n", type=int, default=5)
     ap.add_argument("--out", default=None)
     ap.add_argument("--no-browser", action="store_true")
     ap.add_argument("--keep-drop", action="store_true", help="don't empty drop-in-order/ after importing")
@@ -186,6 +190,19 @@ def main(argv=None):
             p["edit_rev"] = p.get("edit_rev", 0) + 1
         project.update(args[0], fn)
         return show(args[0])
+    if c in ("broll-find", "broll-starter", "broll-key"):
+        from . import stock
+        try:
+            if c == "broll-key":
+                stock.save_key(args[0])
+                print("Saved. (It stays on this computer, in settings.json.)")
+                return
+            got = stock.search(" ".join(args), a.n) if c == "broll-find" else \
+                stock.starter_pack(progress=lambda x: print(f"\r  {x * 100:.0f}%", end="", flush=True))
+        except stock.NoKey as e:
+            raise SystemExit(str(e) + "  Or: python3 -m engine broll-key YOUR_KEY")
+        print("\n".join(got) or "Nothing found. Try other words.")
+        return
     if c == "add-broll":
         b = json.loads(a.json)
         b.setdefault("id", project.new_id("b"))

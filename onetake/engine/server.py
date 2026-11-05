@@ -1,6 +1,7 @@
 """The studio: a small local web server (only reachable from your own computer)."""
 import json
 import mimetypes
+import os
 import re
 import threading
 import time
@@ -176,6 +177,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(lookbook())
             if path == "/api/library":
                 return self.send_json(library())
+            if path == "/api/broll-job":  # progress of a B-roll download
+                return self.send_json(JOBS.get(("_library", "broll"), {}))
             if path == "/api/newreel":  # progress of an edit started from the "New reel" app icon
                 st_f, log_f = config.PROJECTS / ".newreel.json", config.PROJECTS / ".newreel.log"
                 info = json.loads(st_f.read_text()) if st_f.exists() else {"status": "none"}
@@ -185,6 +188,7 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/status":
                 st = config.settings()
                 return self.send_json({"claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
+                                       "stock": bool(os.environ.get("PIXABAY_API_KEY") or st.get("pixabay_key")),
                                        "settings": {k: st[k] for k in ("max_gap", "pad_before", "pad_after", "width", "height", "fps")}})
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)(/rev)?", path)
             if m:
@@ -198,6 +202,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(p)
             return self.send_error(404)
 
+        if path == "/api/stock-key":
+            from . import stock
+            stock.save_key(self.jbody().get("key", ""))
+            return self.send_json({"ok": True})
+        if path == "/api/broll-find":
+            from . import stock
+            b = self.jbody()
+            if not stock.has_key():
+                return self.send_json({"need_key": True})
+            q, n = b.get("query", "").strip(), int(b.get("n", 5))
+            fn = (lambda prog: stock.starter_pack(progress=prog)) if b.get("starter") else (lambda prog: stock.search(q, n))
+            return self.send_json(run_job("_library", "broll", fn))
         if path == "/api/upload":
             kind = q.get("kind", "images")
             if kind not in ("gifs", "images", "broll", "sounds"):
