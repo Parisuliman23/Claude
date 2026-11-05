@@ -20,7 +20,7 @@
   faces NAME                find faces (for Cover a face)
   still NAME SECONDS        render one frame to check a look (projects/NAME/cache/still.png)
   render NAME               lock in: render projects/NAME/exports/reel.mp4
-  export NAME carousel|story|trials|capcut|storyboard
+  export NAME capcut-project|carousel|story|trials|capcut|storyboard   (capcut-project = a real CapCut project; capcut = layer pack)
   edge-check NAME [--fix]   find looks hidden by Instagram's buttons/text or off the frame (--fix moves them)
   requests [NAME]           list studio requests waiting for Claude
   request-done NAME ID --note "..." [--options a,b,c] [--failed]
@@ -297,7 +297,8 @@ def main(argv=None):
         res = {"carousel": lambda: finish.carousel(args[0]), "story": lambda: finish.story(args[0]),
                "trials": lambda: finish.trials(args[0], progress=prog),
                "capcut": lambda: finish.capcut(args[0], progress=prog),
-               "storyboard": lambda: finish.storyboard(args[0], progress=prog)}[kind]()
+               "storyboard": lambda: finish.storyboard(args[0], progress=prog),
+               "capcut-project": lambda: __import__("engine.capcut_draft", fromlist=["x"]).build(args[0], progress=prog)}[kind]()
         print("\n" + json.dumps(res, indent=1))
         return
     if c == "requests":
