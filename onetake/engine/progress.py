@@ -88,6 +88,31 @@ def check():
     return info
 
 
+def orphan():
+    """A reel whose import stopped halfway (folder with its clips but no project.json), newest first."""
+    if not config.PROJECTS.exists():
+        return None
+    for d in sorted(config.PROJECTS.iterdir(), key=lambda d: -d.stat().st_mtime):
+        if d.is_dir() and not (d / "project.json").exists() and any((d / "raw").glob("*")):
+            return d
+    return None
+
+
+def recover_orphan():
+    """Put a half-imported reel's clips back in drop-in-order/ so it can be edited again."""
+    import shutil
+    d = orphan()
+    if not d:
+        return False
+    config.DROP.mkdir(exist_ok=True)
+    for k, f in enumerate(sorted((d / "raw").iterdir()), 1):
+        if f.suffix.lower() in config.VIDEO_EXT:
+            dest = config.DROP / (f.name if f.name[:2].isdigit() else f"{k:02d}_{f.name}")
+            shutil.move(str(f), dest)
+    shutil.rmtree(d, ignore_errors=True)
+    return True
+
+
 def busy():
     return check().get("status") == "running"
 
@@ -106,14 +131,19 @@ def estimate(info, now=None):
     if step == "check" and not info.get("auto_render"):
         nxt = "end"
     hi = STEPS[nxt][0]
-    if info.get("frac") is not None:  # the step reports its own progress (transcribing, rendering)
-        f = info["frac"]
-    else:  # otherwise creep toward the next step with time, slowing down as it gets close
-        f = 0.9 * (1 - math.exp(-(now - info.get("step_at", info.get("started", now))) / typical))
+    # creep toward the next step with time, slowing down as it gets close; steps that report their own
+    # progress (transcribing, rendering) use whichever is further along
+    creep = 0.9 * (1 - math.exp(-(now - info.get("step_at", info.get("started", now))) / typical))
+    f = max(info.get("frac") or 0.0, creep)
     pct = int(min(99, lo + (hi - lo) * f))
-    # time left = the rest of this step + the usual length of the steps after it
+    # time left = the rest of this step + the usual length of the steps after it…
     later = ORDER[ORDER.index(step) + 1:ORDER.index("end")]
     if not info.get("auto_render") and "render" in later:
         later.remove("render")
     left = typical * (1 - f) + sum(STEPS[k][2] for k in later)
+    # …adjusted to how fast this computer has actually been so far
+    elapsed = now - info.get("started", now)
+    expected = sum(STEPS[k][2] for k in ORDER[:ORDER.index(step)]) + typical * f
+    if elapsed > 45 and expected > 0:
+        left *= max(0.3, min(4.0, elapsed / expected))
     return pct, label, max(30, left)

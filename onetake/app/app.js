@@ -88,8 +88,10 @@ async function home() {
     done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>
       <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").trim().split("\n\n").pop().slice(-700))}</div>
       ${list.length ? `<button class="primary" style="margin-top:10px" onclick="openReel('${list[0].name}')">Open it</button>` : ""}</div>`,
-    failed: `<div class="card"><h3 style="margin-top:0">Claude couldn't finish the edit</h3>
-      <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").slice(-800))}</div>
+    failed: `<div class="card"><h3 style="margin-top:0">${nr.stuck ? "The edit stopped partway" : "Claude couldn't finish the edit"}</h3>
+      <div class="muted" style="white-space:pre-wrap">${nr.stuck
+        ? "It stopped before it finished, probably because the Chromebook went to sleep or Linux restarted. Your video is safe."
+        : esc((nr.log || "").slice(-800))}</div>
       ${nr.waiting ? `<button class="primary" id="nrRetry" style="margin-top:10px">↻ Try again with the same video</button>`
         : `<div class="muted">Send the video again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div>`}</div>`,
   }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
