@@ -1,6 +1,7 @@
 """Step 1: take the clips in drop-in-order/ (sorted by name), join them into
 one vertical master video, transcribe it and make the automatic rough cut."""
 import json
+import re
 import shutil
 import subprocess
 import time
@@ -77,7 +78,7 @@ def new(name=None, clips=None, log=print, move=True):
     clips = [Path(c) for c in clips] if clips else drop_clips()
     if not clips:
         raise SystemExit(f"No videos found. Drop your clips into {config.DROP} (they're used in name order).")
-    name = project.slug(name or clips[0].stem)
+    name = project.slug(name or re.sub(r"^\d{2}_", "", clips[0].stem))  # drop the order prefix from dragged-in files
     base = name
     k = 2
     while project.exists(name):

@@ -256,6 +256,39 @@ class Handler(BaseHTTPRequestHandler):
             q, n = b.get("query", "").strip(), int(b.get("n", 5))
             fn = (lambda prog: stock.starter_pack(progress=prog)) if b.get("starter") else (lambda prog: stock.search(q, n))
             return self.send_json(run_job("_library", "broll", fn))
+        if path == "/api/new-reel-file":  # a video dragged/pasted onto the studio: stream it to drop-in-order/
+            st = config.PROJECTS / ".newreel.json"
+            if st.exists() and '"running"' in st.read_text():
+                return self.send_json({"error": "Claude is still editing your last reel. Try again when it's done."}, 409)
+            ext = Path(q.get("name", "clip.mp4")).suffix.lower()
+            if ext not in config.VIDEO_EXT:
+                return self.send_json({"error": "That isn't a video file (.mp4, .mov…)."}, 400)
+            stem = re.sub(r"[^\w\- ]", "_", Path(q.get("name", "clip")).stem)[:60]
+            dest = config.DROP / f"{int(q.get('index', 0)):02d}_{stem}{ext}"
+            config.DROP.mkdir(exist_ok=True)
+            left = int(self.headers.get("Content-Length") or 0)
+            with open(dest.with_suffix(dest.suffix + ".part"), "wb") as fh:  # stream: never holds the video in memory
+                while left > 0:
+                    chunk = self.rfile.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+                    left -= len(chunk)
+            if left:
+                dest.with_suffix(dest.suffix + ".part").unlink(missing_ok=True)
+                return self.send_json({"error": "The upload was interrupted."}, 400)
+            dest.with_suffix(dest.suffix + ".part").replace(dest)
+            return self.send_json({"saved": dest.name})
+        if path == "/api/new-reel-start":  # start editing what's in drop-in-order/, in the background
+            import subprocess as sp
+            if not [f for f in config.DROP.iterdir() if f.suffix.lower() in config.VIDEO_EXT]:
+                return self.send_json({"error": "No video arrived."}, 400)
+            st = config.PROJECTS / ".newreel.json"
+            st.write_text(json.dumps({"status": "running", "started": time.time()}))
+            env = dict(os.environ, ONETAKE_NO_BROWSER="1")
+            sp.Popen(["bash", str(config.ROOT / "new-reel.sh")], cwd=config.ROOT, env=env,
+                     stdin=sp.DEVNULL, stdout=sp.DEVNULL, stderr=sp.DEVNULL, start_new_session=True)
+            return self.send_json({"started": True})
         if path == "/api/upload":
             kind = q.get("kind", "images")
             if kind not in ("gifs", "images", "broll", "sounds", "sfx"):

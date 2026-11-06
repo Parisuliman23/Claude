@@ -99,7 +99,8 @@ Two apps appear in your launcher (on a Chromebook, in the **Linux apps** folder;
 
 ## Every reel
 
-1. Put your clips in **`onetake/drop-in-order/`**. They're used in name order, so `1.mov`, `2.mov`… works.
+1. Open the studio and **drag your video onto it** (or click to choose it, or copy it in the Files app and paste
+   with Ctrl + V). The edit starts by itself. You can still put clips in **`onetake/drop-in-order/`** instead.
 2. Open Claude Code **in the `onetake` folder** (`cd onetake` then `claude`) and say:
    > I have a new reel to edit
 

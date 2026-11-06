@@ -7,7 +7,7 @@ cd "$(dirname "$0")"
 [ -f .venv/bin/activate ] && source .venv/bin/activate
 export PATH="$HOME/.local/bin:/usr/bin:$PATH"
 
-if [ -t 1 ]; then
+if [ -t 1 ] && [ -z "$ONETAKE_NO_BROWSER" ]; then
   exec claude "I have a new reel to edit"
 fi
 
@@ -24,25 +24,36 @@ fi
 
 if [ -z "$(ls -A drop-in-order | grep -v '^\.keep$')" ]; then
   echo "{\"status\": \"noclips\", \"started\": $(date +%s)}" > "$STATUS"
-  bash ./open-url.sh "$URL"
+  [ -z "$ONETAKE_NO_BROWSER" ] && bash ./open-url.sh "$URL"
   exit 0
 fi
 
-if [ -f "$STATUS" ] && grep -q '"running"' "$STATUS"; then  # already editing: just show it
+if [ -z "$ONETAKE_NO_BROWSER" ] && [ -f "$STATUS" ] && grep -q '"running"' "$STATUS"; then  # already editing: just show it
   bash ./open-url.sh "$URL"
   exit 0
 fi
 
 echo "{\"status\": \"running\", \"started\": $(date +%s)}" > "$STATUS"
-bash ./open-url.sh "$URL" &
+[ -z "$ONETAKE_NO_BROWSER" ] && bash ./open-url.sh "$URL" &
 
 PROMPT="I have a new reel to edit. You were started from the One Take app icon and are running in the background:
 the studio is already running, so skip starting it, and there's nobody to answer questions, so make sensible
 choices yourself. Finish with the short summary for the user (what you cut and styled)."
-if claude -p "$PROMPT" --permission-mode acceptEdits \
+RESULT=failed
+if command -v claude >/dev/null 2>&1 && claude -p "$PROMPT" --permission-mode acceptEdits \
      --allowedTools "Bash(python3 -m engine:*)" "Bash(ls:*)" Read Write Edit Glob Grep > "$LOG" 2>&1; then
   RESULT=done
-else
-  RESULT=failed
+fi
+# Claude unavailable (not installed, usage limit…) and the clips are still waiting: do the automatic
+# cut and styling without Claude so you still get a reel to work on.
+if [ -n "$(ls -A drop-in-order | grep -v '^\.keep$')" ]; then
+  if python3 -m engine new >> "$LOG" 2>&1; then
+    NAME=$(python3 -c "from engine import project; print(project.list_projects()[0]['name'])")
+    python3 -m engine sfx-auto "$NAME" >> "$LOG" 2>&1
+    python3 -m engine edge-check "$NAME" --fix >> "$LOG" 2>&1
+    printf "\n\n" >> "$LOG"
+    echo "Claude wasn't available, so One Take made the automatic cut, captions, hook and sounds. Open it to review, or use Ask Claude later to style it further." >> "$LOG"
+    RESULT=done
+  fi
 fi
 echo "{\"status\": \"$RESULT\", \"ended\": $(date +%s)}" > "$STATUS"
