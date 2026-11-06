@@ -53,7 +53,10 @@ def mark(step, frac=None):
     if ORDER.index(step) < ORDER.index(cur if cur in STEPS else "start"):
         return
     if step != cur:
-        info.update(step=step, step_at=time.time(), frac=None)
+        now = time.time()  # how long each step took, to see what's slow on this computer
+        times = info.setdefault("times", {})
+        times[cur] = round(times.get(cur, 0) + now - info.get("step_at", info.get("started", now)), 1)
+        info.update(step=step, step_at=now, frac=None)
     if frac is not None:
         info["frac"] = round(max(0.0, min(1.0, frac)), 3)
     tmp = FILE.with_suffix(".tmp")
@@ -115,6 +118,30 @@ def recover_orphan():
 
 def busy():
     return check().get("status") == "running"
+
+
+NAMES = {"start": "starting", "join": "joining", "transcribe": "captions", "analyze": "face check",
+         "cut": "Claude's cut", "style": "Claude's styling", "sfx": "sound effects", "check": "checks",
+         "render": "rendering"}
+
+
+def finish(result):
+    """Mark the edit done/failed, keeping how long each step took."""
+    info = _read()
+    now = time.time()
+    cur = info.get("step")
+    if cur:
+        times = info.setdefault("times", {})
+        times[cur] = round(times.get(cur, 0) + now - info.get("step_at", now), 1)
+    info.update(status=result, ended=now)
+    for k in ("step", "step_at", "frac", "pid"):
+        info.pop(k, None)
+    FILE.write_text(json.dumps(info))
+    t = info.get("times") or {}
+    if t:
+        mins = lambda s: f"{s / 60:.0f} min" if s >= 90 else f"{s:.0f} s"
+        print("Took " + mins(now - info.get("started", now)) + ": " +
+              ", ".join(f"{NAMES.get(k, k)} {mins(v)}" for k, v in t.items() if v >= 1))
 
 
 def for_command(cmd):

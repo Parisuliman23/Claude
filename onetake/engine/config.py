@@ -29,7 +29,13 @@ DEFAULTS = {
     "music_volume": 0.12,
     "claude_bridge": "auto",  # auto | off  — let the studio send requests to Claude Code
     "port": 5178,
+    # fast: quicker new-reel edits (lighter caption model, quicker Claude, faster encoding); best: slower, finest
+    "edit_speed": "fast",
 }
+
+
+def fast():
+    return settings().get("edit_speed", "fast") != "best"
 
 
 def settings():

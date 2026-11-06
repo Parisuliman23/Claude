@@ -414,7 +414,7 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
         _audio(c.p, c.segs, c.T, tmp_audio)
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
                "-r", str(fps), "-i", "-", "-i", str(tmp_audio), "-map", "0:v", "-map", "1:a",
-               "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-pix_fmt", "yuv420p", "-c:a", "copy",
+               "-c:v", "libx264", "-preset", "veryfast" if config.fast() else "fast", "-crf", "19", "-pix_fmt", "yuv420p", "-c:a", "copy",
                "-shortest", "-movflags", "+faststart", str(out)]
     else:
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", f"{W}x{H}",
@@ -443,7 +443,7 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
         if c.transparent:
             cmd += _prores_alpha()
         else:
-            cmd += ["-filter:a", f"atempo={speed}", "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-pix_fmt", "yuv420p",
+            cmd += ["-filter:a", f"atempo={speed}", "-c:v", "libx264", "-preset", "veryfast" if config.fast() else "fast", "-crf", "19", "-pix_fmt", "yuv420p",
                     "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
         subprocess.run(cmd + [str(tmp)], check=True)
         tmp.replace(out)

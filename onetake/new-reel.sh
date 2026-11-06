@@ -51,9 +51,18 @@ You're running in the background from One Take: the studio is already running, s
 nobody to answer questions, so make sensible choices yourself. Run every command in the foreground and wait
 for it to finish; never start anything in the background. Finish with the short summary for the user
 (what you cut and styled)."
+# fast mode (the default): a quicker Claude model and a lean pass; "edit_speed": "best" in settings.json for the full one
+MODEL=()
+if python3 -c "from engine import config; import sys; sys.exit(0 if config.fast() else 1)"; then
+  MODEL=(--model sonnet)
+  PROMPT="$PROMPT
+
+Fast mode: the user wants this quick. Make every edit you need, but work efficiently: read lookbook/STYLE.md and
+'show' once, combine changes, check at most one still, and only download B-roll if a moment clearly needs it."
+fi
 RESULT=done
 printf "\n\n" >> "$LOG"  # Claude's summary starts a new paragraph (the studio shows the last one)
-if command -v claude >/dev/null 2>&1 && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 timeout 45m claude -p "$PROMPT" \
+if command -v claude >/dev/null 2>&1 && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 timeout 45m claude -p "$PROMPT" "${MODEL[@]}" \
      --permission-mode acceptEdits \
      --allowedTools "Bash(python3 -m engine:*)" "Bash(ls:*)" Read Write Edit Glob Grep >> "$LOG" 2>&1; then
   :
@@ -68,4 +77,5 @@ fi
 if [ "$RESULT" = done ] && [ -n "$ONETAKE_AUTO_RENDER" ]; then
   python3 -c "from engine import inbox; inbox.deliver('$NAME')" >> "$LOG" 2>&1 || RESULT=failed
 fi
-echo "{\"status\": \"$RESULT\", \"ended\": $(date +%s)}" > "$STATUS"
+python3 -c "from engine import progress; progress.finish('$RESULT')" > projects/.newreel.times 2>&1 \
+  || echo "{\"status\": \"$RESULT\", \"ended\": $(date +%s)}" > "$STATUS"

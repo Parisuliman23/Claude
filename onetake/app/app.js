@@ -77,6 +77,12 @@ function nrText(nr) {
   const left = nr.left == null ? "" : nr.left < 90 ? "almost done · " : `about ${Math.round(nr.left / 60)} min left · `;
   return `<b>${esc(nr.label || "Getting started")}</b> · ${left}started ${mins} min ago. This page updates by itself.`;
 }
+const STEP_NAMES = { start: "starting", join: "joining", transcribe: "captions", analyze: "face check", cut: "Claude's cut",
+  style: "Claude's styling", sfx: "sound effects", check: "checks", render: "rendering" };
+function tookText(nr) {  // "12 min: joining 2 min, captions 4 min, …" so you can see what's slow
+  const m = s => s >= 90 ? `${Math.round(s / 60)} min` : `${Math.round(s)} s`;
+  return `${m(nr.ended - nr.started)}: ` + Object.entries(nr.times).filter(([, v]) => v >= 1).map(([k, v]) => `${STEP_NAMES[k] || k} ${m(v)}`).join(", ");
+}
 async function tickNewReel() {
   if (!document.body.classList.contains("home") || !$("#nrPct")) return;  // you've opened a reel: stop
   const nr = await api("/api/newreel").catch(() => null);
@@ -103,6 +109,7 @@ async function home() {
       <div class="muted">Put your video in <b>Linux files → Claude → onetake → drop-in-order</b>, then click <b>One Take – New reel</b> again.</div></div>`,
     done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>
       <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").trim().split("\n\n").pop().slice(-700))}</div>
+      ${nr.times && nr.started ? `<div class="muted" style="margin-top:6px;font-size:12px">⏱ Took ${tookText(nr)}</div>` : ""}
       ${list.length ? `<button class="primary" style="margin-top:10px" onclick="openReel('${list[0].name}')">Open it</button>` : ""}</div>`,
     failed: `<div class="card"><h3 style="margin-top:0">${nr.stuck ? "The edit stopped partway" : "Claude couldn't finish the edit"}</h3>
       <div class="muted" style="white-space:pre-wrap">${nr.stuck

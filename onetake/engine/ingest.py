@@ -158,7 +158,7 @@ def new(name=None, clips=None, log=print, move=True):
     p["focus"] = _an.face_focus(d / "source.mp4")  # where the eyes are: punch-ins and split screens aim here
     log("  checking for captions already in the video…")
     from . import analyze
-    scan = analyze.scan_burned_text(d / "source.mp4")
+    scan = analyze.scan_burned_text(d / "source.mp4", fps=2 if config.fast() else 4)
     if scan["coverage"] >= 0.5 and scan["band"]:
         p["burned_captions"] = {"remove": True, **scan}
         # put our captions where the old ones were, so they cover any trace

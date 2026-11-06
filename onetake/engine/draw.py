@@ -288,27 +288,36 @@ def emoji_codes():
     return sorted(p.stem for p in config.EMOJI.glob("*.png"))
 
 
+def filter_matrix(fl):
+    """The filter's steps (gray, saturation, contrast, brightness, warmth, lift) are all linear per pixel, so they
+    combine into one 3x4 color matrix: applying it once is several times faster than step by step."""
+    luma = np.array([0.114, 0.587, 0.299], np.float64)  # B, G, R
+    M, b = np.eye(3), np.zeros(3)
+
+    def then(A, c=0.0):
+        nonlocal M, b
+        M, b = A @ M, A @ b + c
+    if fl.get("gray"):
+        g = fl["gray"]
+        then((1 - g) * np.eye(3) + g * np.outer(np.ones(3), luma))
+    sat = fl.get("sat", 1.0)
+    if sat != 1.0:
+        then(sat * np.eye(3) + (1 - sat) * np.outer(np.ones(3), luma))
+    c = fl.get("contrast", 1.0)
+    if c != 1.0:
+        then(c * np.eye(3), 128.0 * (1 - c))
+    then(fl.get("bright", 1.0) * np.eye(3))
+    w = fl.get("warm", 0.0)
+    if w:
+        then(np.diag([1 - w, 1.0, 1 + w]))  # less blue, more red
+    lift = fl.get("lift", 0.0)
+    if lift:
+        then((1 - lift) * np.eye(3), lift * 255.0)
+    return np.hstack([M, b[:, None]])
+
+
 def apply_filter(frame, fl):
     """Color filter on a BGR frame. Mirrored (approximately) by CSS filters in the studio preview."""
     if not fl or fl.get("id") in (None, "none"):
         return frame
-    x = frame.astype(np.float32)
-    if fl.get("gray"):
-        g = x @ np.array([0.114, 0.587, 0.299], np.float32)
-        x = x * (1 - fl["gray"]) + g[..., None] * fl["gray"]
-    sat = fl.get("sat", 1.0)
-    if sat != 1.0:
-        g = (x @ np.array([0.114, 0.587, 0.299], np.float32))[..., None]
-        x = g + (x - g) * sat
-    c = fl.get("contrast", 1.0)
-    if c != 1.0:
-        x = (x - 128.0) * c + 128.0
-    x = x * fl.get("bright", 1.0)
-    w = fl.get("warm", 0.0)
-    if w:
-        x[..., 2] *= 1 + w  # red
-        x[..., 0] *= 1 - w  # blue
-    lift = fl.get("lift", 0.0)
-    if lift:
-        x = lift * 255.0 + x * (1 - lift)
-    return np.clip(x, 0, 255).astype(np.uint8)
+    return cv2.transform(frame, filter_matrix(fl))  # rounds and clips to 0-255
