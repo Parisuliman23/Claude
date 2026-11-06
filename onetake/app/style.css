@@ -214,3 +214,9 @@ small { color: var(--ink2); }
 .tile.fav { position: relative; }
 .favstar { position: absolute; top: 10px; right: 10px; z-index: 2; padding: 0 7px; border: 0; background: rgba(0,0,0,.55); color: #fff; border-radius: 8px; }
 .favstar.on { background: #FFE14D; color: #111; }
+
+.dropzone { display: block; text-align: center; padding: 34px 20px; margin: 0 0 22px; border: 2px dashed var(--accent);
+  border-radius: 18px; background: var(--accent-soft); cursor: pointer; transition: transform .1s, background .1s; }
+.dropzone > b { font-family: "Montserrat_800ExtraBold"; font-size: 18px; display: block; margin: 6px 0; }
+.dropzone .dz-icon { font-size: 30px; color: var(--accent); }
+.dropzone.over { transform: scale(1.01); background: var(--hl); }

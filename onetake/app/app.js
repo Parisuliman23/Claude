@@ -84,24 +84,88 @@ async function home() {
     noclips: `<div class="card"><h3 style="margin-top:0">No video found</h3>
       <div class="muted">Put your video in <b>Linux files → Claude → onetake → drop-in-order</b>, then click <b>One Take – New reel</b> again.</div></div>`,
     done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>
-      <div class="muted" style="white-space:pre-wrap">${esc(nr.log || "")}</div>
+      <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").trim().split("\n\n").pop().slice(-700))}</div>
       ${list.length ? `<button class="primary" style="margin-top:10px" onclick="openReel('${list[0].name}')">Open it</button>` : ""}</div>`,
     failed: `<div class="card"><h3 style="margin-top:0">Claude couldn't finish the edit</h3>
       <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").slice(-800))}</div>
       <div class="muted">Try again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div></div>`,
   }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
   if (nr.status === "running") setTimeout(home, 5000);
+  setTimeout(bindDropzone, 0);
   setTimeout(() => document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
     if (!confirm(`Delete “${b.dataset.title}”? Its edits and exports will be gone for good. Download the MP4 first if you want to keep it.`)) return;
     await api(`/api/project/${b.dataset.del}/delete`, {});
     toast("Reel deleted."); home();
   }), 0);
-  $("#panel").innerHTML = `<div class="projlist">${banner}<h1>Your reels</h1>
-    <p class="muted">To start a new one: put your video in the <b>drop-in-order</b> folder, then click the
-    <b>One Take – New reel</b> app icon (or tell Claude <i>"I have a new reel to edit"</i>).</p>
+  const busy = nr.status === "running";
+  $("#panel").innerHTML = `<div class="projlist">${banner}
+    ${busy ? "" : `<label class="dropzone" id="dropzone">
+      <input type="file" id="dropFile" accept="video/*,.mov,.mp4,.m4v" multiple hidden>
+      <div class="dz-icon">⬆</div>
+      <b>Drop your video here to start a new reel</b>
+      <div class="muted">or click to choose it, or paste it with <b>Ctrl + V</b>. Several clips? Drop them all; they're joined in name order.</div>
+      <div id="dzProg" hidden><div class="progress"><i id="dzBar"></i></div><small id="dzMsg"></small></div>
+    </label>`}
+    <h1>Your reels</h1>
     ${list.length ? list.map(p => `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} raw · ${p.render === "done" ? "rendered" : "in progress"}</small></div>
       <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button>
       <button class="primary" onclick="openReel('${p.name}')">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
+}
+
+// ---------- new reel by drag & drop / paste
+function uploadOne(file, index, onProgress) {
+  return new Promise((res, rej) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", `/api/new-reel-file?name=${encodeURIComponent(file.name || "clip.mp4")}&index=${index}`);
+    x.upload.onprogress = e => e.lengthComputable && onProgress(e.loaded / e.total);
+    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} x.status < 300 ? res(j) : rej(new Error(j.error || x.statusText)); };
+    x.onerror = () => rej(new Error("The upload stopped. Is the studio still running?"));
+    x.send(file);
+  });
+}
+async function startNewReel(files) {
+  const vids = [...files].filter(f => (f.type || "").startsWith("video/") || /\.(mp4|mov|m4v|mkv|webm|avi)$/i.test(f.name || ""));
+  if (!vids.length) return toast("That isn't a video. Drop an .mp4 or .mov file.");
+  if (S.uploading) return;
+  S.uploading = true;
+  const prog = $("#dzProg"), bar = $("#dzBar"), msg = $("#dzMsg");
+  if (prog) prog.hidden = false;
+  const total = vids.reduce((a, f) => a + f.size, 0); let done = 0;
+  try {
+    for (let k = 0; k < vids.length; k++) {
+      await uploadOne(vids[k], k + 1, p => {
+        const pct = Math.round(((done + vids[k].size * p) / total) * 100);
+        if (bar) bar.style.width = pct + "%"; if (msg) msg.textContent = `Adding your video… ${pct}%`;
+      });
+      done += vids[k].size;
+    }
+    if (msg) msg.textContent = "Starting the edit…";
+    await api("/api/new-reel-start", {});
+    toast("Got it! Your new reel is being edited.");
+    home();
+  } catch (e) { toast(e.message); if (prog) prog.hidden = true; }
+  finally { S.uploading = false; }
+}
+function bindDropzone() {
+  const dz = $("#dropzone"); if (!dz) return;
+  $("#dropFile").onchange = e => startNewReel(e.target.files);
+  if (window.__dzBound) return;
+  window.__dzBound = true;
+  const onHome = () => !S.name && !!$("#dropzone");
+  ["dragenter", "dragover"].forEach(ev => document.addEventListener(ev, e => {
+    if (!onHome()) return; e.preventDefault(); $("#dropzone")?.classList.add("over");
+  }));
+  document.addEventListener("dragleave", e => { if (!e.relatedTarget) $("#dropzone")?.classList.remove("over"); });
+  document.addEventListener("drop", e => {
+    if (!onHome()) return; e.preventDefault(); $("#dropzone")?.classList.remove("over");
+    startNewReel(e.dataTransfer.files);
+  });
+  document.addEventListener("paste", e => {
+    if (!onHome() || e.target.matches?.("input, textarea")) return;
+    const files = e.clipboardData?.files;
+    if (files && files.length) { e.preventDefault(); startNewReel(files); }
+    else toast("Nothing to paste. Copy the video in the Files app (Ctrl + C) first, then paste here.");
+  });
 }
 
 async function loadProject(name) {
