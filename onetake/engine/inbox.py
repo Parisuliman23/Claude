@@ -70,8 +70,8 @@ def _videos(d):
 
 
 def _busy():
-    f = config.PROJECTS / ".newreel.json"
-    return f.exists() and '"running"' in f.read_text()
+    from . import progress
+    return progress.busy()
 
 
 _sizes = {}

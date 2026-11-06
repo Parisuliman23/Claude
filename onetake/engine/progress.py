@@ -61,6 +61,37 @@ def mark(step, frac=None):
     tmp.replace(FILE)
 
 
+def _alive(pid):
+    import os
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def check():
+    """The edit's status file, with a stuck edit fixed: if the edit's process is gone (Chromebook slept or
+    restarted, Linux was shut down…) or it has run far too long, it's marked failed so you can try again."""
+    info = _read()
+    if info.get("status") != "running":
+        return info
+    age = time.time() - info.get("started", time.time())
+    gone = info.get("pid") and not _alive(info["pid"]) and age > 20
+    if gone or age > 2 * 3600 or (not info.get("pid") and age > 600):
+        info.update(status="failed", ended=time.time(), stuck=True)
+        FILE.write_text(json.dumps(info))
+        log = config.PROJECTS / ".newreel.log"
+        with open(log, "a") as fh:
+            fh.write("\n\nThe edit stopped before it finished (the Chromebook may have gone to sleep or Linux restarted). "
+                     "Your video is still waiting. Send it again, or click One Take – New reel.\n")
+    return info
+
+
+def busy():
+    return check().get("status") == "running"
+
+
 def for_command(cmd):
     if cmd in COMMAND_STEP:
         mark(COMMAND_STEP[cmd])

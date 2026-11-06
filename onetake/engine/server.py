@@ -319,9 +319,13 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(JOBS.get(("_library", "broll"), {}))
             if path == "/api/newreel":  # progress of an edit started from the "New reel" app icon
                 st_f, log_f = config.PROJECTS / ".newreel.json", config.PROJECTS / ".newreel.log"
-                info = json.loads(st_f.read_text()) if st_f.exists() else {"status": "none"}
+                from . import progress
+                info = progress.check() if st_f.exists() else {}
+                info = info or {"status": "none"}
                 info["log"] = log_f.read_text()[-3000:] if log_f.exists() and info.get("status") in ("done", "failed") else ""
                 info["now"] = time.time()
+                info["waiting"] = len([f for f in config.DROP.glob("*") if f.suffix.lower() in config.VIDEO_EXT]) \
+                    if config.DROP.exists() else 0
                 if info.get("status") == "running":
                     from . import progress
                     info["pct"], info["label"], info["left"] = progress.estimate(info, info["now"])
@@ -370,8 +374,8 @@ class Handler(BaseHTTPRequestHandler):
             fn = (lambda prog: stock.starter_pack(progress=prog)) if b.get("starter") else (lambda prog: stock.search(q, n))
             return self.send_json(run_job("_library", "broll", fn))
         if path == "/api/new-reel-file":  # a video dragged/pasted onto the studio: stream it to drop-in-order/
-            st = config.PROJECTS / ".newreel.json"
-            if st.exists() and '"running"' in st.read_text():
+            from . import progress
+            if progress.busy():
                 return self.send_json({"error": "Claude is still editing your last reel. Try again when it's done."}, 409)
             ext = Path(q.get("name", "clip.mp4")).suffix.lower()
             if ext not in config.VIDEO_EXT:

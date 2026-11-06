@@ -90,9 +90,14 @@ async function home() {
       ${list.length ? `<button class="primary" style="margin-top:10px" onclick="openReel('${list[0].name}')">Open it</button>` : ""}</div>`,
     failed: `<div class="card"><h3 style="margin-top:0">Claude couldn't finish the edit</h3>
       <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").slice(-800))}</div>
-      <div class="muted">Try again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div></div>`,
+      ${nr.waiting ? `<button class="primary" id="nrRetry" style="margin-top:10px">↻ Try again with the same video</button>`
+        : `<div class="muted">Send the video again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div>`}</div>`,
   }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
   if (nr.status === "running") setTimeout(home, 5000);
+  setTimeout(() => { const r = $("#nrRetry"); if (r) r.onclick = async () => {
+    r.disabled = true;
+    try { await api("/api/new-reel-start", { auto_render: !!nr.auto_render }); home(); } catch (e) { toast(e.message); r.disabled = false; }
+  }; }, 0);
   setTimeout(bindDropzone, 0);
   setTimeout(drawPhoneCard, 0);
   setTimeout(() => document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
