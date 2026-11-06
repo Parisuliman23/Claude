@@ -48,7 +48,20 @@ function closeModal() { $("#modal").hidden = true; $("#mbody").innerHTML = ""; c
 $("#modal").addEventListener("click", e => { if (e.target.id === "modal" || e.target.classList.contains("mclose")) closeModal(); });
 
 // ------------------------------------------------------------------ load
+// Navigation: your reels list is the page "before" every reel, so the browser's Back button
+// (and the ← All reels button) always returns to it instead of leaving the studio.
+function openReel(name) { location.hash = name; }
+function goHome() { if (history.state?.reel && history.length > 1) history.back(); else location.hash = ""; }
+window.addEventListener("hashchange", async () => { if (S.dirty) await save(); location.reload(); });
+
 async function boot() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  if (h && h !== "newreel" && !history.state) {  // opened straight into a reel: put the list behind it
+    history.replaceState({ home: 1 }, "", location.pathname);
+    history.pushState({ reel: 1 }, "", "#" + h);
+  } else if (h && !history.state?.reel) {
+    history.replaceState({ reel: 1 }, "", location.href);
+  }
   const st = await api("/api/status");
   S.settings = st.settings; S.claude = st.claude; S.stock = st.stock;
   const name = decodeURIComponent(location.hash.slice(1));
@@ -72,7 +85,7 @@ async function home() {
       <div class="muted">Put your video in <b>Linux files → Claude → onetake → drop-in-order</b>, then click <b>One Take – New reel</b> again.</div></div>`,
     done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>
       <div class="muted" style="white-space:pre-wrap">${esc(nr.log || "")}</div>
-      ${list.length ? `<button class="primary" style="margin-top:10px" onclick="location.hash='${list[0].name}';location.reload()">Open it</button>` : ""}</div>`,
+      ${list.length ? `<button class="primary" style="margin-top:10px" onclick="openReel('${list[0].name}')">Open it</button>` : ""}</div>`,
     failed: `<div class="card"><h3 style="margin-top:0">Claude couldn't finish the edit</h3>
       <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").slice(-800))}</div>
       <div class="muted">Try again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div></div>`,
@@ -88,7 +101,7 @@ async function home() {
     <b>One Take – New reel</b> app icon (or tell Claude <i>"I have a new reel to edit"</i>).</p>
     ${list.length ? list.map(p => `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} raw · ${p.render === "done" ? "rendered" : "in progress"}</small></div>
       <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button>
-      <button class="primary" onclick="location.hash='${p.name}';location.reload()">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
+      <button class="primary" onclick="openReel('${p.name}')">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
 }
 
 async function loadProject(name) {
@@ -98,6 +111,7 @@ async function loadProject(name) {
   setProject(p);
   v.src = media(p.source);
   $("#ptitle").textContent = p.title;
+  $("#homeBtn").hidden = false;
   document.title = `${p.title} · One Take Studio`;
   for (const r of p.requests || []) S.reqStatus[r.id] = r.status;
   setTab(localStorage.getItem("cc_tab_" + name) || "cut");
