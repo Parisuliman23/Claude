@@ -106,6 +106,9 @@ Run `python3 -m engine` with no arguments for the full list.
 7. **Phone uploads**: videos the user shares to Google Drive "One Take/Inbox" are picked up by the studio and edited
    by you in the background (no one to ask, so decide yourself); afterwards One Take renders it and puts the MP4 in
    "One Take/Ready" for their phone. `python3 -m engine inbox` shows the folders.
+   Or straight from the phone's gallery: the studio's **Send from your phone** card (PIN-protected) makes a private
+   https://….trycloudflare.com link (`engine/tunnel.py`, no port forwarding needed) with a QR code; the user opens
+   `<link>/phone`, picks a video, and gets the rendered reel back on that page. The link changes when the studio restarts.
 8. Don't render the final reel yourself unless asked — that's the user's "lock in" moment.
    (If they ask: `python3 -m engine render NAME`.)
 
