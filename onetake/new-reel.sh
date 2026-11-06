@@ -12,12 +12,12 @@ if [ -t 1 ]; then
 fi
 
 PORT=$(python3 -c "from engine import config; print(config.settings()['port'])")
-URL="http://localhost:$PORT/#newreel"
+URL="$(python3 -c "from engine import config; print(config.studio_url())" 2>/dev/null || echo "http://localhost:$PORT/")#newreel"
 STATUS=projects/.newreel.json
 LOG=projects/.newreel.log
 
 # make sure the studio is running
-if ! python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:$PORT/api/status', timeout=1)" 2>/dev/null; then
+if ! python3 -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:$PORT/api/status', timeout=1)" 2>/dev/null; then
   nohup python3 -m engine open --no-browser > projects/.studio.log 2>&1 &
   sleep 3
 fi

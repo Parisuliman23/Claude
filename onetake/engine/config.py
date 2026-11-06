@@ -50,3 +50,27 @@ def absolute(r):
     if ROOT not in p.parents and p != ROOT:
         raise ValueError(f"path escapes the studio folder: {r}")
     return p
+
+
+def is_chromebook():
+    """Running in ChromeOS's Linux (Crostini)? There, Chrome's 'localhost' forwarding into Linux can
+    break (ERR_CONNECTION_RESET), but penguin.linux.test always reaches the Linux container."""
+    import os
+    import socket
+    return os.path.exists("/opt/google/cros-containers") or socket.gethostname() == "penguin"
+
+
+def studio_host():
+    """(address to listen on, name to open in the browser)."""
+    s = settings()
+    if s.get("bind"):
+        return s["bind"], s.get("browser_host", "localhost")
+    if is_chromebook():
+        # the Linux container is only reachable from this Chromebook, so listening on all of its
+        # addresses doesn't expose the studio to the network
+        return "0.0.0.0", "penguin.linux.test"
+    return "127.0.0.1", "localhost"
+
+
+def studio_url(port=None):
+    return f"http://{studio_host()[1]}:{port or settings()['port']}/"

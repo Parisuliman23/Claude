@@ -335,15 +335,18 @@ def open_url(url):
 
 def serve(name=None, open_browser=True, port=None):
     port = port or config.settings()["port"]
-    url = f"http://localhost:{port}/" + (f"#{name}" if name else "")
+    bind, _ = config.studio_host()
+    url = config.studio_url(port) + (f"#{name}" if name else "")
     try:
-        httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        httpd = ThreadingHTTPServer((bind, port), Handler)
     except OSError:  # already running (e.g. Claude started it earlier) — just show it
         print(f"Studio is already running at {url}")
         if open_browser:
             open_url(url)
         return
     print(f"Studio running at {url}  (Ctrl+C to stop)")
+    if config.is_chromebook():
+        print(f"(If that page won't load, also try http://localhost:{port}/)")
     if open_browser:
         threading.Timer(0.6, lambda: open_url(url)).start()
     try:
