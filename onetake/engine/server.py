@@ -209,6 +209,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(lookbook())
             if path == "/api/library":
                 return self.send_json(library())
+            if path == "/api/inbox":
+                from . import inbox
+                return self.send_json(inbox.status())
             if path == "/api/broll-job":  # progress of a B-roll download
                 return self.send_json(JOBS.get(("_library", "broll"), {}))
             if path == "/api/newreel":  # progress of an edit started from the "New reel" app icon
@@ -385,6 +388,10 @@ def serve(name=None, open_browser=True, port=None):
             open_url(url)
         return
     print(f"Studio running at {url}  (Ctrl+C to stop)")
+    from . import inbox
+    inbox.watch()  # phone uploads: Google Drive "One Take/Inbox" -> edited reel in "One Take/Ready"
+    if inbox.status()["connected"]:
+        print(f"Watching your phone uploads in {inbox.status()['inbox']}")
     if config.is_chromebook():
         print(f"(If that page won't load, also try http://localhost:{port}/)")
     if open_browser:
