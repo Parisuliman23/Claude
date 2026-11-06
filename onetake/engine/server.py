@@ -90,6 +90,22 @@ def capcut_project(name, prog):
     return r
 
 
+LOGIN_HTML = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One Take Studio</title><style>body{font-family:system-ui,sans-serif;background:#F3F2F7;color:#17171C;display:grid;place-items:center;min-height:100vh;margin:0}
+form{background:#fff;padding:28px;border-radius:18px;box-shadow:0 8px 30px rgba(20,16,60,.1);width:min(340px,90vw);text-align:center}
+input{font-size:28px;letter-spacing:.3em;text-align:center;width:100%;padding:10px;border:1px solid #ddd;border-radius:12px;box-sizing:border-box}
+button{margin-top:14px;width:100%;padding:12px;font-size:17px;border:0;border-radius:12px;background:#5B4BDB;color:#fff}
+.m{color:#C2410C;min-height:20px}</style></head><body><form method="post" action="/login">
+<h2>✂ One Take Studio</h2><p>Enter the PIN shown on your Chromebook's studio.</p>
+<input name="pin" inputmode="numeric" autocomplete="one-time-code" autofocus><input type="hidden" name="next" value="{{next}}">
+<p class="m">{{msg}}</p><button>Open</button></form></body></html>"""
+
+
+def pin_token(st):
+    import hashlib
+    return hashlib.sha256(f"onetake:{st.get('phone_pin')}".encode()).hexdigest()[:32]
+
+
 def render_full(name):
     def fn(prog):
         p = project.load(name)
@@ -187,11 +203,46 @@ class Handler(BaseHTTPRequestHandler):
 
     do_PUT = do_POST
 
+    def authorized(self):
+        """With phone access on, every request needs the PIN cookie (set once per device)."""
+        st = config.settings()
+        if not st.get("phone_access"):
+            return True
+        c = self.headers.get("Cookie") or ""
+        return f"onetake_pin={pin_token(st)}" in c.replace(" ", "").split(";")
+
+    def login_page(self, nxt, wrong=False):
+        html = LOGIN_HTML.replace("{{next}}", urllib.parse.quote(nxt, safe="/#")).replace(
+            "{{msg}}", "That PIN didn't match. Try again." if wrong else "")
+        body = html.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def route(self, method):
         u = urllib.parse.urlparse(self.path)
         path = urllib.parse.unquote(u.path)
         q = dict(urllib.parse.parse_qsl(u.query))
+        if path == "/login" and method == "POST":
+            form = dict(urllib.parse.parse_qsl(self.body().decode()))
+            st = config.settings()
+            if str(form.get("pin", "")).strip() == str(st.get("phone_pin")):
+                self.send_response(303)
+                self.send_header("Set-Cookie", f"onetake_pin={pin_token(st)}; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly")
+                self.send_header("Location", form.get("next") or "/")
+                self.end_headers()
+                return
+            return self.login_page(form.get("next") or "/", wrong=True)
+        if not self.authorized():
+            if path.startswith("/api/") or path.startswith("/media/"):
+                return self.send_json({"error": "Enter your One Take PIN first."}, 401)
+            if not path.startswith("/assets/fonts/"):
+                return self.login_page(self.path)
         if method == "GET":
+            if path in ("/phone", "/phone/"):
+                return self.send_file(config.APP / "phone.html")
             if path in ("/", "/index.html"):
                 return self.send_file(config.APP / "index.html")
             if path.startswith("/app/"):
@@ -222,7 +273,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(info)
             if path == "/api/status":
                 st = config.settings()
-                return self.send_json({"claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
+                return self.send_json({"phone_access": bool(st.get("phone_access")), "phone_pin": st.get("phone_pin"),
+                                       "claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
                                        "stock": bool(os.environ.get("PIXABAY_API_KEY") or st.get("pixabay_key")),
                                        "settings": {k: st[k] for k in ("max_gap", "pad_before", "pad_after", "width", "height", "fps")}})
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)/thumb", path)
@@ -282,6 +334,25 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"error": "The upload was interrupted."}, 400)
             dest.with_suffix(dest.suffix + ".part").replace(dest)
             return self.send_json({"saved": dest.name})
+        if path == "/api/phone-access":  # turn sending from your phone on/off (creates the PIN)
+            import secrets
+            b = self.jbody()
+            f = config.ROOT / "settings.json"
+            st = json.loads(f.read_text()) if f.exists() else {}
+            st["phone_access"] = bool(b.get("on"))
+            if st["phone_access"] and not st.get("phone_pin"):
+                st["phone_pin"] = f"{secrets.randbelow(900000) + 100000}"
+            f.write_text(json.dumps(st, indent=1))
+            resp = {"on": st["phone_access"], "pin": st.get("phone_pin")}
+            body = json.dumps(resp).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            if st["phone_access"]:  # keep this device signed in
+                self.send_header("Set-Cookie", f"onetake_pin={pin_token(st)}; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly")
+            self.end_headers()
+            self.wfile.write(body)
+            return
         if path == "/api/new-reel-start":  # start editing what's in drop-in-order/, in the background
             import subprocess as sp
             if not [f for f in config.DROP.iterdir() if f.suffix.lower() in config.VIDEO_EXT]:
@@ -289,6 +360,8 @@ class Handler(BaseHTTPRequestHandler):
             st = config.PROJECTS / ".newreel.json"
             st.write_text(json.dumps({"status": "running", "started": time.time()}))
             env = dict(os.environ, ONETAKE_NO_BROWSER="1")
+            if self.jbody().get("auto_render"):  # from the phone: render it so it can be downloaded right away
+                env["ONETAKE_AUTO_RENDER"] = "1"
             sp.Popen(["bash", str(config.ROOT / "new-reel.sh")], cwd=config.ROOT, env=env,
                      stdin=sp.DEVNULL, stdout=sp.DEVNULL, stderr=sp.DEVNULL, start_new_session=True)
             return self.send_json({"started": True})

@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5B4BDB">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="One Take">
+<title>One Take</title>
+<style>
+  :root { --bg: #F3F2F7; --panel: #fff; --ink: #17171C; --ink2: #5E5E6B; --accent: #5B4BDB; --soft: #ECEAFE; --hl: #FFF4B8; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121217; --panel: #1C1C23; --ink: #F2F1F6; --ink2: #A5A4B3; --accent: #8C7EFF; --soft: #2B2747; --hl: #3B3517; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, sans-serif; padding: 18px 16px 40px; }
+  h1 { font-size: 24px; margin: 4px 0 2px; }
+  .muted { color: var(--ink2); font-size: 14px; }
+  .big { display: block; width: 100%; margin: 18px 0 10px; padding: 26px 16px; border: 2px dashed var(--accent); border-radius: 20px;
+         background: var(--soft); color: var(--ink); font-size: 19px; font-weight: 700; text-align: center; }
+  .big .i { font-size: 34px; display: block; color: var(--accent); }
+  .card { background: var(--panel); border-radius: 16px; padding: 14px 16px; margin: 12px 0; box-shadow: 0 4px 16px rgba(0,0,0,.06); }
+  .bar { height: 10px; background: #ddd; border-radius: 6px; overflow: hidden; margin: 10px 0 4px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .btn { display: block; text-align: center; padding: 14px; border-radius: 14px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; margin-top: 10px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(128,128,128,.2); }
+  .row:first-child { border-top: 0; }
+  .row a { color: var(--accent); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  video { width: 100%; border-radius: 14px; background: #000; margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>✂ One Take</h1>
+<div class="muted">Film it, pick it, done. Your Chromebook edits it in your style.</div>
+
+<label class="big" id="pick"><span class="i">⬆</span>Choose a video from your gallery
+  <input type="file" id="file" accept="video/*" multiple hidden></label>
+
+<div class="card" id="status" hidden></div>
+<div class="card" id="ready" hidden></div>
+
+<h3 style="margin:22px 0 4px">Your reels</h3>
+<div class="card" id="list"><div class="muted">Loading…</div></div>
+
+<div class="muted" style="margin-top:18px">Tip: add this page to your home screen (browser menu → <b>Add to Home screen</b>) so One Take is one tap away.
+Your Chromebook needs to be on, with the studio running, on the same Wi-Fi.</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const media = rel => "/media/" + rel.split("/").map(encodeURIComponent).join("/");
+async function api(path, body) {
+  const r = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (r.status === 401) { location.reload(); throw new Error("PIN needed"); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+function show(el, html) { el.hidden = !html; el.innerHTML = html || ""; }
+
+function upload(file, index, onp) {
+  return new Promise((res, rej) => {
+    const x = new XMLHttpRequest();
+    x.open("POST", `/api/new-reel-file?name=${encodeURIComponent(file.name || "video.mp4")}&index=${index}`);
+    x.upload.onprogress = e => e.lengthComputable && onp(e.loaded / e.total);
+    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} x.status < 300 ? res(j) : rej(new Error(j.error || "Upload failed")); };
+    x.onerror = () => rej(new Error("Couldn't reach your Chromebook. Is it on, with the studio running, on the same Wi-Fi?"));
+    x.send(file);
+  });
+}
+
+$("#file").onchange = async e => {
+  const files = [...e.target.files]; if (!files.length) return;
+  const total = files.reduce((a, f) => a + f.size, 0); let done = 0;
+  show($("#ready"), "");
+  try {
+    for (let k = 0; k < files.length; k++) {
+      await upload(files[k], k + 1, p => {
+        const pct = Math.round((done + files[k].size * p) / total * 100);
+        show($("#status"), `<b>Sending to your Chromebook… ${pct}%</b><div class="bar"><i style="width:${pct}%"></i></div><div class="muted">Keep this page open until it's sent.</div>`);
+      });
+      done += files[k].size;
+    }
+    await api("/api/new-reel-start", { auto_render: true });
+    poll();
+  } catch (err) { show($("#status"), `<b>⚠ ${esc(err.message)}</b>`); }
+  e.target.value = "";
+};
+
+let started = 0;
+async function poll() {
+  let nr; try { nr = await fetch("/api/newreel").then(r => r.json()); } catch { return setTimeout(poll, 5000); }
+  if (nr.status === "running") {
+    started = started || nr.started;
+    const min = Math.max(0, Math.round((nr.now - nr.started) / 60));
+    show($("#status"), `<b>✳ Editing your reel…</b><div class="bar"><i style="width:100%;opacity:.35"></i></div>
+      <div class="muted">Started ${min} min ago. It usually takes 5–15 minutes, then it's rendered. You can close this page and come back.</div>`);
+    return setTimeout(poll, 6000);
+  }
+  if (nr.status === "failed" && started) show($("#status"), `<b>⚠ The edit didn't finish.</b><div class="muted">Open the studio on your Chromebook to see why.</div>`);
+  else show($("#status"), "");
+  await drawList(nr.status === "done" && started);
+}
+
+async function drawList(justDone) {
+  const list = await api("/api/projects");
+  if (!list.length) return show($("#list"), `<div class="muted">No reels yet.</div>`);
+  const rows = [];
+  for (const p of list.slice(0, 10)) {
+    const full = await api(`/api/project/${p.name}`).catch(() => null);
+    const file = full?.render?.file;
+    rows.push({ p, file });
+  }
+  $("#list").innerHTML = rows.map(({ p, file }) => `<div class="row"><div><b>${esc(p.title)}</b><br><span class="muted">${file ? "ready" : "being edited / not rendered yet"}</span></div>
+    ${file ? `<a href="${media(file)}" download="${esc(p.title)}.mp4">⬇ Download</a>` : ""}</div>`).join("");
+  if (justDone && rows[0]?.file) {
+    show($("#ready"), `<b>✓ Your reel is ready</b><video src="${media(rows[0].file)}" controls playsinline></video>
+      <a class="btn" href="${media(rows[0].file)}" download="${esc(rows[0].p.title)}.mp4">⬇ Save to my phone</a>
+      <div class="muted" style="margin-top:8px">Then post it, or open it in CapCut to keep editing. Want changes? Open the studio on your Chromebook.</div>`);
+  }
+}
+poll();
+</script>
+</body>
+</html>

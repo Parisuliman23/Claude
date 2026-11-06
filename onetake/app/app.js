@@ -118,14 +118,29 @@ async function home() {
 async function drawPhoneCard() {
   const box = $("#phoneCard"); if (!box) return;
   let st; try { st = await api("/api/inbox"); } catch { return; }
+  const ps = await api("/api/status").catch(() => ({}));
+  const direct = ps.phone_access
+    ? `<div class="card" style="background:var(--hl)"><b>📲 Send from your phone's gallery is on</b>
+        <div class="muted" style="margin-top:6px;line-height:1.6">On your phone (same Wi-Fi), open <b>http://YOUR-CHROMEBOOK-IP:5178/phone</b> and enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b>.
+        <br>Find the IP: Chromebook <b>Settings → Network → your Wi-Fi → Network</b> (the "IP address", e.g. 192.168.1.23).
+        <br>One-time: Chromebook <b>Settings → About ChromeOS → Developers → Linux → Port forwarding → Add</b>, port <b>5178</b>, TCP, and switch it on.</div>
+        <button class="ghost" id="phoneOff" style="margin-top:6px">Turn off</button></div>`
+    : `<div class="card"><b>📲 Send videos from your phone's gallery</b>
+        <div class="muted" style="margin-top:4px">Pick a video on your phone, it's edited here, and you download the finished reel on your phone. Same Wi-Fi only; protected by a PIN.</div>
+        <button class="primary" id="phoneOn" style="margin-top:8px">Turn on</button></div>`;
+  setTimeout(() => {
+    const on = $("#phoneOn"), off = $("#phoneOff");
+    if (on) on.onclick = async () => { await api("/api/phone-access", { on: true }); drawPhoneCard(); };
+    if (off) off.onclick = async () => { await api("/api/phone-access", { on: false }); drawPhoneCard(); };
+  }, 0);
   if (st.connected) {
     const last = st.status === "ready" ? `Last one: <b>${esc(st.last || "")}</b> is ready in Drive → One Take → Ready.`
       : st.status === "editing" ? `Editing <b>${esc(st.last || "")}</b> from your phone now…` : "";
-    box.innerHTML = `<div class="card"><b>📱 Phone uploads are on</b>
+    box.innerHTML = direct + `<div class="card"><b>📱 Phone uploads are on</b>
       <div class="muted" style="margin-top:4px">On your phone: film, then <b>Share → Drive → One Take → Inbox</b>. It's edited here in your style,
       and the finished reel appears in <b>Drive → One Take → Ready</b>, ready to post or open in CapCut. ${last}</div></div>`;
   } else {
-    box.innerHTML = `<details class="card"><summary><b>📱 Upload straight from your phone</b> <small class="muted">(one-time setup)</small></summary>
+    box.innerHTML = direct + `<details class="card"><summary><b>📱 Upload from anywhere with Google Drive</b> <small class="muted">(one-time setup)</small></summary>
       <ol class="muted" style="margin:8px 0 0;padding-left:18px;line-height:1.6">
         <li>On this Chromebook, open the <b>Files</b> app, right-click <b>Google Drive</b> → <b>Share with Linux</b>.</li>
         <li>Restart the studio. It creates <b>One Take → Inbox</b> and <b>Ready</b> folders in your Drive.</li>

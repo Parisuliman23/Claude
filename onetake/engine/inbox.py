@@ -128,7 +128,8 @@ def deliver(name):
         dest = ready / f"{title} - One Take.mp4"
         shutil.copy2(out, dest)
     st = json.loads(STATE.read_text()) if STATE.exists() else {}
-    st.update({"status": "ready", "ended": time.time(), "reel": name, "file": str(dest) if dest else None})
+    st.update({"status": "ready", "ended": time.time(), "reel": name, "file": str(dest) if dest else None,
+               "mp4": config.rel(out)})
     STATE.write_text(json.dumps(st))
     return dest
 
