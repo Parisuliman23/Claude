@@ -47,25 +47,51 @@ def make_master(clips, out, log=print):
     tmp = out.parent / "_parts"
     tmp.mkdir(exist_ok=True)
     parts = []
+    from . import progress
+    clip_secs = []
+    for c in clips:
+        try:
+            clip_secs.append(duration(c))
+        except Exception:  # noqa: BLE001
+            clip_secs.append(0)
+    total = sum(clip_secs)
     for n, c in enumerate(clips):
         part = tmp / f"{n:03d}.mp4"
         log(f"  preparing {c.name}")
         cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(c)]
         if not has_audio(c):
             cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-shortest"]
-        vf = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1,fps={fps}"
+        # frame rate and size first: everything after (HDR color fix, encoding) then works on far fewer pixels
+        vf = f"fps={fps},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1"
         tail = ["-map", "0:v:0", "-map", "0:a:0" if has_audio(c) else "1:a:0",
-                "-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-pix_fmt", "yuv420p",
+                # this file is only the editing master: on a slow computer, encode fast and keep quality with crf
+                "-c:v", "libx264", "-preset", "ultrafast" if config.is_chromebook() else "veryfast",
+                "-crf", "17", "-pix_fmt", "yuv420p",
                 # a keyframe every 0.5s keeps scrubbing in the browser snappy
-                "-g", str(fps // 2), "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "1", str(part)]
+                "-g", str(fps // 2), "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "1",
+                "-progress", "pipe:1", "-nostats", str(part)]
+        done_before = sum(clip_secs[:n])
+
+        def run(filters):
+            """ffmpeg with the % of this clip reported to the new-reel progress bar."""
+            p = subprocess.Popen(cmd + ["-vf", filters] + tail, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            for line in p.stdout:
+                if line.startswith("out_time_us=") and total > 0:
+                    try:
+                        progress.mark("join", (done_before + int(line.split("=")[1]) / 1e6) / total)
+                    except ValueError:
+                        pass
+            err = p.stderr.read()
+            if p.wait():
+                raise subprocess.CalledProcessError(p.returncode, "ffmpeg", stderr=err)
         if is_hdr(c):
             try:
-                subprocess.run(cmd + ["-vf", TONEMAP + vf] + tail, check=True, capture_output=True)
+                run(vf.replace(",setsar=1", "") + "," + TONEMAP + "setsar=1")
                 parts.append(part)
                 continue
             except subprocess.CalledProcessError:
                 log("  (couldn't convert HDR colors with this ffmpeg — colors may look flat)")
-        subprocess.run(cmd + ["-vf", vf] + tail, check=True)
+        run(vf)
         parts.append(part)
     lst = tmp / "list.txt"
     lst.write_text("".join(f"file '{p.name}'\n" for p in parts))
