@@ -70,19 +70,35 @@ async function boot() {
   setInterval(poll, 2500);
 }
 
+// While a new reel is being edited, update just the % (redrawing the whole page made it flicker)
+let nrTimer = 0;
+function nrText(nr) {
+  const mins = Math.max(0, Math.round((nr.now - nr.started) / 60));
+  const left = nr.left == null ? "" : nr.left < 90 ? "almost done · " : `about ${Math.round(nr.left / 60)} min left · `;
+  return `<b>${esc(nr.label || "Getting started")}</b> · ${left}started ${mins} min ago. This page updates by itself.`;
+}
+async function tickNewReel() {
+  if (!document.body.classList.contains("home") || !$("#nrPct")) return;  // you've opened a reel: stop
+  const nr = await api("/api/newreel").catch(() => null);
+  if (!nr) { nrTimer = setTimeout(tickNewReel, 5000); return; }
+  if (nr.status !== "running") return home();  // finished or failed: show the result
+  $("#nrPct").textContent = `${nr.pct ?? 0}%`;
+  $("#nrBar").style.width = `${nr.pct ?? 0}%`;
+  $("#nrText").innerHTML = nrText(nr);
+  nrTimer = setTimeout(tickNewReel, 5000);
+}
+
 async function home() {
   document.body.classList.add("home");
   $("#previewCol").hidden = true; $("#bottom").hidden = true; $("#tabs").hidden = true;
   $("#main").style.gridTemplateColumns = "1fr";
   const list = await api("/api/projects");
   const nr = await api("/api/newreel").catch(() => ({ status: "none" }));
-  const mins = t => Math.max(0, Math.round((nr.now - t) / 60));
-  const leftText = s => s == null ? "" : s < 90 ? "almost done · " : `about ${Math.round(s / 60)} min left · `;
   const banner = {
     running: `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
-        <h3 style="margin:0">✳ Editing your new reel…</h3><b style="font-size:26px;color:var(--accent)">${nr.pct ?? 0}%</b></div>
-      <div class="progress"><i style="width:${nr.pct ?? 0}%;transition:width 1s"></i></div>
-      <div class="muted"><b>${esc(nr.label || "Getting started")}</b> · ${leftText(nr.left)}started ${mins(nr.started)} min ago. This page updates by itself.</div></div>`,
+        <h3 style="margin:0">✳ Editing your new reel…</h3><b id="nrPct" style="font-size:26px;color:var(--accent)">${nr.pct ?? 0}%</b></div>
+      <div class="progress"><i id="nrBar" style="width:${nr.pct ?? 0}%;transition:width 1s"></i></div>
+      <div class="muted" id="nrText">${nrText(nr)}</div></div>`,
     noclips: `<div class="card"><h3 style="margin-top:0">No video found</h3>
       <div class="muted">Put your video in <b>Linux files → Claude → onetake → drop-in-order</b>, then click <b>One Take – New reel</b> again.</div></div>`,
     done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>
@@ -95,7 +111,8 @@ async function home() {
       ${nr.waiting ? `<button class="primary" id="nrRetry" style="margin-top:10px">↻ Try again with the same video</button>`
         : `<div class="muted">Send the video again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div>`}</div>`,
   }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
-  if (nr.status === "running") setTimeout(home, 5000);
+  clearTimeout(nrTimer);
+  if (nr.status === "running") nrTimer = setTimeout(tickNewReel, 5000);
   setTimeout(() => { const r = $("#nrRetry"); if (r) r.onclick = async () => {
     r.disabled = true;
     try { await api("/api/new-reel-start", { auto_render: !!nr.auto_render }); home(); } catch (e) { toast(e.message); r.disabled = false; }
