@@ -77,7 +77,14 @@ def thumb(name, t, w=360):
         segs = project.segments(p)
         from . import timeline
         _, ts = timeline.out_to_src(segs, t)
-        fr = render.FrameReader(config.absolute(p["source"])).at(ts)
+        reader = render.FrameReader(config.absolute(p["source"]))
+        fr = None
+        for back in (0, 0.5, 2, 5):  # the last frames of some phone videos can't be read: step back a little
+            fr = reader.at(max(0.0, ts - back))
+            if fr is not None:
+                break
+        if fr is None:  # video missing or unreadable: no thumbnail, but don't crash the studio
+            return None
         fr = render.cover_fit(fr, w, int(w * 16 / 9))
         cv2.imwrite(str(out), fr, [cv2.IMWRITE_JPEG_QUALITY, 82])
     return out
@@ -279,7 +286,8 @@ class Handler(BaseHTTPRequestHandler):
                                        "settings": {k: st[k] for k in ("max_gap", "pad_before", "pad_after", "width", "height", "fps")}})
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)/thumb", path)
             if m:  # a still of your own video at output time t, for previews drawn "on your frame"
-                return self.send_file(thumb(m.group(1), float(q.get("t", 1))))
+                f = thumb(m.group(1), float(q.get("t", 1)))
+                return self.send_file(f) if f else self.send_error(404)
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)(/rev)?", path)
             if m:
                 p = project.load(m.group(1))
