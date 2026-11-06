@@ -58,7 +58,8 @@ if python3 -c "from engine import config; import sys; sys.exit(0 if config.fast(
   PROMPT="$PROMPT
 
 Fast mode: the user wants this quick. Make every edit you need, but work efficiently: read lookbook/STYLE.md and
-'show' once, combine changes, check at most one still, and only download B-roll if a moment clearly needs it."
+'show' once, combine changes, check at most one still, and only download B-roll if a moment clearly needs it.
+Still fix every misheard word (finance terms, names, numbers): captions must be right."
 fi
 RESULT=done
 printf "\n\n" >> "$LOG"  # Claude's summary starts a new paragraph (the studio shows the last one)
