@@ -92,6 +92,7 @@ async function home() {
   }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
   if (nr.status === "running") setTimeout(home, 5000);
   setTimeout(bindDropzone, 0);
+  setTimeout(drawPhoneCard, 0);
   setTimeout(() => document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
     if (!confirm(`Delete “${b.dataset.title}”? Its edits and exports will be gone for good. Download the MP4 first if you want to keep it.`)) return;
     await api(`/api/project/${b.dataset.del}/delete`, {});
@@ -106,10 +107,31 @@ async function home() {
       <div class="muted">or click to choose it, or paste it with <b>Ctrl + V</b>. Several clips? Drop them all; they're joined in name order.</div>
       <div id="dzProg" hidden><div class="progress"><i id="dzBar"></i></div><small id="dzMsg"></small></div>
     </label>`}
+    <div id="phoneCard"></div>
     <h1>Your reels</h1>
     ${list.length ? list.map(p => `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} raw · ${p.render === "done" ? "rendered" : "in progress"}</small></div>
       <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button>
       <button class="primary" onclick="openReel('${p.name}')">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
+}
+
+// ---------- phone uploads (Google Drive "One Take/Inbox")
+async function drawPhoneCard() {
+  const box = $("#phoneCard"); if (!box) return;
+  let st; try { st = await api("/api/inbox"); } catch { return; }
+  if (st.connected) {
+    const last = st.status === "ready" ? `Last one: <b>${esc(st.last || "")}</b> is ready in Drive → One Take → Ready.`
+      : st.status === "editing" ? `Editing <b>${esc(st.last || "")}</b> from your phone now…` : "";
+    box.innerHTML = `<div class="card"><b>📱 Phone uploads are on</b>
+      <div class="muted" style="margin-top:4px">On your phone: film, then <b>Share → Drive → One Take → Inbox</b>. It's edited here in your style,
+      and the finished reel appears in <b>Drive → One Take → Ready</b>, ready to post or open in CapCut. ${last}</div></div>`;
+  } else {
+    box.innerHTML = `<details class="card"><summary><b>📱 Upload straight from your phone</b> <small class="muted">(one-time setup)</small></summary>
+      <ol class="muted" style="margin:8px 0 0;padding-left:18px;line-height:1.6">
+        <li>On this Chromebook, open the <b>Files</b> app, right-click <b>Google Drive</b> → <b>Share with Linux</b>.</li>
+        <li>Restart the studio. It creates <b>One Take → Inbox</b> and <b>Ready</b> folders in your Drive.</li>
+        <li>On your phone: film, then <b>Share → Drive → One Take → Inbox</b>. The finished reel shows up in <b>Ready</b>.</li>
+      </ol><small class="muted">Your Chromebook does the editing, so it needs to be on with the studio running. Videos wait in the Inbox until it is.</small></details>`;
+  }
 }
 
 // ---------- new reel by drag & drop / paste

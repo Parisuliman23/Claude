@@ -100,8 +100,11 @@ def new(name=None, clips=None, log=print, move=True):
     words, lines = transcribe.run(d / "source.mp4")
     dur = duration(d / "source.mp4")
     s = config.settings()
+    title = name.replace("-", " ")
+    if re.fullmatch(r"(img|vid|pxl|video|mov|movie|clip|screen recording)[ _-]?\d[\d _-]*", title, re.I) and words:
+        title = " ".join(w["t"] for w in words[:7]).strip(" ,.!?").capitalize()  # phone file name: use what you say
     p = {
-        "title": name.replace("-", " "),
+        "title": title,
         "created": time.time(),
         "source": config.rel(d / "source.mp4"),
         "duration": dur,

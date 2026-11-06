@@ -16,6 +16,7 @@
   broll-key KEY                       save your free Pixabay API key (pixabay.com/api/docs)
   sfx-auto NAME [--keep]    give every look, cut-away and punch-in a matching sound effect
   sfx-list                  list sound effects you can use (built-in + library/sfx)
+  inbox                     show the phone-upload folders (Google Drive "One Take/Inbox" -> "One Take/Ready")
   remove-captions NAME [--off]  find captions burned into the video and paint them out (or keep them)
   faces NAME                find faces (for Cover a face)
   still NAME SECONDS        render one frame to check a look (projects/NAME/cache/still.png)
@@ -226,6 +227,11 @@ def main(argv=None):
         for f in flags:
             print(f"  {f['id']} {f['name']} at {f['at']}s: {f['issue']}")
         print("All looks are in the safe area." if not flags else f"{len(flags)} look(s) may be partly hidden.")
+        return
+    if c == "inbox":
+        from . import inbox
+        inbox.ensure()
+        print(json.dumps(inbox.status(), indent=1))
         return
     if c == "add-broll":
         b = json.loads(a.json)

@@ -56,4 +56,9 @@ if [ -n "$(ls -A drop-in-order | grep -v '^\.keep$')" ]; then
     RESULT=done
   fi
 fi
+# phone uploads: render it and put the MP4 in Google Drive "One Take/Ready"
+if [ "$RESULT" = done ] && [ -n "$ONETAKE_AUTO_RENDER" ]; then
+  NAME=$(python3 -c "from engine import project; print(project.list_projects()[0]['name'])")
+  python3 -c "from engine import inbox; print(inbox.deliver('$NAME'))" >> "$LOG" 2>&1 || RESULT=failed
+fi
 echo "{\"status\": \"$RESULT\", \"ended\": $(date +%s)}" > "$STATUS"
