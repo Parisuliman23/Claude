@@ -324,8 +324,8 @@ class Handler(BaseHTTPRequestHandler):
                 info = info or {"status": "none"}
                 info["log"] = log_f.read_text()[-3000:] if log_f.exists() and info.get("status") in ("done", "failed") else ""
                 info["now"] = time.time()
-                info["waiting"] = len([f for f in config.DROP.glob("*") if f.suffix.lower() in config.VIDEO_EXT]) \
-                    if config.DROP.exists() else 0
+                info["waiting"] = (len([f for f in config.DROP.glob("*") if f.suffix.lower() in config.VIDEO_EXT])
+                                   if config.DROP.exists() else 0) or (1 if progress.orphan() else 0)
                 if info.get("status") == "running":
                     from . import progress
                     info["pct"], info["label"], info["left"] = progress.estimate(info, info["now"])
@@ -430,6 +430,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if path == "/api/new-reel-start":  # start editing what's in drop-in-order/, in the background
             import subprocess as sp
+            from . import progress
+            if not [f for f in config.DROP.glob("*") if f.suffix.lower() in config.VIDEO_EXT]:
+                progress.recover_orphan()  # "Try again" after an import that stopped halfway
             if not [f for f in config.DROP.iterdir() if f.suffix.lower() in config.VIDEO_EXT]:
                 return self.send_json({"error": "No video arrived."}, 400)
             st = config.PROJECTS / ".newreel.json"

@@ -37,30 +37,34 @@ AUTO=false; [ -n "$ONETAKE_AUTO_RENDER" ] && AUTO=true
 echo "{\"status\": \"running\", \"started\": $(date +%s), \"step\": \"start\", \"step_at\": $(date +%s), \"auto_render\": $AUTO, \"pid\": $$}" > "$STATUS"
 [ -z "$ONETAKE_NO_BROWSER" ] && bash ./open-url.sh "$URL" &
 
-PROMPT="I have a new reel to edit. You were started from the One Take app icon and are running in the background:
-the studio is already running, so skip starting it, and there's nobody to answer questions, so make sensible
-choices yourself. Finish with the short summary for the user (what you cut and styled)."
-RESULT=failed
-# 45 minutes at most: if Claude gets stuck, the automatic edit below takes over
-if command -v claude >/dev/null 2>&1 && timeout 45m claude -p "$PROMPT" --permission-mode acceptEdits \
-     --allowedTools "Bash(python3 -m engine:*)" "Bash(ls:*)" Read Write Edit Glob Grep > "$LOG" 2>&1; then
-  RESULT=done
+# 1. Import it here (joining, transcribing, rough cut) so it never depends on Claude waiting for it
+if ! python3 -m engine new > "$LOG" 2>&1; then
+  echo "{\"status\": \"failed\", \"ended\": $(date +%s)}" > "$STATUS"
+  exit 1
 fi
-# Claude unavailable (not installed, usage limit…) and the clips are still waiting: do the automatic
-# cut and styling without Claude so you still get a reel to work on.
-if [ -n "$(ls -A drop-in-order | grep -v '^\.keep$')" ]; then
-  if python3 -m engine new >> "$LOG" 2>&1; then
-    NAME=$(python3 -c "from engine import project; print(project.list_projects()[0]['name'])")
-    python3 -m engine sfx-auto "$NAME" >> "$LOG" 2>&1
-    python3 -m engine edge-check "$NAME" --fix >> "$LOG" 2>&1
-    printf "\n\n" >> "$LOG"
-    echo "Claude wasn't available, so One Take made the automatic cut, captions, hook and sounds. Open it to review, or use Ask Claude later to style it further." >> "$LOG"
-    RESULT=done
-  fi
+NAME=$(python3 -c "from engine import project; print(project.list_projects()[0]['name'])")
+
+# 2. Claude reviews the cut and styles it (45 minutes at most)
+PROMPT="I have a new reel to edit. It's already imported as project $NAME (joined, transcribed and rough-cut),
+so don't run 'new': start at step 3 of CLAUDE.md (review the cut), then do the styling pass (step 4).
+You're running in the background from One Take: the studio is already running, so don't open it, and there's
+nobody to answer questions, so make sensible choices yourself. Run every command in the foreground and wait
+for it to finish; never start anything in the background. Finish with the short summary for the user
+(what you cut and styled)."
+RESULT=done
+if command -v claude >/dev/null 2>&1 && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 timeout 45m claude -p "$PROMPT" \
+     --permission-mode acceptEdits \
+     --allowedTools "Bash(python3 -m engine:*)" "Bash(ls:*)" Read Write Edit Glob Grep >> "$LOG" 2>&1; then
+  :
+else
+  # Claude unavailable (not installed, usage limit, stuck…): finish the automatic styling without Claude
+  python3 -m engine sfx-auto "$NAME" >> "$LOG" 2>&1
+  python3 -m engine edge-check "$NAME" --fix >> "$LOG" 2>&1
+  printf "\n\n" >> "$LOG"
+  echo "Claude couldn't style this one, so One Take made the automatic cut, captions, hook and sounds. Open it to review, or use Ask Claude to style it further." >> "$LOG"
 fi
 # phone uploads: render it and put the MP4 in Google Drive "One Take/Ready"
 if [ "$RESULT" = done ] && [ -n "$ONETAKE_AUTO_RENDER" ]; then
-  NAME=$(python3 -c "from engine import project; print(project.list_projects()[0]['name'])")
   python3 -c "from engine import inbox; print(inbox.deliver('$NAME'))" >> "$LOG" 2>&1 || RESULT=failed
 fi
 echo "{\"status\": \"$RESULT\", \"ended\": $(date +%s)}" > "$STATUS"

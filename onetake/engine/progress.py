@@ -88,6 +88,31 @@ def check():
     return info
 
 
+def orphan():
+    """A reel whose import stopped halfway (folder with its clips but no project.json), newest first."""
+    if not config.PROJECTS.exists():
+        return None
+    for d in sorted(config.PROJECTS.iterdir(), key=lambda d: -d.stat().st_mtime):
+        if d.is_dir() and not (d / "project.json").exists() and any((d / "raw").glob("*")):
+            return d
+    return None
+
+
+def recover_orphan():
+    """Put a half-imported reel's clips back in drop-in-order/ so it can be edited again."""
+    import shutil
+    d = orphan()
+    if not d:
+        return False
+    config.DROP.mkdir(exist_ok=True)
+    for k, f in enumerate(sorted((d / "raw").iterdir()), 1):
+        if f.suffix.lower() in config.VIDEO_EXT:
+            dest = config.DROP / (f.name if f.name[:2].isdigit() else f"{k:02d}_{f.name}")
+            shutil.move(str(f), dest)
+    shutil.rmtree(d, ignore_errors=True)
+    return True
+
+
 def busy():
     return check().get("status") == "running"
 
