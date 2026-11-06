@@ -33,7 +33,8 @@ if [ -z "$ONETAKE_NO_BROWSER" ] && [ -f "$STATUS" ] && grep -q '"running"' "$STA
   exit 0
 fi
 
-echo "{\"status\": \"running\", \"started\": $(date +%s)}" > "$STATUS"
+AUTO=false; [ -n "$ONETAKE_AUTO_RENDER" ] && AUTO=true
+echo "{\"status\": \"running\", \"started\": $(date +%s), \"step\": \"start\", \"step_at\": $(date +%s), \"auto_render\": $AUTO}" > "$STATUS"
 [ -z "$ONETAKE_NO_BROWSER" ] && bash ./open-url.sh "$URL" &
 
 PROMPT="I have a new reel to edit. You were started from the One Take app icon and are running in the background:

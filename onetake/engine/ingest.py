@@ -89,6 +89,8 @@ def new(name=None, clips=None, log=print, move=True):
     (d / "exports").mkdir()
     (d / "frames").mkdir()
     log(f"New project: {name}")
+    from . import progress
+    progress.mark("join")
     for c in clips:
         shutil.copy2(c, d / "raw" / c.name)
     make_master(clips, d / "source.mp4", log)
@@ -97,7 +99,9 @@ def new(name=None, clips=None, log=print, move=True):
             if c.parent.resolve() == config.DROP.resolve():
                 c.unlink()
     log("  transcribing (word by word)…")
-    words, lines = transcribe.run(d / "source.mp4")
+    progress.mark("transcribe", 0)
+    words, lines = transcribe.run(d / "source.mp4", progress=lambda f: progress.mark("transcribe", f))
+    progress.mark("analyze")
     dur = duration(d / "source.mp4")
     s = config.settings()
     title = name.replace("-", " ")
@@ -136,6 +140,7 @@ def new(name=None, clips=None, log=print, move=True):
         p["caption_y"] = round(min(0.85, max(0.15, (scan["band"][0] + scan["band"][1]) / 2)), 3)
         log(f"  found captions in {scan['coverage'] * 100:.0f}% of the video — they'll be painted out "
             f"and replaced with yours")
+    progress.mark("cut")
     log("  making the rough cut…")
     roughcut.run(p)
     # Default look: the first line becomes a styled hook title.

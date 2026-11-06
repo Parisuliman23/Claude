@@ -26,14 +26,16 @@ def model():
     return _model
 
 
-def run(path):
+def run(path, progress=None):
     audio = load_audio(path)
-    segs, _ = model().transcribe(audio, language="en", word_timestamps=True, vad_filter=False,
+    segs, info = model().transcribe(audio, language="en", word_timestamps=True, vad_filter=False,
                                  condition_on_previous_text=False,
                                  # keeps "um"/"uh" in the text so the rough cut can remove them
                                  initial_prompt="Um, uh, so, like, okay. Hmm, I mean, yeah.")
     words = []
     for seg in segs:
+        if progress and getattr(info, "duration", 0):
+            progress(seg.end / info.duration)
         for w in seg.words or []:
             t = w.word.strip()
             if t:

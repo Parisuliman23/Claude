@@ -103,7 +103,9 @@ def tick():
         except OSError:
             pass
         STATE.write_text(json.dumps({"last": f.name, "started": time.time(), "status": "editing"}))
-        (config.PROJECTS / ".newreel.json").write_text(json.dumps({"status": "running", "started": time.time()}))
+        (config.PROJECTS / ".newreel.json").write_text(json.dumps({"status": "running", "started": time.time(),
+                                                                    "step": "start", "step_at": time.time(),
+                                                                    "auto_render": True}))
         env = dict(os.environ, ONETAKE_NO_BROWSER="1", ONETAKE_AUTO_RENDER="1")
         subprocess.Popen(["bash", str(config.ROOT / "new-reel.sh")], cwd=config.ROOT, env=env,
                          stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -114,10 +116,13 @@ def tick():
 
 def deliver(name):
     """Render the reel and put the MP4 in the Ready folder (called by new-reel.sh for phone uploads)."""
-    from . import finish, project, render
+    from . import finish, progress, project, render
     p = project.load(name)
-    out = render.render(name, project.pdir(name) / "exports" / "reel.mp4", p=p)
+    progress.mark("render", 0)
+    out = render.render(name, project.pdir(name) / "exports" / "reel.mp4", p=p,
+                        progress=lambda f: progress.mark("render", f * 0.9))
     edit_rev = p.get("edit_rev", 0)
+    progress.mark("render", 0.93)
     phone = finish.phone_copy(out, out.with_name("reel_phone.mp4"))
     project.update(name, lambda q: q.update({"render": {"status": "done", "file": config.rel(out), "edit_rev": edit_rev,
                                                         "phone": config.rel(phone)}}))

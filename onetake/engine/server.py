@@ -322,6 +322,9 @@ class Handler(BaseHTTPRequestHandler):
                 info = json.loads(st_f.read_text()) if st_f.exists() else {"status": "none"}
                 info["log"] = log_f.read_text()[-3000:] if log_f.exists() and info.get("status") in ("done", "failed") else ""
                 info["now"] = time.time()
+                if info.get("status") == "running":
+                    from . import progress
+                    info["pct"], info["label"], info["left"] = progress.estimate(info, info["now"])
                 return self.send_json(info)
             if path == "/api/status":
                 st = config.settings()
@@ -426,9 +429,11 @@ class Handler(BaseHTTPRequestHandler):
             if not [f for f in config.DROP.iterdir() if f.suffix.lower() in config.VIDEO_EXT]:
                 return self.send_json({"error": "No video arrived."}, 400)
             st = config.PROJECTS / ".newreel.json"
-            st.write_text(json.dumps({"status": "running", "started": time.time()}))
+            auto = bool(self.jbody().get("auto_render"))
+            st.write_text(json.dumps({"status": "running", "started": time.time(), "step": "start",
+                                      "step_at": time.time(), "auto_render": auto}))
             env = dict(os.environ, ONETAKE_NO_BROWSER="1")
-            if self.jbody().get("auto_render"):  # from the phone: render it so it can be downloaded right away
+            if auto:  # from the phone: render it so it can be downloaded right away
                 env["ONETAKE_AUTO_RENDER"] = "1"
             sp.Popen(["bash", str(config.ROOT / "new-reel.sh")], cwd=config.ROOT, env=env,
                      stdin=sp.DEVNULL, stdout=sp.DEVNULL, stderr=sp.DEVNULL, start_new_session=True)
