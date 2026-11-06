@@ -131,14 +131,19 @@ def estimate(info, now=None):
     if step == "check" and not info.get("auto_render"):
         nxt = "end"
     hi = STEPS[nxt][0]
-    if info.get("frac") is not None:  # the step reports its own progress (transcribing, rendering)
-        f = info["frac"]
-    else:  # otherwise creep toward the next step with time, slowing down as it gets close
-        f = 0.9 * (1 - math.exp(-(now - info.get("step_at", info.get("started", now))) / typical))
+    # creep toward the next step with time, slowing down as it gets close; steps that report their own
+    # progress (transcribing, rendering) use whichever is further along
+    creep = 0.9 * (1 - math.exp(-(now - info.get("step_at", info.get("started", now))) / typical))
+    f = max(info.get("frac") or 0.0, creep)
     pct = int(min(99, lo + (hi - lo) * f))
-    # time left = the rest of this step + the usual length of the steps after it
+    # time left = the rest of this step + the usual length of the steps after it…
     later = ORDER[ORDER.index(step) + 1:ORDER.index("end")]
     if not info.get("auto_render") and "render" in later:
         later.remove("render")
     left = typical * (1 - f) + sum(STEPS[k][2] for k in later)
+    # …adjusted to how fast this computer has actually been so far
+    elapsed = now - info.get("started", now)
+    expected = sum(STEPS[k][2] for k in ORDER[:ORDER.index(step)]) + typical * f
+    if elapsed > 45 and expected > 0:
+        left *= max(0.3, min(4.0, elapsed / expected))
     return pct, label, max(30, left)

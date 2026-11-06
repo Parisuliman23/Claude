@@ -52,6 +52,7 @@ nobody to answer questions, so make sensible choices yourself. Run every command
 for it to finish; never start anything in the background. Finish with the short summary for the user
 (what you cut and styled)."
 RESULT=done
+printf "\n\n" >> "$LOG"  # Claude's summary starts a new paragraph (the studio shows the last one)
 if command -v claude >/dev/null 2>&1 && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 timeout 45m claude -p "$PROMPT" \
      --permission-mode acceptEdits \
      --allowedTools "Bash(python3 -m engine:*)" "Bash(ls:*)" Read Write Edit Glob Grep >> "$LOG" 2>&1; then
@@ -65,6 +66,6 @@ else
 fi
 # phone uploads: render it and put the MP4 in Google Drive "One Take/Ready"
 if [ "$RESULT" = done ] && [ -n "$ONETAKE_AUTO_RENDER" ]; then
-  python3 -c "from engine import inbox; print(inbox.deliver('$NAME'))" >> "$LOG" 2>&1 || RESULT=failed
+  python3 -c "from engine import inbox; inbox.deliver('$NAME')" >> "$LOG" 2>&1 || RESULT=failed
 fi
 echo "{\"status\": \"$RESULT\", \"ended\": $(date +%s)}" > "$STATUS"

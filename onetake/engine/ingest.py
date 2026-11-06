@@ -79,6 +79,9 @@ def new(name=None, clips=None, log=print, move=True):
     if not clips:
         raise SystemExit(f"No videos found. Drop your clips into {config.DROP} (they're used in name order).")
     name = project.slug(name or re.sub(r"^\d{2}_", "", clips[0].stem))  # drop the order prefix from dragged-in files
+    for d in config.PROJECTS.glob("*/raw"):  # an earlier try at these same clips that stopped halfway: replace it
+        if not (d.parent / "project.json").exists() and {f.name for f in d.iterdir()} == {c.name for c in clips}:
+            shutil.rmtree(d.parent, ignore_errors=True)
     base = name
     k = 2
     while project.exists(name):
