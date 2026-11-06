@@ -78,10 +78,16 @@ async function home() {
       <div class="muted">Try again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div></div>`,
   }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
   if (nr.status === "running") setTimeout(home, 5000);
+  setTimeout(() => document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
+    if (!confirm(`Delete “${b.dataset.title}”? Its edits and exports will be gone for good. Download the MP4 first if you want to keep it.`)) return;
+    await api(`/api/project/${b.dataset.del}/delete`, {});
+    toast("Reel deleted."); home();
+  }), 0);
   $("#panel").innerHTML = `<div class="projlist">${banner}<h1>Your reels</h1>
     <p class="muted">To start a new one: put your video in the <b>drop-in-order</b> folder, then click the
     <b>One Take – New reel</b> app icon (or tell Claude <i>"I have a new reel to edit"</i>).</p>
     ${list.length ? list.map(p => `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} raw · ${p.render === "done" ? "rendered" : "in progress"}</small></div>
+      <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button>
       <button class="primary" onclick="location.hash='${p.name}';location.reload()">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
 }
 
