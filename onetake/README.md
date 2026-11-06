@@ -135,6 +135,15 @@ instead of transcribing, and the edit gets out of the way when the moment is per
   from pixabay.com/api/docs, pasted once), or grab a ~30-clip finance starter pack. Claude also finds clips
   by itself while editing (`python3 -m engine broll-find "stock market crash"`).
 
+## From your phone
+
+- **Same Wi-Fi:** on the studio's home page, turn on **Send videos from your phone's gallery**. It shows a PIN and the
+  steps (one-time: ChromeOS Settings → Developers → Linux → Port forwarding → add port 5178). On your phone open
+  `http://YOUR-CHROMEBOOK-IP:5178/phone`, enter the PIN, pick a video from your gallery, and download the finished reel.
+- **From anywhere:** share the video to Google Drive → **One Take → Inbox**; the finished reel appears in
+  **One Take → Ready** (one-time: Files app → right-click Google Drive → Share with Linux).
+- Either way your computer does the editing, so it needs to be on with the studio running.
+
 ## Teach it your style
 
 - `lookbook/STYLE.md`: write your brand colors, fonts, the kind of hooks you like, and things you never want.
