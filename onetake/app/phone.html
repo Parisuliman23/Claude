@@ -101,14 +101,16 @@ $("#file").onchange = async e => {
   e.target.value = "";
 };
 
-let started = 0;
+let started = 0, listed = false;
 async function poll() {
   let nr; try { nr = await fetch("/api/newreel").then(r => r.json()); } catch { return setTimeout(poll, 5000); }
   if (nr.status === "running") {
     started = started || nr.started;
-    const min = Math.max(0, Math.round((nr.now - nr.started) / 60));
-    show($("#status"), `<b>✳ Editing your reel…</b><div class="bar"><i style="width:100%;opacity:.35"></i></div>
-      <div class="muted">Started ${min} min ago. It usually takes 5–15 minutes, then it's rendered. You can close this page and come back.</div>`);
+    const pct = nr.pct ?? 0, left = nr.left == null ? "" : nr.left < 90 ? "Almost done. " : `About ${Math.round(nr.left / 60)} min left. `;
+    show($("#status"), `<div style="display:flex;justify-content:space-between;align-items:baseline"><b>✳ Editing your reel…</b>
+      <b style="font-size:24px;color:var(--accent)">${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="muted"><b>${esc(nr.label || "Getting started")}</b><br>${left}You can close this page and come back.</div>`);
+    if (!listed) { listed = true; drawList(false).catch(() => {}); }  // show your reels while it works
     return setTimeout(poll, 6000);
   }
   if (nr.status === "failed" && started) show($("#status"), `<b>⚠ The edit didn't finish.</b><div class="muted">Open the studio on your Chromebook to see why.</div>`);

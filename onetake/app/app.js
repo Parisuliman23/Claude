@@ -77,10 +77,12 @@ async function home() {
   const list = await api("/api/projects");
   const nr = await api("/api/newreel").catch(() => ({ status: "none" }));
   const mins = t => Math.max(0, Math.round((nr.now - t) / 60));
+  const leftText = s => s == null ? "" : s < 90 ? "almost done · " : `about ${Math.round(s / 60)} min left · `;
   const banner = {
-    running: `<div class="card"><h3 style="margin-top:0">✳ Claude is editing your new reel…</h3>
-      <div class="muted">Started ${mins(nr.started)} min ago. It usually takes 5–15 minutes. This page updates by itself.</div>
-      <div class="progress"><i style="width:100%;opacity:.35"></i></div></div>`,
+    running: `<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px">
+        <h3 style="margin:0">✳ Editing your new reel…</h3><b style="font-size:26px;color:var(--accent)">${nr.pct ?? 0}%</b></div>
+      <div class="progress"><i style="width:${nr.pct ?? 0}%;transition:width 1s"></i></div>
+      <div class="muted"><b>${esc(nr.label || "Getting started")}</b> · ${leftText(nr.left)}started ${mins(nr.started)} min ago. This page updates by itself.</div></div>`,
     noclips: `<div class="card"><h3 style="margin-top:0">No video found</h3>
       <div class="muted">Put your video in <b>Linux files → Claude → onetake → drop-in-order</b>, then click <b>One Take – New reel</b> again.</div></div>`,
     done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>

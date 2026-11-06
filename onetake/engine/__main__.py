@@ -124,6 +124,11 @@ def main(argv=None):
     ap.add_argument("--keep-drop", action="store_true", help="don't empty drop-in-order/ after importing")
     a = ap.parse_args(argv)
     c, args = a.cmd, a.args
+    try:  # a new reel being edited in the background: move its % along
+        from . import progress
+        progress.for_command(c)
+    except Exception:  # noqa: BLE001
+        pass
 
     if c == "setup":
         sys.exit(0 if setup() else 1)
