@@ -54,10 +54,23 @@ def absolute(r):
 
 def is_chromebook():
     """Running in ChromeOS's Linux (Crostini)? There, Chrome's 'localhost' forwarding into Linux can
-    break (ERR_CONNECTION_RESET), but penguin.linux.test always reaches the Linux container."""
+    break (ERR_CONNECTION_RESET), so the studio is opened at the container's own address instead."""
     import os
     import socket
     return os.path.exists("/opt/google/cros-containers") or socket.gethostname() == "penguin"
+
+
+def _linux_ip():
+    """The Linux container's own address (e.g. 100.115.92.2). Chrome on the Chromebook reaches it
+    directly, even when 'localhost' forwarding is broken (often by a VPN) and when the
+    penguin.linux.test name isn't available."""
+    import subprocess
+    try:
+        out = subprocess.run(["hostname", "-I"], capture_output=True, text=True, timeout=3).stdout.split()
+    except Exception:
+        return None
+    v4 = [a for a in out if a.count(".") == 3 and not a.startswith("127.")]
+    return v4[0] if v4 else None
 
 
 def studio_host():
@@ -68,7 +81,7 @@ def studio_host():
     if is_chromebook():
         # the Linux container is only reachable from this Chromebook, so listening on all of its
         # addresses doesn't expose the studio to the network
-        return "0.0.0.0", "penguin.linux.test"
+        return "0.0.0.0", _linux_ip() or "localhost"
     return "127.0.0.1", "localhost"
 
 
