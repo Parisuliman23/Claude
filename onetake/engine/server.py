@@ -276,6 +276,13 @@ class Handler(BaseHTTPRequestHandler):
             except project.ConflictError as e:
                 return self.send_json({"conflict": True, "rev": e.rev}, 409)
         b = self.jbody()
+        if action == "delete":  # delete a whole reel (its folder in projects/)
+            import shutil
+            d = project.pdir(name)
+            if d.resolve().parent != config.PROJECTS.resolve() or not (d / "project.json").exists():
+                return self.send_error(400)
+            shutil.rmtree(d)
+            return self.send_json({"deleted": name})
         if action == "sfx-auto":
             from . import sfx
             p = project.update(name, lambda q: (sfx.auto(q, replace=bool(b.get("replace", True))),
