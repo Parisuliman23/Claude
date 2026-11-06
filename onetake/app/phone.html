@@ -41,7 +41,7 @@
 <div class="card" id="list"><div class="muted">Loading…</div></div>
 
 <div class="muted" style="margin-top:18px">Tip: add this page to your home screen (browser menu → <b>Add to Home screen</b>) so One Take is one tap away.
-Your Chromebook needs to be on, with the studio running, on the same Wi-Fi.</div>
+Your Chromebook needs to be on with the studio running. Your phone can be on Wi-Fi or mobile data.</div>
 
 <script>
 const $ = s => document.querySelector(s);
@@ -56,15 +56,31 @@ async function api(path, body) {
 }
 function show(el, html) { el.hidden = !html; el.innerHTML = html || ""; }
 
-function upload(file, index, onp) {
+const PIECE = 32 * 1024 * 1024;  // big videos go in pieces (the phone link takes up to 100 MB at a time)
+function sendPiece(file, index, offset, onp) {
   return new Promise((res, rej) => {
-    const x = new XMLHttpRequest();
-    x.open("POST", `/api/new-reel-file?name=${encodeURIComponent(file.name || "video.mp4")}&index=${index}`);
-    x.upload.onprogress = e => e.lengthComputable && onp(e.loaded / e.total);
-    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {} x.status < 300 ? res(j) : rej(new Error(j.error || "Upload failed")); };
-    x.onerror = () => rej(new Error("Couldn't reach your Chromebook. Is it on, with the studio running, on the same Wi-Fi?"));
-    x.send(file);
+    const end = Math.min(file.size, offset + PIECE), x = new XMLHttpRequest();
+    x.open("POST", `/api/new-reel-file?name=${encodeURIComponent(file.name || "video.mp4")}&index=${index}&offset=${offset}&total=${file.size}`);
+    x.upload.onprogress = e => e.lengthComputable && onp((offset + e.loaded) / file.size);
+    x.onload = () => { let j = {}; try { j = JSON.parse(x.responseText); } catch {}
+      if (x.status === 409 && j.have !== undefined) return res(j.have);  // carry on from where it got to
+      if (x.status === 401) { location.reload(); return rej(new Error("PIN needed")); }
+      x.status < 300 ? res(j.saved ? file.size : (j.have ?? end)) : rej(new Error(j.error || "Upload failed")); };
+    x.onerror = () => rej(new Error("net"));
+    x.send(file.slice(offset, end));
   });
+}
+async function upload(file, index, onp) {
+  let offset = 0, tries = 0;
+  while (offset < file.size || (offset === 0 && file.size === 0)) {
+    try { offset = await sendPiece(file, index, offset, onp); tries = 0; }
+    catch (e) {
+      if (e.message !== "net" || ++tries > 5) throw new Error(e.message === "net"
+        ? "Couldn't reach your Chromebook. Is it on, with the studio running?" : e.message);
+      await new Promise(r => setTimeout(r, 3000 * tries));  // signal dropped: wait and resume
+    }
+    if (file.size === 0) break;
+  }
 }
 
 $("#file").onchange = async e => {

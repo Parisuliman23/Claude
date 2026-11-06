@@ -119,14 +119,24 @@ async function drawPhoneCard() {
   const box = $("#phoneCard"); if (!box) return;
   let st; try { st = await api("/api/inbox"); } catch { return; }
   const ps = await api("/api/status").catch(() => ({}));
+  const link = ps.phone_link || {};
+  const linkHtml = link.url
+    ? `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px">
+        <img src="/api/phone-qr.png?u=${encodeURIComponent(link.url)}" alt="" width="132" height="132" style="border-radius:10px;background:#fff" onerror="this.remove()">
+        <div class="muted" style="flex:1;min-width:220px;line-height:1.6"><b>Point your phone's camera at the code</b>, or open this link on your phone:<br>
+        <b style="word-break:break-all;user-select:all">${esc(link.url)}/phone</b><br>
+        Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone). Works on Wi-Fi or mobile data.
+        <br><small>The link changes when the studio restarts, so scan the new code then.</small></div></div>`
+    : link.state === "error"
+      ? `<div class="muted" style="margin-top:6px">⚠ ${esc(link.error)}<br>Check this Chromebook is online, then turn this off and on again.</div>`
+      : `<div class="muted" style="margin-top:6px">✳ Making your private phone link… (the first time takes a minute)</div>`;
+  if (ps.phone_access && !link.url && link.state !== "error") setTimeout(drawPhoneCard, 3000);
   const direct = ps.phone_access
-    ? `<div class="card" style="background:var(--hl)"><b>📲 Send from your phone's gallery is on</b>
-        <div class="muted" style="margin-top:6px;line-height:1.6">On your phone (same Wi-Fi), open <b>http://YOUR-CHROMEBOOK-IP:5178/phone</b> and enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b>.
-        <br>Find the IP: Chromebook <b>Settings → Network → your Wi-Fi → Network</b> (the "IP address", e.g. 192.168.1.23).
-        <br>One-time: Chromebook <b>Settings → About ChromeOS → Developers → Linux → Port forwarding → Add</b>, port <b>5178</b>, TCP, and switch it on.</div>
+    ? `<div class="card" style="background:var(--hl)"><b>📲 Send from your phone's gallery is on</b>${linkHtml}
         <button class="ghost" id="phoneOff" style="margin-top:6px">Turn off</button></div>`
     : `<div class="card"><b>📲 Send videos from your phone's gallery</b>
-        <div class="muted" style="margin-top:4px">Pick a video on your phone, it's edited here, and you download the finished reel on your phone. Same Wi-Fi only; protected by a PIN.</div>
+        <div class="muted" style="margin-top:4px">Pick a video on your phone, it's edited here, and you download the finished reel on your phone.
+        Uses a private link protected by a PIN, so it works on Wi-Fi or mobile data.</div>
         <button class="primary" id="phoneOn" style="margin-top:8px">Turn on</button></div>`;
   setTimeout(() => {
     const on = $("#phoneOn"), off = $("#phoneOff");

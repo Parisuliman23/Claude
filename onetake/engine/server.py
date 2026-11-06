@@ -108,6 +108,18 @@ button{margin-top:14px;width:100%;padding:12px;font-size:17px;border:0;border-ra
 <p class="m">{{msg}}</p><button>Open</button></form></body></html>"""
 
 
+# Through the phone link (a Cloudflare tunnel) only the phone page and what it needs are reachable.
+TUNNEL_PATHS = re.compile(r"/phone/?|/login|/api/projects|/api/project/[a-z0-9-]+|/api/newreel|/api/new-reel-file"
+                          r"|/api/new-reel-start|/media/projects/.+")
+_wrong_pins = []  # times of wrong PIN tries: after 5 in 15 minutes, PIN entry pauses for 15 minutes
+
+
+def pin_locked():
+    now = time.time()
+    _wrong_pins[:] = [t for t in _wrong_pins if now - t < 900]
+    return len(_wrong_pins) >= 5
+
+
 def pin_token(st):
     import hashlib
     return hashlib.sha256(f"onetake:{st.get('phone_pin')}".encode()).hexdigest()[:32]
@@ -210,17 +222,22 @@ class Handler(BaseHTTPRequestHandler):
 
     do_PUT = do_POST
 
+    def via_tunnel(self):
+        """True for requests that came in through the phone link (Cloudflare adds these headers)."""
+        return bool(self.headers.get("Cf-Connecting-Ip") or self.headers.get("Cf-Ray"))
+
     def authorized(self):
         """With phone access on, every request needs the PIN cookie (set once per device)."""
         st = config.settings()
         if not st.get("phone_access"):
-            return True
+            return not self.via_tunnel()
         c = self.headers.get("Cookie") or ""
         return f"onetake_pin={pin_token(st)}" in c.replace(" ", "").split(";")
 
     def login_page(self, nxt, wrong=False):
         html = LOGIN_HTML.replace("{{next}}", urllib.parse.quote(nxt, safe="/#")).replace(
-            "{{msg}}", "That PIN didn't match. Try again." if wrong else "")
+            "{{msg}}", "Too many wrong tries. Wait 15 minutes, then try again." if wrong == "locked"
+            else "That PIN didn't match. Try again." if wrong else "")
         body = html.encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -232,15 +249,30 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         path = urllib.parse.unquote(u.path)
         q = dict(urllib.parse.parse_qsl(u.query))
+        if self.via_tunnel():
+            if not config.settings().get("phone_access"):
+                return self.send_error(403)
+            if path in ("/", "/index.html"):
+                self.send_response(303)
+                self.send_header("Location", "/phone")
+                self.end_headers()
+                return
+            if not TUNNEL_PATHS.fullmatch(path) or (
+                    method != "GET" and path not in ("/login", "/api/new-reel-file", "/api/new-reel-start")):
+                return self.send_error(404)
         if path == "/login" and method == "POST":
             form = dict(urllib.parse.parse_qsl(self.body().decode()))
             st = config.settings()
-            if str(form.get("pin", "")).strip() == str(st.get("phone_pin")):
+            if pin_locked():
+                return self.login_page(form.get("next") or "/", wrong="locked")
+            if st.get("phone_pin") and str(form.get("pin", "")).strip() == str(st.get("phone_pin")):
                 self.send_response(303)
                 self.send_header("Set-Cookie", f"onetake_pin={pin_token(st)}; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly")
-                self.send_header("Location", form.get("next") or "/")
+                nxt = form.get("next") or "/"
+                self.send_header("Location", nxt if nxt.startswith("/") and not nxt.startswith("//") else "/")
                 self.end_headers()
                 return
+            _wrong_pins.append(time.time())
             return self.login_page(form.get("next") or "/", wrong=True)
         if not self.authorized():
             if path.startswith("/api/") or path.startswith("/media/"):
@@ -263,6 +295,19 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_file(f)
             if path == "/api/projects":
                 return self.send_json(project.list_projects())
+            if path == "/api/phone-qr.png":  # QR code of the phone link, to scan with the phone's camera
+                from . import tunnel
+                url = tunnel.status().get("url")
+                png = tunnel.qr_png(url + "/phone") if url else None
+                if not png:
+                    return self.send_error(404)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/png")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", str(len(png)))
+                self.end_headers()
+                self.wfile.write(png)
+                return
             if path == "/api/lookbook":
                 return self.send_json(lookbook())
             if path == "/api/library":
@@ -280,7 +325,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(info)
             if path == "/api/status":
                 st = config.settings()
+                from . import tunnel
                 return self.send_json({"phone_access": bool(st.get("phone_access")), "phone_pin": st.get("phone_pin"),
+                                       "phone_link": tunnel.status(),
                                        "claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
                                        "stock": bool(os.environ.get("PIXABAY_API_KEY") or st.get("pixabay_key")),
                                        "settings": {k: st[k] for k in ("max_gap", "pad_before", "pad_after", "width", "height", "fps")}})
@@ -329,18 +376,29 @@ class Handler(BaseHTTPRequestHandler):
             stem = re.sub(r"[^\w\- ]", "_", Path(q.get("name", "clip")).stem)[:60]
             dest = config.DROP / f"{int(q.get('index', 0)):02d}_{stem}{ext}"
             config.DROP.mkdir(exist_ok=True)
+            part = dest.with_suffix(dest.suffix + ".part")
             left = int(self.headers.get("Content-Length") or 0)
-            with open(dest.with_suffix(dest.suffix + ".part"), "wb") as fh:  # stream: never holds the video in memory
+            offset = int(q.get("offset", 0))  # big videos come in pieces: offset = bytes already sent
+            total = int(q.get("total", 0)) or offset + left
+            have = part.stat().st_size if part.exists() else 0
+            if offset and offset != have:  # a piece went missing: tell the phone where to carry on
+                return self.send_json({"error": "Out of step", "have": have}, 409)
+            with open(part, "ab" if offset else "wb") as fh:  # stream: never holds the video in memory
                 while left > 0:
                     chunk = self.rfile.read(min(1 << 20, left))
                     if not chunk:
                         break
                     fh.write(chunk)
                     left -= len(chunk)
-            if left:
-                dest.with_suffix(dest.suffix + ".part").unlink(missing_ok=True)
-                return self.send_json({"error": "The upload was interrupted."}, 400)
-            dest.with_suffix(dest.suffix + ".part").replace(dest)
+            if left:  # this piece broke off: drop just this piece so the phone can resend it
+                if offset:
+                    os.truncate(part, offset)
+                else:
+                    part.unlink(missing_ok=True)
+                return self.send_json({"error": "The upload was interrupted.", "have": offset}, 400)
+            if part.stat().st_size < total:
+                return self.send_json({"have": part.stat().st_size})
+            part.replace(dest)
             return self.send_json({"saved": dest.name})
         if path == "/api/phone-access":  # turn sending from your phone on/off (creates the PIN)
             import secrets
@@ -351,6 +409,8 @@ class Handler(BaseHTTPRequestHandler):
             if st["phone_access"] and not st.get("phone_pin"):
                 st["phone_pin"] = f"{secrets.randbelow(900000) + 100000}"
             f.write_text(json.dumps(st, indent=1))
+            from . import tunnel
+            tunnel.start() if st["phone_access"] else tunnel.stop()
             resp = {"on": st["phone_access"], "pin": st.get("phone_pin")}
             body = json.dumps(resp).encode()
             self.send_response(200)
@@ -475,6 +535,9 @@ def serve(name=None, open_browser=True, port=None):
         print(f"Watching your phone uploads in {inbox.status()['inbox']}")
     if config.is_chromebook():
         print(f"(If that page won't load, also try http://localhost:{port}/)")
+    if config.settings().get("phone_access"):  # "Send from your phone" is on: make the phone link
+        from . import tunnel
+        tunnel.start(port)
     if open_browser:
         threading.Timer(0.6, lambda: open_url(url)).start()
     try:
