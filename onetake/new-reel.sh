@@ -34,14 +34,15 @@ if [ -z "$ONETAKE_NO_BROWSER" ] && [ -f "$STATUS" ] && grep -q '"running"' "$STA
 fi
 
 AUTO=false; [ -n "$ONETAKE_AUTO_RENDER" ] && AUTO=true
-echo "{\"status\": \"running\", \"started\": $(date +%s), \"step\": \"start\", \"step_at\": $(date +%s), \"auto_render\": $AUTO}" > "$STATUS"
+echo "{\"status\": \"running\", \"started\": $(date +%s), \"step\": \"start\", \"step_at\": $(date +%s), \"auto_render\": $AUTO, \"pid\": $$}" > "$STATUS"
 [ -z "$ONETAKE_NO_BROWSER" ] && bash ./open-url.sh "$URL" &
 
 PROMPT="I have a new reel to edit. You were started from the One Take app icon and are running in the background:
 the studio is already running, so skip starting it, and there's nobody to answer questions, so make sensible
 choices yourself. Finish with the short summary for the user (what you cut and styled)."
 RESULT=failed
-if command -v claude >/dev/null 2>&1 && claude -p "$PROMPT" --permission-mode acceptEdits \
+# 45 minutes at most: if Claude gets stuck, the automatic edit below takes over
+if command -v claude >/dev/null 2>&1 && timeout 45m claude -p "$PROMPT" --permission-mode acceptEdits \
      --allowedTools "Bash(python3 -m engine:*)" "Bash(ls:*)" Read Write Edit Glob Grep > "$LOG" 2>&1; then
   RESULT=done
 fi

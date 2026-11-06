@@ -113,7 +113,14 @@ async function poll() {
     if (!listed) { listed = true; drawList(false).catch(() => {}); }  // show your reels while it works
     return setTimeout(poll, 6000);
   }
-  if (nr.status === "failed" && started) show($("#status"), `<b>⚠ The edit didn't finish.</b><div class="muted">Open the studio on your Chromebook to see why.</div>`);
+  if (nr.status === "failed" && (started || nr.waiting)) {
+    show($("#status"), `<b>⚠ The edit didn't finish.</b><div class="muted">${nr.stuck
+      ? "It stopped partway, maybe because your Chromebook went to sleep." : "Open the studio on your Chromebook to see why."}</div>
+      ${nr.waiting ? `<a class="btn" href="#" id="retry">↻ Try again with the same video</a>` : ""}`);
+    const r = $("#retry");
+    if (r) r.onclick = async ev => { ev.preventDefault(); r.textContent = "Starting…";
+      try { await api("/api/new-reel-start", { auto_render: true }); started = 0; poll(); } catch (err) { r.textContent = "⚠ " + err.message; } };
+  }
   else show($("#status"), "");
   await drawList(nr.status === "done" && started);
 }
