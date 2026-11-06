@@ -97,7 +97,7 @@ Run `python3 -m engine` with no arguments for the full list.
    - **Check your work**: `still NAME <seconds>` → look at `projects/NAME/cache/still.png` for the hook, a busy
      moment and the CTA. Face clear? One accent color? Text readable? Fix before opening the studio.
 5. **Open the studio** in the background: `python3 -m engine open NAME` and tell the user it's at
-   http://localhost:5178. Give a 3–5 bullet summary of what you cut and styled, and remind them:
+   http://localhost:5178 (on a Chromebook: http://penguin.linux.test:5178, which the command prints). Give a 3–5 bullet summary of what you cut and styled, and remind them:
    they can bring back anything you cut, swap any look, and nothing renders until **Lock in my looks**.
 6. **CapCut**: if the user wants to keep editing in CapCut, `python3 -m engine export NAME capcut-project` writes a real
    CapCut project (cut on the original footage, each look on its own track, editable caption text, every sound its own
