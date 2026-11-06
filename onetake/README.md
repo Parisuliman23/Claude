@@ -104,7 +104,7 @@ Two apps appear in your launcher (on a Chromebook, in the **Linux apps** folder;
    > I have a new reel to edit
 
    (or type `/new-reel`).
-3. Claude imports, cuts and styles it, then opens the studio at **http://localhost:5178** (on a Chromebook: **http://penguin.linux.test:5178**).
+3. Claude imports, cuts and styles it, then opens the studio at **http://localhost:5178** (on a Chromebook: the number address it prints, like **http://100.115.92.2:5178**).
 4. Review, tweak, ask Claude for things, then **Lock in my looks**.
 5. Grab your files from the Finish tab, or from `projects/<name>/exports/`.
 
