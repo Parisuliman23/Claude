@@ -227,6 +227,33 @@ def for_overlay(ov):
         return [] if isinstance(ca, dict) else [(b("click"), float(ca), 0.45)]  # a word cue: see auto()
     if look == "serif_hook":
         return []
+    MOTION = {"bar_chart": [("swipe", 0.0, 0.35)], "line_chart": [("swipe", 0.0, 0.35), ("riser", "draw_at", 0.25)],
+              "progress_ring": [("swipe", 0.0, 0.3), ("ding", "end", 0.4)], "slot_number": [("click", 0.0, 0.3), ("ka-ching", "end", 0.4)],
+              "headline_slam": [("hit", "land", 0.55)], "kinetic_build": [("swipe", 0.0, 0.3)],
+              "title_card": [("whoosh-soft", 0.1, 0.35)], "lower_third": [("swipe", 0.0, 0.35)],
+              "callout_circle": [("scribble", 0.0, 0.3)], "compare_split": [("pop", 0.0, 0.4)],
+              "confetti": [("pop-bubble", 0.0, 0.5)], "success_check": [("ding", 0.35, 0.5)], "chat_bubbles": [("pop-bubble", 0.4, 0.35)]}
+    if look in MOTION:
+        from . import looks as _looks
+        try:  # the look's own defaults, then what this overlay sets (word cues stay as cues)
+            pr = dict(getattr(_looks.load(look), "META", {}).get("params", {}))
+        except Exception:  # noqa: BLE001
+            pr = {}
+        pr.update(ov.get("params") or {})
+        num = lambda k, d: pr.get(k, d) if isinstance(pr.get(k, d), (int, float)) else None
+        out = []
+        for src, when, vol in MOTION[look]:
+            if when == "land":
+                when = None if num("land_at", 0.0) is None else num("land_at", 0.0) + 0.28
+            elif when == "draw_at":
+                when = num("draw_at", 0.3)
+            elif when == "end":
+                at = num("fill_at", 0.2) if "fill_at" in pr else num("roll_at", 0.2)
+                ln = pr.get("fill_time", pr.get("roll_time", 1.0))
+                when = None if at is None else at + float(ln) + (0.07 * 4 if look == "slot_number" else 0)
+            if isinstance(when, (int, float)):  # a step timed to a word gets its sound in auto()
+                out.append((b(src), float(when), vol))
+        return out
     if look in ("count_up", "big_number"):
         return [(b("riser"), -0.6, 0.35), (b("ka-ching" if (ov.get("params") or {}).get("prefix") == "$" else "boom"), 1.2, 0.55)]
     if look in ("typed_title", "hand_note", "keyword_def", "chapter_header"):
@@ -274,6 +301,12 @@ def auto(p, replace=True):
             add({"w": ca["w"]}, b("click"), float(ca.get("dt", 0) or 0), 0.45)
     for br in p.get("broll", []):
         add({"broll": br["id"]}, b("whoosh-soft"), -0.15, 0.35)
+    FX_SOUND = {"whip": ("whoosh-fast", -0.15, 0.45), "zoom": ("whoosh-low", -0.18, 0.4), "flash": ("hit", 0.0, 0.4),
+                "shake": ("boom", 0.0, 0.45), "glitch": ("buzz", -0.05, 0.18), "light_leak": ("whoosh-soft", -0.1, 0.25)}
+    for f in p.get("fx", []):
+        if f.get("kind") in FX_SOUND and isinstance(f.get("w"), int):
+            src, off, vol = FX_SOUND[f["kind"]]
+            add({"fx": f["id"]}, b(src), off, vol)
     for w in (p.get("camera") or {}).get("punches", []):
         add({"w": w}, b("whoosh-low"), -0.1, 0.25)
     p["sfx"] = out
@@ -296,6 +329,10 @@ def times(p, segs):
         elif "broll" in a and a["broll"] in brs:
             sp = timeline.range_out(words, segs, brs[a["broll"]]["w0"], brs[a["broll"]]["w1"])
             t = sp[0] if sp else None
+        elif "fx" in a:  # a transition: the sound sits on its word
+            f = next((f for f in p.get("fx", []) if f.get("id") == a["fx"]), None)
+            wo = timeline.word_out(words, segs, f["w"]) if f and isinstance(f.get("w"), int) else None
+            t = wo[0] if wo else None
         elif "w" in a and 0 <= a["w"] < len(words):
             wo = timeline.word_out(words, segs, a["w"])
             t = wo[0] if wo else None
@@ -313,4 +350,7 @@ def line_of(p, s):
     if "broll" in a:
         x = next((x for x in p.get("broll", []) if x["id"] == a["broll"]), None)
         return x["w0"] if x else None
+    if "fx" in a:
+        f = next((f for f in p.get("fx", []) if f.get("id") == a["fx"]), None)
+        return f.get("w") if f else None
     return a.get("w")

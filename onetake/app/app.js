@@ -689,6 +689,7 @@ function wordSpan(w, active, st, text) {
   let css = `font-family:'${font}';font-size:${size}px;color:${color};`;
   if (sw) css += `-webkit-text-stroke:${sw * 2 * (st.size / (st._base || st.size))}px ${st.stroke_color || "#000"};`;
   if (st.shadow) css += `text-shadow:0 ${size * .06}px ${size * .08}px rgba(0,0,0,.6);`;
+  if (active && st.active_box && !emph) css += `background:${st.active_box};border-radius:${size * .2}px;box-shadow:0 0 0 ${size * .16}px ${st.active_box};`;
   return `<span class="cw" style="${css}">${esc(text)}</span>`;
 }
 
@@ -1115,6 +1116,7 @@ function sfxLine(fx) {
   const a = fx.anchor || {};
   if (a.ov) { const o = S.p.overlays.find(o => o.id === a.ov); return o ? (o.role === "hook" ? 0 : o.w0) : null; }
   if (a.broll) { const b = S.p.broll.find(b => b.id === a.broll); return b ? b.w0 : null; }
+  if (a.fx) { const f = (S.p.fx || []).find(f => f.id === a.fx); return f ? f.w : null; }
   return a.w ?? null;
 }
 function sfxTimes() {  // mirror of engine/sfx.py times()
@@ -1124,6 +1126,7 @@ function sfxTimes() {  // mirror of engine/sfx.py times()
     const a = fx.anchor || {}; let t = null;
     if (a.ov) { const hit = S.spans.find(([o]) => o.id === a.ov); t = hit ? hit[1][0] : null; }
     else if (a.broll) { const hit = (S.bspans || []).find(([b]) => b.id === a.broll); t = hit ? hit[1][0] : null; }
+    else if (a.fx) { const f = (p.fx || []).find(f => f.id === a.fx); const o = f ? wordOut(p.words, S.segs, f.w) : null; t = o ? o[0] : null; }
     else if (a.w != null) { const o = wordOut(p.words, S.segs, a.w); t = o ? o[0] : null; }
     if (t != null) m.set(fx.id, Math.max(0, t + (+fx.offset || 0)));
   }
@@ -1610,15 +1613,40 @@ function drawBroll(t) {
   S.inBroll = !split; S.inSplit = split;
 }
 
+const FX_KINDS = { flash: [0.30, 1], whip: [0.30, 1], zoom: [0.35, 1], shake: [0.40, 0], glitch: [0.25, 1], light_leak: [1.0, 0] };
+function fxNow(t) {  // mirror of engine/fx.py (approximate: the render is exact)
+  const out = { dx: 0, scale: 1, rot: 0, filter: "", flash: 0, wash: "#fff" };
+  for (const f of S.p.fx || []) {
+    const d = FX_KINDS[f.kind]; if (!d || f.w == null) continue;
+    const o = wordOut(S.p.words, S.segs, f.w); if (!o) continue;
+    const dur = +(f.dur || d[0]), a = d[1] ? o[0] - dur / 2 : o[0];
+    if (t < a || t >= a + dur) continue;
+    const k = (t - a) / dur, b = Math.sin(Math.PI * k), s = +(f.strength || 1);
+    const W = $("#phone").clientWidth;
+    if (f.kind === "whip") { out.dx = -(k - 0.5) * W * 0.5 * s; out.filter = `blur(${(6 * b * s).toFixed(1)}px)`; }
+    if (f.kind === "zoom") { out.scale = 1 + 0.3 * b * s; out.filter = `blur(${(2 * b).toFixed(1)}px)`; }
+    if (f.kind === "shake") { const amp = 10 * s * Math.pow(1 - k, 1.5); out.dx = Math.sin(t * 90) * amp; out.rot = Math.sin(t * 70) * 0.8 * (1 - k); out.scale = 1.05; }
+    if (f.kind === "glitch") { out.filter = `saturate(${1 + 2 * b}) hue-rotate(${Math.round(40 * b * Math.sin(t * 60))}deg)`; out.dx = Math.sin(t * 120) * 8 * b; }
+    if (f.kind === "flash") { out.flash = Math.pow(b, 1.5); out.wash = "#fff"; }
+    if (f.kind === "light_leak") { out.flash = 0.45 * b * s; out.wash = `radial-gradient(circle at ${-20 + 140 * k}% 30%, rgba(255,140,60,.9), rgba(255,80,120,.25) 45%, transparent 70%)`; }
+  }
+  return out;
+}
+
 function drawCamera(t) {
   // speaker zoom (hook push-in, punch-ins) + split-screen shift; mirrored in engine/render.py speaker()
   const z = cameraZoom(S.p, S.p.words, S.segs, t), [fx, fy] = focusOf(S.p);
   const half = Math.floor(H / 2), y0 = Math.min(Math.max(0, fy * H - 0.4 * half), H - (H - half));
   const shift = S.inSplit ? half - Math.floor(y0) : 0;
-  const tr = `translateY(${shift}px) scale(${z})`, org = `${fx * 100}% ${fy * 100}%`;
+  const e = fxNow(t);  // transitions on a word (engine/fx.py), approximated with CSS
+  const tr = `translate(${e.dx}px, ${shift}px) scale(${z * e.scale}) rotate(${e.rot}deg)`, org = `${fx * 100}% ${fy * 100}%`;
   if (v.style.transform !== tr || v.style.transformOrigin !== org) {
     v.style.transform = fc.style.transform = tr; v.style.transformOrigin = fc.style.transformOrigin = org;
   }
+  if (v.style.filter !== e.filter) v.style.filter = e.filter;
+  let fl = $("#fxflash");
+  if (!fl) { fl = document.createElement("div"); fl.id = "fxflash"; fl.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:50;opacity:0"; $("#phone").appendChild(fl); }
+  fl.style.background = e.wash; fl.style.opacity = e.flash;
   const dim = Math.max(0, ...S.spans.filter(([ov, [a, b]]) => a <= t && t < b).map(([ov]) => +(ov.dim || 0)));
   $("#dim").style.opacity = Math.min(0.8, dim);
 }

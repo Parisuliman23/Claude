@@ -11,7 +11,7 @@ it's spoken.** The edit gets out of the way when the moment is personal.
 2. Visuals are triggered by WORDS, not time: set `w0` to the word that triggers it.
 3. On-screen text PARAPHRASES the point; it never transcribes it. No full-sentence titles.
 
-## ★ Look D · Notebook: MY PRIMARY STYLE (use it unless I ask for another look)
+## ★ Look D · Notebook: MY PRIMARY STYLE (with Look E below; `style-pick` chooses)
 Learned frame by frame from my favourite reference reel. Full breakdown: `lookbook/style/03-notebook-style.md`.
 The talking head stays clean and natural; the story is told with **cream notebook cards** in the lower third, a
 **one-word caption** on the chest, and **one yellow serif-italic keyword** per thought.
@@ -65,6 +65,40 @@ no noticeable music: voice only (or a very quiet bed, volume ≤ 0.05).
 **Pace & camera**: cut every pause (the reference has only 4 pauses over 1/3 s in 2 minutes, ~4 words/s). Static
 camera: no push-ins or punch-ins (`set NAME camera --json '{"push_in":0,"punches":[]}'`). Filter: none (natural).
 
+## ★ Look E · Motion graphics (animated charts, slams, intros, transitions)
+Learned from the HyperFrames catalog (charts, kinetic type, title cards, lower thirds, call-outs, transitions).
+Clean white data cards, bold sans type, ONE accent (gold `#F5C542`, green `#16A34A` for up, red `#DC2626` for down).
+Captions: `motion-pill` (2–3 words, caps, the spoken word on a gold pill). Everything is timed to my words with
+word cues, exactly like Look D.
+
+| They say… | Look | Key timing params (use word cues) |
+|---|---|---|
+| a number, money, a result | `slot_number` (digits roll and land) or `notebook_counter` / `count_up` | `roll_at` / `count_at` on the number |
+| growth or decline over time ("debt went to zero", "it compounded") | `line_chart` (`direction` up/down, counts while it draws) | `draw_at` |
+| comparing amounts / months / options | `bar_chart` (bars grow one by one, `highlight` the winner) | `bars_at` (one per bar), `grow_at` |
+| a percentage, progress, a goal | `progress_ring` | `fill_at` |
+| a big claim / "STOP doing this" / a twist | `headline_slam` (lands with a 3-frame shake, whips out) | `land_at`; `accent_words` |
+| a punchy phrase said word by word | `kinetic_build` | `words_at` (one per word) |
+| this vs that, before/after, myth vs fact | `compare_split` | `left_at`, `right_at`, `verdict_at` |
+| introducing myself / a guest / a source | `lower_third` (y ~0.82, x ~0.3) | `open_at` |
+| pointing at something on screen | `callout_circle` (place it ON the thing) | `draw_at` |
+| a win, "paid it off", "done" | `success_check` + `confetti` | `at` / `burst_at` |
+| a DM, a client question, a conversation | `chat_bubbles` | `at` (one per message) |
+| the opening of a series / a chapter title | `title_card` (calm intro lockup, first 2–3 s) | — |
+**Transitions** (on the word, with `add-fx NAME --json '{"kind": "whip", "w": 57}'`): `whip` (topic change),
+`zoom` (punch into the key line), `flash` (cut through white into a reveal), `shake` (impact, a shocking number),
+`glitch` (a myth / "wrong"), `light_leak` (warm, emotional moment). Max one every ~5 s; `sfx-auto` adds their sounds.
+Place motion cards in the space the face leaves free (`card_y` from `show`, or y ~0.28 above the head).
+
+## Choosing the style for each video (do this first)
+Run `python3 -m engine style-pick NAME`. It reads the transcript and picks:
+- **notebook** (Look D): steps, routines, tips, lists, a calm story → cream notebook cards + `notebook-word` captions.
+- **motion** (Look E): numbers, money, growth/decline, comparisons, results, high energy → charts, counters, slams,
+  transitions + `motion-pill` captions.
+- **mix**: notebook cards for the steps and motion graphics for the data moments, with `notebook-word` captions.
+Follow the pick unless I asked for a specific style. It also prints the word indexes of numbers, trends, comparisons
+and steps: put the graphics on those words.
+
 ## Pick ONE look per reel (same timing rules, different skin)
 | Look | When | Captions (`caption_style`) | Fonts in looks | Rhythm |
 |---|---|---|---|---|
@@ -72,7 +106,7 @@ camera: no push-ins or punch-ins (`set NAME camera --json '{"push_in":0,"punches
 | **B · Editorial serif** | teaching a framework, a breakdown | `editorial-serif` (one serif word left of the speaker) | serif/brush: set `font` to `InstrumentSerif_400Regular` / `CaveatBrush_400Regular`; persistent `chapter_header` | every 2–4 s |
 | **C · Cinematic finance** | money, data, news | `cinematic-pill` (1–3 words on a dark pill) or `cinematic-bold` | Inter (`Inter_700Bold`, `Inter_800ExtraBold`); `big_number`, `highlight_card`, `equation` | a new shot every 1.5–4 s: split screens and B-roll |
 
-**Default: Look D (Notebook) for everything.** Only use A/B/C if I ask for that look by name.
+**Default: run `style-pick` and use Look D, Look E or a mix of both.** Only use A/B/C if I ask for that look by name.
 
 ## Where things go (y = 0 top, 1 bottom)
 - **Zone 1 · y 0.06–0.20** (center ~0.12): hook headline, chapter header, CTA keyword, emoji row, typed asides, numbered list.

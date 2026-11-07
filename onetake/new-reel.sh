@@ -46,7 +46,8 @@ NAME=$(python3 -c "from engine import project; print(project.list_projects()[0][
 
 # 2. Claude reviews the cut and styles it (45 minutes at most)
 PROMPT="I have a new reel to edit. It's already imported as project $NAME (joined, transcribed and rough-cut),
-so don't run 'new': start at step 3 of CLAUDE.md (review the cut), then do the styling pass (step 4).
+so don't run 'new': start at step 3 of CLAUDE.md (review the cut), then run 'style-pick $NAME' and do the
+styling pass (step 4) in the style it picks, timing every effect to the words.
 You're running in the background from One Take: the studio is already running, so don't open it, and there's
 nobody to answer questions, so make sensible choices yourself. Run every command in the foreground and wait
 for it to finish; never start anything in the background. Finish with the short summary for the user

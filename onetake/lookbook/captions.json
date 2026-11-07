@@ -22,6 +22,28 @@
   "y": 0.555
  },
  {
+  "id": "motion-pill",
+  "name": "Motion \u00b7 2-3 words, spoken word on a pill",
+  "look": "E",
+  "max_words": 3,
+  "max_chars": 18,
+  "uppercase": true,
+  "font": "Montserrat_900Black",
+  "size": 86,
+  "color": "#FFFFFF",
+  "active_color": "#111827",
+  "active_box": "#F5C542",
+  "emph_font": "Montserrat_900Black",
+  "emph_scale": 1.12,
+  "emph_color": "#F5C542",
+  "shadow": true,
+  "stroke_w": 0,
+  "stroke_color": "#000000",
+  "pop": true,
+  "x": 0.5,
+  "y": 0.6
+ },
+ {
   "id": "warm-hand",
   "name": "Warm \u00b7 handwritten word",
   "look": "A",

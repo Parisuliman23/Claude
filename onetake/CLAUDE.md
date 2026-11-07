@@ -44,7 +44,11 @@ Run `python3 -m engine` with no arguments for the full list.
      double-click a word in the studio to fix it.
 4. **Styling pass: edit in the user's style.** Read `lookbook/STYLE.md` first (it's the rulebook; the
    full analysis of their 10 reference reels is in `lookbook/style/`). Then:
-   - **Pick the look.** The user's PRIMARY style is **Look D · Notebook**: use it for every reel unless they ask for
+   - **Pick the style FIRST: `python3 -m engine style-pick NAME`.** It reads the transcript and says notebook (Look D),
+     motion (Look E: animated charts, counters, slams, kinetic type, intros, lower thirds, call-outs, transitions via
+     `add-fx`) or mix, plus the word indexes of numbers/trends/comparisons/steps to put graphics on. Follow it unless the
+     user asked for a style. Look E details: `lookbook/STYLE.md` ("Look E"); its captions are `motion-pill`.
+   - The user's PRIMARY notebook style is **Look D · Notebook**: use it unless they ask for
      A (warm creator), B (editorial serif) or C (cinematic finance) by name. Look D = caption style `notebook-word`
      (one word, keywords in yellow serif italic via `highlight`), a `serif_hook` title, and cream notebook cards in the
      lower third: `notebook_note`, `week_check`, `step_tabs`, `sticky_row`, `x_card`, `option_tiles`, `growth_chart`,

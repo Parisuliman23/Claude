@@ -168,6 +168,11 @@ def new(name=None, clips=None, log=print, move=True):
     p["focus"] = _an.face_focus(d / "source.mp4")  # where the eyes are: punch-ins and split screens aim here
     if s["default_caption_style"] == "notebook-word":
         p.update(notebook_layout(p["focus"]))
+        from . import stylepick  # notebook / motion / mix, from what's said; motion videos get motion captions
+        pick = stylepick.analyze(p)
+        p["style_pick"] = {"pick": pick["pick"], "scores": pick["scores"]}
+        p["caption_style"] = stylepick.STYLE_CAPTIONS[pick["pick"]]
+        log(f"  style: {pick['pick']} ({pick['reasons'][-1]})")
     log("  checking for captions already in the video…")
     from . import analyze
     scan = analyze.scan_burned_text(d / "source.mp4", fps=2 if config.fast() else 4)

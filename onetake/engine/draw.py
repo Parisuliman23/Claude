@@ -226,6 +226,10 @@ def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, 
         base = pad + li * lh + size * 0.92  # baseline
         for it in items:
             f = font(it["font"], it["size"])
+            if style.get("active_box") and it["i"] == active and not shadow:
+                pad_x, h = size * 0.16, size * 1.08
+                d.rounded_rectangle([x - pad_x, base - size * 0.86, x + it["w"] + pad_x, base - size * 0.86 + h],
+                                    radius=size * 0.2, fill=rgba(style["active_box"]))
             if shadow:
                 fill = (0, 0, 0, 150)
             elif it["emph"]:

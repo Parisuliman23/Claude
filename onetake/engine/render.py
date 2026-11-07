@@ -277,6 +277,8 @@ class Composer:
             sp = timeline.overlay_span(p, words, segs, ov)
             if sp:  # word cues inside the look ({"w": i}) become seconds from its start
                 self.ovs.append((timeline.with_cues(ov, words, segs, sp[0]), sp))
+        from . import fx as _fx
+        self.fx = _fx.spans(p, words, segs) if layer in ("full", "base") else []
         self.brolls = []
         for b in p.get("broll", []):
             sp = timeline.range_out(words, segs, b["w0"], b["w1"])
@@ -323,6 +325,11 @@ class Composer:
                     y0 = int(min(max(0, timeline.focus(self.p)[1] * H - 0.4 * (H // 2)), H - (H - H // 2)))
                     bottom = frame[y0:y0 + (H - H // 2)].copy()
                     frame = np.vstack([top, bottom])
+            if self.fx:  # transitions / camera moves on a word (whip, zoom, shake, glitch, light leak)
+                from . import fx as _fx
+                for f, a, b in self.fx:
+                    if a <= t < b and f["kind"] != "flash":
+                        frame = _fx.footage(frame, f, (t - a) / (b - a), int(round(t * self.fps)))
             dim = max((float(ov.get("dim", 0)) for ov, (a, b) in self.ovs if a <= t < b), default=0.0)
             if dim > 0:  # receipt stacks: darken the background so the cards read
                 frame = (frame * (1 - min(0.8, dim))).astype(np.uint8)
@@ -370,6 +377,10 @@ class Composer:
                             float(style.get("x", 0.5)) * W, cy * H)
                     cap = draw.transform(cap, {"scale": 1, "rot": 0, "alpha": k, "dx": 0, "dy": 0})
                 put(cap, float(style.get("x", 0.5)) * W, cy * H)
+        for f, a, b in getattr(self, "fx", []):  # a white flash covers the graphics too
+            if f["kind"] == "flash" and a <= t < b:
+                from . import fx as _fx
+                frame = _fx.over_everything(frame, f, (t - a) / (b - a))
         return frame
 
     def speaker(self, ts, t):

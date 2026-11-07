@@ -174,6 +174,36 @@ class Ctx:
         elif name == "check":
             self.check(d, cx, cy, s, fill=fill, width=width)
 
+    # ---- motion style (look E): clean white cards, bold sans, one accent; moves learned from HyperFrames' catalog
+    MO = {"card": "#FFFFFF", "ink": "#111827", "muted": "#6B7280", "line": "#E5E7EB", "up": "#16A34A",
+          "down": "#DC2626", "accent": "#2563EB", "gold": "#F5C542"}
+    MO_BOLD, MO_BLACK, MO_SEMI = "Inter_800ExtraBold", "Montserrat_900Black", "Poppins_600SemiBold"
+
+    @staticmethod
+    def p3(x):  # power3.out
+        x = max(0.0, min(1.0, x))
+        return 1 - (1 - x) ** 3
+
+    @staticmethod
+    def expo(x):  # expo.out
+        x = max(0.0, min(1.0, x))
+        return 1.0 if x >= 1 else 1 - 2 ** (-10 * x)
+
+    @staticmethod
+    def inout(x):  # power2.inOut
+        x = max(0.0, min(1.0, x))
+        return 2 * x * x if x < 0.5 else 1 - (-2 * x + 2) ** 2 / 2
+
+    def prog(self, at, dur):
+        """0 -> 1 between `at` and `at + dur` seconds."""
+        return max(0.0, min(1.0, (self.t - at) / max(0.001, dur)))
+
+    def fmt_num(self, v, decimals=0, commas=True):
+        v = round(v, decimals)
+        if decimals == 0:
+            v = int(v)
+        return f"{v:,}" if commas else str(v)
+
     def appear(self, t0, dur=0.1):
         """0 -> 1 as time passes t0 (quick fade, for parts of a card that come in one after another)."""
         return max(0.0, min(1.0, (self.t - t0) / dur)) if dur > 0 else float(self.t >= t0)
