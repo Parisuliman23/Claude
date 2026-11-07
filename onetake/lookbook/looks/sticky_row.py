@@ -4,7 +4,7 @@ META = {
                    "italic; a bold title and handwritten note fill in on cue. 'focus' dims the others.",
     "params": {"notes": [{"icon": "bookmark", "title": "save", "body": "useful: worth keeping"}, {"icon": "follow", "title": "follow", "body": "a story: what happens next?"},
                          {"title": "", "body": ""}, {"title": "", "body": ""}],
-               "appear_gap": 0.067, "text_at": [], "text_gap": 1.2, "focus": -1, "width": 0.74, "height": 250},
+               "appear_gap": 0.067, "appear_at": [], "text_at": [], "text_gap": 1.2, "focus": -1, "width": 0.74, "height": 250},
 }
 
 
@@ -20,7 +20,8 @@ def render(ctx):
     text_at = list(p["text_at"]) + [None] * n
     ink = ctx.rgba(NB["ink"])
     for i, note in enumerate(notes):
-        a = ctx.appear(i * p["appear_gap"], 0.12)
+        ap = list(p["appear_at"])
+        a = ctx.appear(ap[i] if i < len(ap) and ap[i] is not None else i * p["appear_gap"], 0.12)
         if a <= 0:
             continue
         if p["focus"] >= 0 and i != p["focus"]:

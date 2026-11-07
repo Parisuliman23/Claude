@@ -5,7 +5,7 @@ META = {
     "params": {"tiles": [{"icon": "smile", "label": "talking head"}, {"icon": "pages", "label": "carousel"},
                          {"icon": "mic", "label": "voiceover"}, {"icon": "film", "label": "B-roll"},
                          {"icon": "photos", "label": "photo dump"}],
-               "appear_gap": 0.25, "pick": -1, "pick_at": 0.0, "under": "same idea → the format that fits it best",
+               "appear_gap": 0.25, "appear_at": [], "pick": -1, "pick_at": 0.0, "under": "same idea → the format that fits it best",
                "under_at": 1.5, "width": 0.74},
 }
 
@@ -27,7 +27,8 @@ def render(ctx):
     for ex in (pad + 6, pad + W - 6):
         d.ellipse([ex - 7, y_line - 7, ex + 7, y_line + 7], fill=ctx.rgba(NB["gold"]), outline=ink, width=2)
     for i, tile in enumerate(tiles):
-        a = ctx.appear(i * p["appear_gap"], 0.12)
+        ap = list(p["appear_at"])
+        a = ctx.appear(ap[i] if i < len(ap) and ap[i] is not None else i * p["appear_gap"], 0.12)
         if a <= 0:
             continue
         x = pad + i * (tw + gap)

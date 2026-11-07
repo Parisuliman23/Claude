@@ -275,8 +275,8 @@ class Composer:
         self.ovs = []
         for ov in p.get("overlays", []):
             sp = timeline.overlay_span(p, words, segs, ov)
-            if sp:
-                self.ovs.append((ov, sp))
+            if sp:  # word cues inside the look ({"w": i}) become seconds from its start
+                self.ovs.append((timeline.with_cues(ov, words, segs, sp[0]), sp))
         self.brolls = []
         for b in p.get("broll", []):
             sp = timeline.range_out(words, segs, b["w0"], b["w1"])

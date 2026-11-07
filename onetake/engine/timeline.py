@@ -68,6 +68,41 @@ def word_out(words, segs, i):
     return (max(sg["o"], sg["o"] + w["s"] - sg["s"]), sg["o"] + min(w["e"], sg["e"]) - sg["s"])
 
 
+def is_cue(v):
+    return isinstance(v, dict) and isinstance(v.get("w"), int) and set(v) <= {"w", "dt"}
+
+
+def resolve_cues(obj, words, segs, t0):
+    """Inside a look, anything can be timed to a spoken word: {"w": 57} (optionally {"w": 57, "dt": 0.1}) becomes
+    the seconds from the look's start to the moment word 57 is said. So a check lands on "Monday", a list item
+    appears on its word, a counter starts on the number. A cut word falls back to the next kept word."""
+    if is_cue(obj):
+        i = obj["w"]
+        wo = None
+        for j in range(i, min(len(words), i + 40)):
+            wo = word_out(words, segs, j)
+            if wo:
+                break
+        return round(max(0.0, (wo[0] if wo else t0) - t0) + float(obj.get("dt", 0) or 0), 3)
+    if isinstance(obj, dict):
+        return {k: resolve_cues(v, words, segs, t0) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [resolve_cues(v, words, segs, t0) for v in obj]
+    return obj
+
+
+def with_cues(ov, words, segs, t0):
+    """A copy of the overlay with its word cues turned into seconds (for drawing)."""
+    if ov.get("kind") != "look" or "w" not in json_str(ov.get("params")):
+        return ov
+    return dict(ov, params=resolve_cues(ov.get("params") or {}, words, segs, t0))
+
+
+def json_str(x):
+    import json
+    return json.dumps(x or {})
+
+
 def range_out(words, segs, w0, w1):
     """Output-time span covered by the kept words in [w0, w1]."""
     spans = [word_out(words, segs, i) for i in range(w0, w1 + 1)]

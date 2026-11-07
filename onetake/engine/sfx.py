@@ -211,7 +211,8 @@ def b(name):
     return f"assets/sfx/{name}.wav"
 
 
-NOTEBOOK_CARDS = ("notebook_note", "week_check", "sticky_row", "x_card", "option_tiles", "growth_chart", "comment_cta")
+NOTEBOOK_CARDS = ("notebook_note", "week_check", "sticky_row", "x_card", "option_tiles", "growth_chart", "comment_cta",
+                  "notebook_counter")
 
 
 def for_overlay(ov):
@@ -222,7 +223,8 @@ def for_overlay(ov):
     if look == "step_tabs":
         return [(b("paper-swish"), -0.03, 0.35)]
     if look == "follow_card":
-        return [(b("click"), float((ov.get("params") or {}).get("click_at", 0.8)), 0.45)]
+        ca = (ov.get("params") or {}).get("click_at", 0.8)
+        return [] if isinstance(ca, dict) else [(b("click"), float(ca), 0.45)]  # a word cue: see auto()
     if look == "serif_hook":
         return []
     if look in ("count_up", "big_number"):
@@ -267,6 +269,9 @@ def auto(p, replace=True):
             continue
         for k, (src, off, vol) in enumerate(for_overlay(ov)):
             add({"ov": ov["id"], "k": k} if k else {"ov": ov["id"]}, src, off, vol)
+        ca = (ov.get("params") or {}).get("click_at") if ov.get("look") == "follow_card" else None
+        if isinstance(ca, dict) and isinstance(ca.get("w"), int):  # the click lands on its word
+            add({"w": ca["w"]}, b("click"), float(ca.get("dt", 0) or 0), 0.45)
     for br in p.get("broll", []):
         add({"broll": br["id"]}, b("whoosh-soft"), -0.15, 0.35)
     for w in (p.get("camera") or {}).get("punches", []):

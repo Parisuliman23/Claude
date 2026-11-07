@@ -38,10 +38,21 @@ caption stay clear; one card at a time, each replaced when the thought changes, 
 | "never do this", the old way, a blank page | `x_card` (crossed out, with a serif word + handwritten line beside it) |
 | choosing between options / formats | `option_tiles` (`pick` turns the chosen one yellow) |
 | "the more you do it…", growth, compounding | `growth_chart` (the curve draws itself to a yellow "you" dot) |
+| a number, money, days, a result | `notebook_counter` (big serif number counts up on the word, yellow underline, handwritten note) |
 | "follow me" | `follow_card` (my photo, name, @handle; the cursor clicks Follow) |
 | "comment X" | `comment_cta` (yellow sticky: comment / KEYWORD / what they get), bottom-left, last 2–4 s |
-Handwriting types at ~30 letters/s, starting just after the card lands (lines one after another, ~0.8 s apart).
-Checkmarks and sticky notes come in one every 2 frames (0.067 s).
+**SYNC EVERYTHING TO MY WORDS (most important rule).** A card arrives on the word where I START talking about it
+(`w0`) and leaves when the thought ends (`w1`). Everything INSIDE it happens on the exact word I say it: give any
+timing param a word cue `{"w": <word index>}` (optionally `{"w": 57, "dt": 0.1}`) instead of seconds:
+- `notebook_note`: `at` = one cue per line (the line types as I start saying it), `title_at`, `tags_at`, `legend_at`
+- `week_check`: `checks_at` = one cue per day (the check lands on "Monday", "Tuesday"… or on each thing I list);
+  `note_at`, `filled_at`
+- `sticky_row`: `appear_at` (each note lands on its word) and `text_at` (its words fill in when I name it); `focus`
+- `option_tiles`: `appear_at` per tile, `pick_at` on the one I choose, `under_at`
+- `notebook_counter` / `count_up` / `big_number`: `count_at` on the number (it counts while I say it)
+- `x_card`: `x_at` on "never"/"don't"/"stop"; `growth_chart`: `draw_at`; `follow_card`: `click_at` on "follow"
+Only fall back to seconds when no word fits. Handwriting types at ~30 letters/s; things I list quickly can still
+land 2 frames apart (0.067 s), like the reference.
 
 **Palette**: cream paper `#F1EDE3`, ink `#1D1912`, grey labels `#908B86`, tab/day yellow `#F2E07F`, sticky `#EBD56E`,
 keyword gold `#EED98A`. Fonts: Poppins (labels/captions), Playfair Display Italic (titles, keywords),

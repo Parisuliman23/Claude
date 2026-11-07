@@ -378,10 +378,21 @@ def all_looks():
     return out
 
 
+def _no_cues(v):
+    """Word cues ({"w": i}) that weren't turned into seconds (no project at hand): show them right away."""
+    if isinstance(v, dict):
+        if isinstance(v.get("w"), int) and set(v) <= {"w", "dt"}:
+            return 0.0
+        return {k: _no_cues(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_no_cues(x) for x in v]
+    return v
+
+
 def params_for(look_id, params):
     m = load(look_id)
     p = dict(getattr(m, "META", {}).get("params", {}))
-    p.update(params or {})
+    p.update(_no_cues(params or {}))
     return p
 
 

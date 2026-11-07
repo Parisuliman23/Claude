@@ -48,7 +48,9 @@ Run `python3 -m engine` with no arguments for the full list.
      A (warm creator), B (editorial serif) or C (cinematic finance) by name. Look D = caption style `notebook-word`
      (one word, keywords in yellow serif italic via `highlight`), a `serif_hook` title, and cream notebook cards in the
      lower third: `notebook_note`, `week_check`, `step_tabs`, `sticky_row`, `x_card`, `option_tiles`, `growth_chart`,
-     `follow_card`, `comment_cta` (all `"anim_in": "rise"`, `"anim_out": "fade-quick"`). Its rules are at the top of
+     `follow_card`, `comment_cta`, `notebook_counter` (all `"anim_in": "rise"`, `"anim_out": "fade-quick"`). **Time every step
+     inside a card to the word it's said on** with word cues: any `*_at` param can be `{"w": <word index>}` (lists too,
+     e.g. `"checks_at": [{"w": 40}, {"w": 43}]`); One Take turns them into the right moment. Its rules are at the top of
      `lookbook/STYLE.md`; the frame-by-frame breakdown is `lookbook/style/03-notebook-style.md`.
      Other looks: `set NAME caption_style --json '"warm-chest"'` (ids in `lookbook/captions.json`).
    - **Hook (0–5 s)**: the import adds a `serif_hook` (Look D). Rewrite it as a PARAPHRASED claim in three parts:

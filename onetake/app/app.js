@@ -1405,14 +1405,18 @@ function bindMic(root) {
 }
 
 // ------------------------------------------------------------------ sprites (look previews)
-function spriteKey(look, params, dur) { return JSON.stringify([look, params, Math.round(Math.min(dur, 6) * 4) / 4]); }
-function getSprite(look, params, dur) {
+// w0: the look's first word. Steps timed to words ({"w": i} in params) are worked out on the server from it.
+const hasCues = params => JSON.stringify(params || {}).includes('"w":');
+function spriteKey(look, params, dur, w0) {
+  return JSON.stringify([look, params, Math.round(Math.min(dur, 6) * 4) / 4, hasCues(params) ? [w0, S.p?.edit_rev || 0] : 0]);
+}
+function getSprite(look, params, dur, w0) {
   dur = Math.max(0.5, Math.round(Math.min(dur, 6) * 4) / 4);
-  const k = spriteKey(look, params, dur);
+  const k = spriteKey(look, params, dur, w0);
   if (S.sprites[k]) return S.sprites[k];
   if (!S.spriteLoading[k]) {
     S.spriteLoading[k] = true;
-    api(`/api/project/${S.name}/sprite`, { look, params, dur }).then(m => {
+    api(`/api/project/${S.name}/sprite`, { look, params, dur, w0: hasCues(params) ? w0 : undefined }).then(m => {
       const img = new Image(); img.src = m.url + "?k=" + encodeURIComponent(k).slice(0, 40);
       img.onload = () => { S.sprites[k] = m; };
     }).catch(e => console.warn("sprite", look, e)).finally(() => setTimeout(() => delete S.spriteLoading[k], 3000));
@@ -1681,7 +1685,7 @@ function drawOverlays(t) {
     const local = t - a, st = overlayState(ov, t, a, b);
     let w, hgt;
     if (ov.kind === "look") {
-      const m = getSprite(ov.look, ov.params || {}, b - a);
+      const m = getSprite(ov.look, ov.params || {}, b - a, ov.w0);
       if (!m) continue;
       if (!el || el.tagName !== "DIV") { el?.remove(); el = document.createElement("div"); el.className = "ov"; el.dataset.id = ov.id; root.appendChild(el); bindOvDrag(el); }
       const sc = ov.scale ?? 1; w = m.w * sc; hgt = m.h * sc;

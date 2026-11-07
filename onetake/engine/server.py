@@ -11,7 +11,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import analyze, bridge, config, draw, finish, looks, project, render
+from . import analyze, bridge, config, draw, finish, looks, project, render, timeline
 
 JOBS = {}  # (name, kind) -> {status, progress, result, error}
 mimetypes.add_type("font/ttf", ".ttf")
@@ -478,7 +478,14 @@ class Handler(BaseHTTPRequestHandler):
                                                q.update({"edit_rev": q.get("edit_rev", 0) + 1})))
             return self.send_json({"sfx": p.get("sfx", [])})
         if action == "sprite":
-            meta = looks.sprite(b["look"], b.get("params", {}), float(b.get("dur", 3)),
+            params = b.get("params", {})
+            if b.get("w0") is not None:  # time word cues to this reel's words
+                p = project.load(name)
+                words, segs = p["words"], project.segments(p)
+                wo = timeline.word_out(words, segs, int(b["w0"]))
+                if wo:
+                    params = timeline.resolve_cues(params, words, segs, wo[0])
+            meta = looks.sprite(b["look"], params, float(b.get("dur", 3)),
                                 project.pdir(name) / "cache")
             return self.send_json(meta)
         if action == "faces":

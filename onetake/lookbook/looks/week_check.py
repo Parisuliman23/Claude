@@ -4,10 +4,11 @@ META = {
                    "white boxes; checkmarks land one day at a time, left to right.",
     "params": {"label": "my exact process", "note": "a full week ahead", "note_at": 0.2, "note_cps": 22,
                "days": ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
-               "check_at": 1.0, "check_gap": 0.067, "checks": 7, "filled": [], "filled_at": 0.0,
+               "check_at": 1.0, "check_gap": 0.067, "checks": 7, "checks_at": [], "filled": [], "filled_at": 0.0,
                "width": 0.74},
 }
 # checks: how many days get a check (from the left). filled: day indexes shaded yellow (e.g. [0] for "today").
+# checks_at: one time per day, so each check lands when that day is said, e.g. [{"w": 40}, {"w": 42}, ...].
 
 
 def render(ctx):
@@ -41,7 +42,8 @@ def render(ctx):
         d.rectangle([x, y0 + tab_h - 8, x + bw, y0 + tab_h], fill=ctx.rgba(NB["yellow"]))
         d.text((x + bw / 2, y0 + tab_h / 2 + 1), day, font=ctx.font(ctx.NB_BOLD, 21), fill=ink, anchor="mm")
         if i < int(p["checks"]):
-            ct = p["check_at"] + i * p["check_gap"]
+            per = list(p["checks_at"])
+            ct = per[i] if i < len(per) and per[i] is not None else p["check_at"] + i * p["check_gap"]
             if t >= ct:  # each check lands in a single frame, like the reference
                 ctx.check(d, x + bw / 2, y0 + tab_h + box_h / 2 + 2, bw * 0.6, width=6)
     return img

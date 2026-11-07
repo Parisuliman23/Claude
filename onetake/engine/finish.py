@@ -305,6 +305,7 @@ def _box(p, ov, words, segs, W=1080, H=1920):
     if not sp:
         return None
     a, b = sp
+    ov = timeline.with_cues(ov, words, segs, a)
     if ov["kind"] == "look":
         img = _looks.frame(ov["look"], ov.get("params", {}), max(0.0, (b - a) - 0.05), b - a, W, H)  # fully built
         if img is None:
