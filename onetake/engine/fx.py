@@ -18,6 +18,7 @@ KINDS = {  # kind: (default seconds, centred on the word?, description)
     "shake": (0.40, False, "a camera shake that settles, for impact"),
     "glitch": (0.25, True, "an RGB-split digital glitch with shifted slices"),
     "light_leak": (1.00, False, "a warm cinematic light leak sweeping across"),
+    "drip": (0.70, True, "deep red paint drips down over everything, then drains away (Look F section change)"),
 }
 
 
@@ -105,8 +106,36 @@ def footage(frame, f, k, n):
     return frame
 
 
+def _drip_mask(W, H, k, seed=3):
+    """Paint dripping down: an uneven edge of rounded drips. k 0..0.5 covers, 0.5..1 drains off the bottom."""
+    xs = np.arange(W)
+    rng = np.random.default_rng(seed)
+    n = 9
+    centres, widths, lags = rng.uniform(0, W, n), rng.uniform(W * 0.06, W * 0.16, n), rng.uniform(0, 0.25, n)
+    if k < 0.5:
+        p = k / 0.5
+        edge = np.full(W, -0.2)
+        for c, w, lag in zip(centres, widths, lags):
+            edge = np.maximum(edge, (p * 1.5 - lag) * np.exp(-((xs - c) / w) ** 2 * 2))
+        edge = np.maximum(edge, p * 1.25 - 0.3)
+        bottom = (np.clip(edge, 0, 1.2) * H).astype(int)
+        top = np.zeros(W, int)
+    else:
+        p = (k - 0.5) / 0.5
+        top = np.full(W, int(min(1.0, p * 1.15) * H))
+        bottom = np.full(W, H)
+    yy = np.arange(H)[:, None]
+    return ((yy >= top[None, :]) & (yy < bottom[None, :])).astype(np.float32)
+
+
 def over_everything(frame, f, k):
-    """Effects that sit on top of the graphics too (the white flash)."""
+    """Effects that sit on top of the graphics too (the white flash, the red drip)."""
+    if f["kind"] == "drip":
+        H, W = frame.shape[:2]
+        m = cv2.GaussianBlur(_drip_mask(W, H, k), (0, 0), 2)[..., None]
+        red = np.empty_like(frame)
+        red[:] = (14, 12, 142)
+        return (frame * (1 - m) + red * m).astype(np.uint8)
     if f["kind"] == "flash":
         a = _bell(k) ** 1.5 * min(1.0, float(f.get("strength", 1.0) or 1.0))
         return cv2.addWeighted(frame, 1 - a, np.full_like(frame, 255), a, 0)

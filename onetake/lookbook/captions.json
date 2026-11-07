@@ -44,6 +44,26 @@
   "y": 0.6
  },
  {
+  "id": "class-serif",
+  "name": "Class \u00b7 serif fragments that type on",
+  "look": "F",
+  "max_words": 5,
+  "max_chars": 30,
+  "font": "DMSerifDisplay_400Regular",
+  "size": 58,
+  "color": "#FFFFFF",
+  "active_color": "#FFFFFF",
+  "emph_font": "Rubik_900Black",
+  "emph_scale": 1.05,
+  "emph_color": "#E0262B",
+  "shadow": true,
+  "stroke_w": 0,
+  "stroke_color": "#000000",
+  "type_cps": 38,
+  "x": 0.5,
+  "y": 0.3
+ },
+ {
   "id": "warm-hand",
   "name": "Warm \u00b7 handwritten word",
   "look": "A",

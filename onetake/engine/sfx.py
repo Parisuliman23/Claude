@@ -227,6 +227,14 @@ def for_overlay(ov):
         return [] if isinstance(ca, dict) else [(b("click"), float(ca), 0.45)]  # a word cue: see auto()
     if look == "serif_hook":
         return []
+    if look and look.startswith("jess_"):  # Look F: the music carries it; few, soft sounds
+        pr = ov.get("params") or {}
+        if look == "jess_title":
+            return [(b("ding"), 0.0, 0.45)] if pr.get("bell") else []
+        return {"jess_sticker": [(b("pop"), 0.0, 0.45)], "jess_apples": [(b("pop-bubble"), 0.0, 0.4)],
+                "jess_checklist": [(b("click"), 0.3, 0.3)], "jess_composition": [(b("paper-swish"), 0.0, 0.4)],
+                "jess_notes": [(b("paper-swish"), 0.0, 0.35)], "jess_chalkboard": [(b("paper-swish"), 0.0, 0.3)],
+                "jess_rec": [(b("click"), 0.0, 0.35)]}.get(look, [])
     MOTION = {"bar_chart": [("swipe", 0.0, 0.35)], "line_chart": [("swipe", 0.0, 0.35), ("riser", "draw_at", 0.25)],
               "progress_ring": [("swipe", 0.0, 0.3), ("ding", "end", 0.4)], "slot_number": [("click", 0.0, 0.3), ("ka-ching", "end", 0.4)],
               "headline_slam": [("hit", "land", 0.55)], "kinetic_build": [("swipe", 0.0, 0.3)],
@@ -302,7 +310,7 @@ def auto(p, replace=True):
     for br in p.get("broll", []):
         add({"broll": br["id"]}, b("whoosh-soft"), -0.15, 0.35)
     FX_SOUND = {"whip": ("whoosh-fast", -0.15, 0.45), "zoom": ("whoosh-low", -0.18, 0.4), "flash": ("hit", 0.0, 0.4),
-                "shake": ("boom", 0.0, 0.45), "glitch": ("buzz", -0.05, 0.18), "light_leak": ("whoosh-soft", -0.1, 0.25)}
+                "shake": ("boom", 0.0, 0.45), "glitch": ("buzz", -0.05, 0.18), "light_leak": ("whoosh-soft", -0.1, 0.25), "drip": ("whoosh-low", -0.3, 0.35)}
     for f in p.get("fx", []):
         if f.get("kind") in FX_SOUND and isinstance(f.get("w"), int):
             src, off, vol = FX_SOUND[f["kind"]]

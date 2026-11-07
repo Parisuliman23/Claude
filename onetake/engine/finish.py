@@ -341,6 +341,9 @@ def caption_band(p):
     return cy - half, cy + half
 
 
+FULL_BLEED = {"jess_chalkboard", "jess_apples", "confetti", "title_card"}
+
+
 def edge_check(p):
     """[{id, name, at, issue}] for looks that are partly hidden by the app's buttons/text, cover the captions, or
     run off the frame."""
@@ -353,6 +356,8 @@ def edge_check(p):
             continue
         (x0, y0, x1, y1), at = r
         name = ov.get("look") or ov.get("emoji") or (ov.get("src") or "").split("/")[-1]
+        if ov.get("look") in FULL_BLEED:  # meant to fill the frame edge to edge (chalkboard, confetti, apples…)
+            continue
         issue = None
         if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1:
             issue = "runs off the edge"

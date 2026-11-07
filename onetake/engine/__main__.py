@@ -29,6 +29,8 @@
   add-fx NAME --json '{"kind": "whip", "w": 57}'   transition on a word: whip | zoom | flash | shake | glitch | light_leak
   remove-fx NAME ID
   style-pick NAME           which editing style fits this video best (notebook / motion / mix), and why
+  image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  variants NAME [STYLE ...] make extra versions of an edit (default: class + the style-pick), each its own project
   list                      list projects
 """
 import argparse
@@ -183,6 +185,23 @@ def main(argv=None):
             p["edit_rev"] = p.get("edit_rev", 0) + 1
         project.update(args[0], fn)
         print(f"Set {key}.")
+        return
+    if c == "variants":  # extra versions of the same cut in other styles (one is always the class style)
+        from . import variants
+        made = variants.make(args[0], args[1:] or None)
+        for v in made:
+            print(f"{'Already have' if v.get('existing') else 'Made'} {v['name']}  ({v['style']} style)")
+        if made:
+            print("Style each one like a normal edit (same words, its own looks), e.g. `show " + made[0]["name"] + "`.")
+        return
+    if c == "image-find":  # stickers / illustrations / photos for looks (Pixabay)
+        from . import stock
+        kind = (json.loads(a.json) if a.json else {}).get("type", "all")
+        try:
+            got = stock.image_search(" ".join(args), a.n, kind)
+        except stock.NoKey as e:
+            raise SystemExit(str(e))
+        print("\n".join(got) or "Nothing found. Try simpler words.")
         return
     if c == "style-pick":  # which editing style fits this video (notebook / motion / mix)
         from . import stylepick

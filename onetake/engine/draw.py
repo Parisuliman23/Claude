@@ -191,7 +191,7 @@ def caption_layout(words, idxs, style, W):
     return lines, space
 
 
-def caption_image(words, group, active, style, W, t_in=None):
+def caption_image(words, group, active, style, W, t_in=None, chars=None):
     lines, space = caption_layout(words, group["w"], style, W)
     size = style["size"]
     lh = size * 1.18
@@ -210,17 +210,19 @@ def caption_image(words, group, active, style, W, t_in=None):
     if style.get("shadow"):
         sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
         sd = ImageDraw.Draw(sh)
-        _draw_words(sd, lines, space, pad, tw, lh, size, style, active, shadow=True)
+        _draw_words(sd, lines, space, pad, tw, lh, size, style, active, shadow=True, chars=chars)
         sh = sh.filter(ImageFilter.GaussianBlur(size * 0.08))
         img = Image.alpha_composite(sh, img)
         d = ImageDraw.Draw(img)
-    _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=stroke, sw=sw)
+    _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=stroke, sw=sw, chars=chars)
     if style.get("pop") and t_in is not None and t_in < 0.15:
         img = transform(img, {"scale": 0.75 + 0.25 * ease_out_back(t_in / 0.15), "rot": 0, "alpha": 1, "dx": 0, "dy": 0})
     return img
 
 
-def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, sw=0, shadow=False):
+def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, sw=0, shadow=False, chars=None):
+    """chars: typewriter captions: only this many characters are drawn, then an underscore cursor."""
+    left = 10 ** 9 if chars is None else chars
     for li, (items, lw) in enumerate(lines):
         x = pad + (tw - lw) / 2
         base = pad + li * lh + size * 0.92  # baseline
@@ -242,7 +244,13 @@ def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, 
             if sw and not shadow:
                 kw = {"stroke_width": sw, "stroke_fill": stroke}
             yoff = size * 0.06 if shadow else 0
-            d.text((x + yoff, base + yoff), it["text"], font=f, fill=fill, anchor="ls", **kw)
+            text = it["text"]
+            if left <= 0:
+                return
+            if left < len(text):
+                text = text[:left] + "_"
+            d.text((x + yoff, base + yoff), text, font=f, fill=fill, anchor="ls", **kw)
+            left -= len(it["text"]) + 1
             x += it["w"] + space
 
 

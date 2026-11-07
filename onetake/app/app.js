@@ -1590,11 +1590,11 @@ function drawBroll(t) {
     bimg.style.display = bpanel.style.display = "none";
     S.inBroll = S.inSplit = false; return;
   }
-  const [b, sp] = hit, split = b.layout === "split";
+  const [b, sp] = hit, split = b.layout === "split" || b.layout === "class";  // class page: previewed as a split
   const isImg = b.src && /\.(png|jpe?g|webp|gif)$/i.test(b.src);
   const box = split ? { top: "0", height: "50%" } : { top: "0", height: "100%" };
   let el;
-  if (!b.src) { el = bpanel; bpanel.style.background = b.color || "#FFFFFF"; }
+  if (!b.src) { el = bpanel; bpanel.style.background = b.layout === "class" ? "#8E0C0E" : (b.color || "#FFFFFF"); }
   else if (isImg) { el = bimg; if (bimg.dataset.src !== b.src) { bimg.src = media(b.src); bimg.dataset.src = b.src; } }
   else {
     el = bv;
@@ -1613,7 +1613,7 @@ function drawBroll(t) {
   S.inBroll = !split; S.inSplit = split;
 }
 
-const FX_KINDS = { flash: [0.30, 1], whip: [0.30, 1], zoom: [0.35, 1], shake: [0.40, 0], glitch: [0.25, 1], light_leak: [1.0, 0] };
+const FX_KINDS = { flash: [0.30, 1], whip: [0.30, 1], zoom: [0.35, 1], shake: [0.40, 0], glitch: [0.25, 1], light_leak: [1.0, 0], drip: [0.7, 1] };
 function fxNow(t) {  // mirror of engine/fx.py (approximate: the render is exact)
   const out = { dx: 0, scale: 1, rot: 0, filter: "", flash: 0, wash: "#fff" };
   for (const f of S.p.fx || []) {
@@ -1628,6 +1628,7 @@ function fxNow(t) {  // mirror of engine/fx.py (approximate: the render is exact
     if (f.kind === "shake") { const amp = 10 * s * Math.pow(1 - k, 1.5); out.dx = Math.sin(t * 90) * amp; out.rot = Math.sin(t * 70) * 0.8 * (1 - k); out.scale = 1.05; }
     if (f.kind === "glitch") { out.filter = `saturate(${1 + 2 * b}) hue-rotate(${Math.round(40 * b * Math.sin(t * 60))}deg)`; out.dx = Math.sin(t * 120) * 8 * b; }
     if (f.kind === "flash") { out.flash = Math.pow(b, 1.5); out.wash = "#fff"; }
+    if (f.kind === "drip") { out.flash = 1; out.wash = k < 0.5 ? `linear-gradient(#8E0C0E ${k * 200}%, transparent ${k * 200 + 8}%)` : `linear-gradient(transparent ${(k - 0.5) * 230}%, #8E0C0E ${(k - 0.5) * 230 + 4}%)`; }
     if (f.kind === "light_leak") { out.flash = 0.45 * b * s; out.wash = `radial-gradient(circle at ${-20 + 140 * k}% 30%, rgba(255,140,60,.9), rgba(255,80,120,.25) 45%, transparent 70%)`; }
   }
   return out;
@@ -1760,19 +1761,23 @@ function drawCaptions(t) {
   for (const i of g.w) { const o = wordOut(S.p.words, S.segs, i); if (o && o[0] <= t) active = i; }
   const st = S.style, tin = t - g.start;
   const popF = st.pop ? Math.min(5, Math.floor(tin * 30)) : 0;
-  const key = `${S.groups.indexOf(g)}:${active}:${popF}:${st.id}:${S.inSplit ? 1 : 0}`;
+  let chars = st.type_cps ? Math.floor(tin * st.type_cps) : null;  // typewriter captions (Look F)
+  if (chars != null && chars >= g.w.reduce((a, i) => a + S.p.words[i].t.length + 1, 0)) chars = null;
+  const key = `${S.groups.indexOf(g)}:${active}:${popF}:${st.id}:${S.inSplit ? 1 : 0}:${chars}`;
   if (key === S.lastCapKey) return;
   S.lastCapKey = key;
   const { lines, space } = captionLayout(S.p.words, g.w, st, W);
   const lh = st.size * 1.18;
   let h = "";
+  let left = chars == null ? 1e9 : chars;
   for (const [items] of lines) {
+    if (chars != null) items.forEach(it => { const full = it.text; it.text = left <= 0 ? "" : left < full.length ? full.slice(0, left) + "_" : full; left -= full.length + 1; });
     const box = st.box ? `background:${st.box.length === 9 ? hexA(st.box) : st.box};border-radius:${st.size * .22}px;padding:0 ${st.size * .25}px;` : "";
     h += `<div class="cl" style="height:${lh}px;line-height:${lh}px;${box}">` +
       items.map((it, k) => wordSpan(S.p.words[it.i], it.i === active, st, it.text).replace('class="cw" style="', `class="cw" style="margin-right:${k < items.length - 1 ? space : 0}px;`)).join("") + `</div>`;
   }
   const sc = st.pop && tin < 0.15 ? 0.75 + 0.25 * easeOutBack(tin / 0.15) : 1;
-  const cy = S.inSplit ? 0.5 : (st.y ?? .7);  // split screen: caption sits on the seam
+  const cy = S.inSplit ? 0.52 : (st.y ?? .7);  // split screen: caption sits on the seam
   root.innerHTML = `<div class="cg" style="left:${(st.x ?? .5) * W}px;top:${cy * H}px;transform:translate(-50%,-50%) scale(${sc})">${h}</div>`;
 }
 const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24) & 255},${(n >>> 16) & 255},${(n >>> 8) & 255},${((n & 255) / 255).toFixed(2)})`; };

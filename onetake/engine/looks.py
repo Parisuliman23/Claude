@@ -204,6 +204,21 @@ class Ctx:
             v = int(v)
         return f"{v:,}" if commas else str(v)
 
+    # ---- "class" style (look F), measured from Jess Inskip's reels
+    JS = {"red": "#B41A1D", "bg": "#8E0C0E", "board": "#2E4636", "frame": "#5A3A22", "chalk": "#F1EFE6",
+          "chalk_y": "#E9D86A", "chalk_p": "#E64FA8", "chalk_b": "#7FC3F0", "ink": "#1A1A1A", "check": "#2E9E4F",
+          "paper": "#FBFBF8", "purple": "#6B3FD4", "marker": "#FFF07A"}
+    JS_RED, JS_SERIF, JS_SERIF_I, JS_CHALK = "Rubik_900Black", "DMSerifDisplay_400Regular", "DMSerifDisplay_400Regular_Italic", "CabinSketch_700Bold"
+
+    def typed_text(self, text, at, cps=28.0, cursor=True):
+        """Typewriter with an underscore cursor while typing (her signature): what to draw at this moment."""
+        n = int(max(0.0, self.t - at) * cps)
+        if n <= 0:
+            return ""
+        if n >= len(text):
+            return text
+        return text[:n] + ("_" if cursor else "")
+
     def appear(self, t0, dur=0.1):
         """0 -> 1 as time passes t0 (quick fade, for parts of a card that come in one after another)."""
         return max(0.0, min(1.0, (self.t - t0) / dur)) if dur > 0 else float(self.t >= t0)

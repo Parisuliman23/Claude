@@ -122,6 +122,36 @@ def search(query, n=5, max_secs=30, fetch=_get):
     return got
 
 
+IMG_API = "https://pixabay.com/api/"
+
+
+def image_search(query, n=3, kind="all", fetch=_get):
+    """Images for stickers, memes-style cut-outs and illustrations (Pixabay, free to use) into library/images/.
+    kind: all | photo | illustration | vector (vectors usually come as PNGs with a transparent background)."""
+    url = IMG_API + "?" + urllib.parse.urlencode({"key": key(), "q": query, "image_type": kind, "safesearch": "true",
+                                                   "per_page": max(3, min(50, n * 3))})
+    hits = fetch(url).get("hits", [])
+    out_dir = config.LIBRARY / "images"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cf = config.LIBRARY / "images" / "credits.json"
+    credits = json.loads(cf.read_text()) if cf.exists() else {}
+    got = []
+    for h in hits[:n]:
+        src = h.get("largeImageURL") or h.get("webformatURL")
+        if not src:
+            continue
+        ext = ".png" if src.lower().endswith(".png") else ".jpg"
+        dest = out_dir / f"{slug(query)}-{h['id']}{ext}"
+        if not dest.exists():
+            req = urllib.request.Request(src, headers={"User-Agent": "OneTakeStudio/1.0"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                dest.write_bytes(r.read())
+        credits[dest.name] = {"by": h.get("user"), "url": h.get("pageURL"), "source": "Pixabay", "search": query}
+        got.append(config.rel(dest))
+    cf.write_text(json.dumps(credits, indent=1))
+    return got
+
+
 def starter_pack(progress=None, fetch=_get):
     got = []
     for k, (q, n) in enumerate(STARTER):

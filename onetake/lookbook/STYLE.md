@@ -90,6 +90,30 @@ word cues, exactly like Look D.
 `glitch` (a myth / "wrong"), `light_leak` (warm, emotional moment). Max one every ~5 s; `sfx-auto` adds their sounds.
 Place motion cards in the space the face leaves free (`card_y` from `show`, or y ~0.28 above the head).
 
+## ★ Look F · Class (Jess Inskip-style finance class): ALWAYS make one version in this style
+Full breakdown: `lookbook/style/04-class-style.md`. Every video is an episode of MY series, with the same bookends.
+Captions `class-serif` (small serif fragments typed on with an `_` cursor). Hook = `jess_title`.
+| They say… | Look / move |
+|---|---|
+| the hook (0–2 s) | `jess_title` parts `[{"t": "before you pick an", "s": "serif"}, {"t": "ETF", "s": "red"}]`, `at` = word cues |
+| a keyword / term | `jess_title` (red caps + white serif italic words beside it, e.g. MUTUAL *shared* FUND) |
+| benefits, a list, steps | `jess_checklist` (ticks land on each item's word: `at`) |
+| "class is in session" / "class dismissed" | `jess_title` with `"bell": true` |
+| "today's lesson / topic" | `jess_composition` on a red page (`add-broll` `src: null, color: "#8E0C0E"`, `over_captions: true`) |
+| a definition, a formula, the series title | `jess_chalkboard` (top half, edge to edge) |
+| notes, takeaways, a summary | `jess_notes` (spiral notebook, `==highlight==` words) |
+| showing a website / app / screenshot | `add-broll … "layout": "class"` (red page, window on top, me in a soft box below) |
+| a joke, a reaction, a metaphor | `jess_sticker` with an image (`image-find`, library, or ask me) every 15–25 s |
+| "that's a video for another day" | `jess_rec` |
+| "thank you" / outro | `jess_apples` then `jess_title` "class DISMISSED." with the bell |
+| a section change | `add-fx` `drip` |
+Static camera (no punch-ins), music bed at volume ~0.2, sparse sounds (`sfx-auto`).
+
+## Versions: every edit comes in at least two styles
+The main edit is in the `style-pick` style; `python3 -m engine variants NAME` then makes the **class** (Look F)
+version of the same cut as its own project (`variants NAME motion notebook` for more). Style each version fully.
+I pick my favourite in the studio; the phone page shows all of them.
+
 ## Choosing the style for each video (do this first)
 Run `python3 -m engine style-pick NAME`. It reads the transcript and picks:
 - **notebook** (Look D): steps, routines, tips, lists, a calm story → cream notebook cards + `notebook-word` captions.
