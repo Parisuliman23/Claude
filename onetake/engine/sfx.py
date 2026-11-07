@@ -119,6 +119,13 @@ def _make_all():
     lib["swipe"] = _norm(x * np.sin(np.pi * np.linspace(0, 1, len(x))), 0.5)
     x = _lowpass(_noise(n(0.5), 11), 2) * (0.6 + 0.4 * np.sin(np.linspace(0, 40, n(0.5))))
     lib["scribble"] = _norm(x * np.sin(np.pi * np.linspace(0, 1, n(0.5))), 0.35)
+    # notebook style (look D), measured from the reference reel: a ~30 ms bright paper tap when a card lands,
+    # and a ~90 ms airy swish when the step tabs change
+    t = np.arange(n(0.035)) / SR
+    tap = _noise(len(t), 12) - _lowpass(_noise(len(t), 12), 6)  # keep the bright part, like a fingertip on paper
+    lib["tap"] = _norm(tap * np.exp(-t * 140) + 0.25 * np.sin(2 * np.pi * 1800 * t) * np.exp(-t * 220), 0.45)
+    x = _sweep_noise(0.09, 3000, 8000, 13)
+    lib["paper-swish"] = _norm(x * np.sin(np.pi * np.linspace(0, 1, len(x))) ** 0.7, 0.35)
     # error buzz (for "wrong") and a soft camera shutter (for frames)
     t = np.arange(n(0.3)) / SR
     lib["buzz"] = _norm(_tone(140, 0.3, "square") * np.exp(-t * 6), 0.5)
@@ -141,6 +148,8 @@ META = {  # name: (label, tags)
     "swipe": ("Swipe", "swipe ui fast"),
     "scribble": ("Pen scribble", "pen draw arrow handwriting"),
     "buzz": ("Wrong buzz", "error wrong buzzer"),
+    "tap": ("Paper tap", "notebook card tap soft click"),
+    "paper-swish": ("Paper swish", "notebook tab swish soft transition"),
 }
 
 
@@ -202,9 +211,20 @@ def b(name):
     return f"assets/sfx/{name}.wav"
 
 
+NOTEBOOK_CARDS = ("notebook_note", "week_check", "sticky_row", "x_card", "option_tiles", "growth_chart", "comment_cta")
+
+
 def for_overlay(ov):
     """[(sound, offset_s, volume)] for one overlay, chosen from its look and how it moves."""
     look, kind, ai = ov.get("look"), ov.get("kind"), ov.get("anim_in", "pop")
+    if look in NOTEBOOK_CARDS:  # notebook style: sparse and soft, one tap as the card lands (no typing sounds)
+        return [(b("tap"), 0.0, 0.4)]
+    if look == "step_tabs":
+        return [(b("paper-swish"), -0.03, 0.35)]
+    if look == "follow_card":
+        return [(b("click"), float((ov.get("params") or {}).get("click_at", 0.8)), 0.45)]
+    if look == "serif_hook":
+        return []
     if look in ("count_up", "big_number"):
         return [(b("riser"), -0.6, 0.35), (b("ka-ching" if (ov.get("params") or {}).get("prefix") == "$" else "boom"), 1.2, 0.55)]
     if look in ("typed_title", "hand_note", "keyword_def", "chapter_header"):

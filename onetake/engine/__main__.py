@@ -47,6 +47,8 @@ def show(name):
     from . import timeline
     segs = project.segments(p)
     print(f"{p['title']}  —  {timeline.total(segs):.1f}s after cuts (raw {p['duration']:.1f}s), caption style: {p['caption_style']}")
+    if p.get("card_y") is not None:  # notebook layout, worked out from where the face is
+        print(f"layout: captions at y {p.get('caption_y')}, notebook cards at y {p['card_y']} (keeps the face clear)")
     for l in project.lines(p):
         ws = []
         for i in range(l["w0"], l["w1"] + 1):

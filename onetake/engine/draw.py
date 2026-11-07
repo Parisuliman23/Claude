@@ -11,7 +11,7 @@ from . import config
 
 ANIM_DUR = 0.3
 # Your style: pops are near-instant (40->100% in ~3 frames), headline cards slide up in 0.2 s.
-ANIM_DURS = {"snap": 0.1, "slide-up": 0.2, "slide-down": 0.2}
+ANIM_DURS = {"snap": 0.1, "slide-up": 0.2, "slide-down": 0.2, "rise": 0.2, "fade-quick": 0.1}
 
 
 def anim_dur(kind):
@@ -65,6 +65,11 @@ def anim_state(kind, p):
         st["scale"] = e
     elif kind == "snap":
         st["scale"] = 0.4 + 0.6 * e
+    elif kind == "rise":  # notebook cards: fade in while lifting a little (6 frames)
+        st["alpha"] = p
+        st["dy"] = (1 - e) * 0.015
+    elif kind == "fade-quick":
+        st["alpha"] = p
     elif kind == "zoom":
         st["scale"] = 1 + (1 - e) * 1.5
         st["alpha"] = p

@@ -44,11 +44,16 @@ Run `python3 -m engine` with no arguments for the full list.
      double-click a word in the studio to fix it.
 4. **Styling pass: edit in the user's style.** Read `lookbook/STYLE.md` first (it's the rulebook; the
    full analysis of their 10 reference reels is in `lookbook/style/`). Then:
-   - **Pick the look** (A warm creator / B editorial serif / C cinematic finance) from the content and set the
-     matching caption style: `set NAME caption_style --json '"warm-chest"'` (ids in `lookbook/captions.json`).
-   - **Hook (0–5 s)**: the import adds a `typed_title` hook. Rewrite it as a PARAPHRASED claim (not the
-     transcript), all caps, ≤ 8 words, plus an identity/urgency `sub` line:
-     `overlay NAME <hook-id> --json '{"params": {"text": "...", "sub": "..."}}'`. Add a proof visual by 2 s.
+   - **Pick the look.** The user's PRIMARY style is **Look D · Notebook**: use it for every reel unless they ask for
+     A (warm creator), B (editorial serif) or C (cinematic finance) by name. Look D = caption style `notebook-word`
+     (one word, keywords in yellow serif italic via `highlight`), a `serif_hook` title, and cream notebook cards in the
+     lower third: `notebook_note`, `week_check`, `step_tabs`, `sticky_row`, `x_card`, `option_tiles`, `growth_chart`,
+     `follow_card`, `comment_cta` (all `"anim_in": "rise"`, `"anim_out": "fade-quick"`). Its rules are at the top of
+     `lookbook/STYLE.md`; the frame-by-frame breakdown is `lookbook/style/03-notebook-style.md`.
+     Other looks: `set NAME caption_style --json '"warm-chest"'` (ids in `lookbook/captions.json`).
+   - **Hook (0–5 s)**: the import adds a `serif_hook` (Look D). Rewrite it as a PARAPHRASED claim in three parts:
+     `overlay NAME <hook-id> --json '{"params": {"top": "if you make your content", "mid": "the same day", "bottom": "you post, we need to talk."}}'`
+     (lowercase; `mid` is the twist). For looks A–C swap it to `typed_title` (all caps, ≤ 8 words, + `sub` line).
    - **Walk the transcript word by word with the decision engine** in STYLE.md: every noun, number and claim
      gets a visual ON the word it's spoken (`w0` = that word). Built-in looks for this style:
      `typed_title` (headline / audience call-out), `hand_note` (handwritten aside, optional arrow),

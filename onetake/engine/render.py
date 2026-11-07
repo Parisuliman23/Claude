@@ -357,7 +357,19 @@ class Composer:
                     self.cap_cache[key] = draw.caption_image(words, g, active, style, W, t_in if pop else None)
                 in_split = any(b.get("layout") == "split" and sp[0] <= t < sp[1] for b, sp, _ in self.brolls)
                 cy = 0.5 if in_split else style.get("y", 0.7)  # split screen: caption sits on the seam
-                put(self.cap_cache[key], float(style.get("x", 0.5)) * W, cy * H)
+                cap = self.cap_cache[key]
+                fade = float(style.get("fade") or 0)
+                if fade and t_in < fade:  # word swap as a 2-frame cross-dissolve, like the notebook style
+                    k = t_in / fade
+                    prev = self.groups[gi - 1] if gi else None
+                    if prev and g["start"] - prev["end"] < 0.05:
+                        pkey = ("fadeout", gi - 1)
+                        if pkey not in self.cap_cache:
+                            self.cap_cache[pkey] = draw.caption_image(words, prev, prev["w"][-1], style, W, None)
+                        put(draw.transform(self.cap_cache[pkey], {"scale": 1, "rot": 0, "alpha": 1 - k, "dx": 0, "dy": 0}),
+                            float(style.get("x", 0.5)) * W, cy * H)
+                    cap = draw.transform(cap, {"scale": 1, "rot": 0, "alpha": k, "dx": 0, "dy": 0})
+                put(cap, float(style.get("x", 0.5)) * W, cy * H)
         return frame
 
     def speaker(self, ts, t):

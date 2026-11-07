@@ -105,7 +105,7 @@ function overlaySpan(p, words, segs, ov) {
 
 // ---- animation (engine/draw.py anim_state)
 const ANIM_DUR = 0.3;
-const ANIM_DURS = { "snap": 0.1, "slide-up": 0.2, "slide-down": 0.2 };
+const ANIM_DURS = { "snap": 0.1, "slide-up": 0.2, "slide-down": 0.2, "rise": 0.2, "fade-quick": 0.1 };
 const animDur = k => ANIM_DURS[k] ?? ANIM_DUR;
 const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
 const easeOutBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
@@ -123,6 +123,8 @@ function animState(kind, p) {
     case "slide-down": st.dy = -(1 - e) * 0.5; break;
     case "spin": st.rot = (1 - e) * 360; st.scale = e; break;
     case "snap": st.scale = 0.4 + 0.6 * e; break;
+    case "rise": st.alpha = p; st.dy = (1 - e) * 0.015; break;
+    case "fade-quick": st.alpha = p; break;
     case "zoom": st.scale = 1 + (1 - e) * 1.5; st.alpha = p; break;
   }
   return st;

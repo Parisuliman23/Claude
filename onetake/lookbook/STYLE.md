@@ -11,6 +11,49 @@ it's spoken.** The edit gets out of the way when the moment is personal.
 2. Visuals are triggered by WORDS, not time: set `w0` to the word that triggers it.
 3. On-screen text PARAPHRASES the point; it never transcribes it. No full-sentence titles.
 
+## ★ Look D · Notebook: MY PRIMARY STYLE (use it unless I ask for another look)
+Learned frame by frame from my favourite reference reel. Full breakdown: `lookbook/style/03-notebook-style.md`.
+The talking head stays clean and natural; the story is told with **cream notebook cards** in the lower third, a
+**one-word caption** on the chest, and **one yellow serif-italic keyword** per thought.
+
+**Captions**: `set NAME caption_style --json '"notebook-word"'`. One word at a time, lowercase, Poppins ExtraBold
+white with a soft shadow, centred on the chest (the import sets `caption_y` from the face: 0.555 when framed like
+the reference, just above the head when the face is low), 2-frame dissolve between words. The ONE word that carries
+each sentence (the payoff, a number, a contrast: "steal", "follows", "one", "choosing.") goes yellow serif italic:
+`highlight NAME A-B` with that word's index from `show` (about one per sentence, never two in a row).
+
+**Hook (frame 1 to ~3 s)**: `serif_hook` at y 0.185: `top` small white bold line, `mid` the big yellow serif-italic
+phrase (the twist), `bottom` small white bold line, e.g. top "if you make your content", mid "the same day",
+bottom "you post, we need to talk." It's on screen from the first frame (`anim_in` none) and hard-cuts off.
+
+**Cards** (all `"anim_in": "rise"`, `"anim_out": "fade-quick"`, x ~0.47, **y = the `card_y` that `show` prints** (the import works it out from where the face is: ~0.70 when the
+face is high like the reference, above the head when the face is low, e.g. in the car) so the face, the like/comment buttons and the
+caption stay clear; one card at a time, each replaced when the thought changes, every ~3–6 s):
+| They say… | Card |
+|---|---|
+| a question, a quote, a note to self, a list of examples | `notebook_note` (grey `label`, serif `title`, handwritten `lines` typed on; `tags` + `legend` to sort them) |
+| a routine / "every day" / "the whole week" / a streak | `week_check` (checks land one day at a time; `filled` for today) |
+| "step 1… step 6" (a process) | `step_tabs` at y 0.15 for the whole section, one overlay per step with the next `active` |
+| 2–4 ideas, rules, types, jobs | `sticky_row` (notes fade in left to right, text fills in on cue; `focus` to dim the others) |
+| "never do this", the old way, a blank page | `x_card` (crossed out, with a serif word + handwritten line beside it) |
+| choosing between options / formats | `option_tiles` (`pick` turns the chosen one yellow) |
+| "the more you do it…", growth, compounding | `growth_chart` (the curve draws itself to a yellow "you" dot) |
+| "follow me" | `follow_card` (my photo, name, @handle; the cursor clicks Follow) |
+| "comment X" | `comment_cta` (yellow sticky: comment / KEYWORD / what they get), bottom-left, last 2–4 s |
+Handwriting types at ~30 letters/s, starting just after the card lands (lines one after another, ~0.8 s apart).
+Checkmarks and sticky notes come in one every 2 frames (0.067 s).
+
+**Palette**: cream paper `#F1EDE3`, ink `#1D1912`, grey labels `#908B86`, tab/day yellow `#F2E07F`, sticky `#EBD56E`,
+keyword gold `#EED98A`. Fonts: Poppins (labels/captions), Playfair Display Italic (titles, keywords),
+Architects Daughter (handwriting).
+
+**Sound**: sparse and soft. `sfx-auto` gives each card one quiet paper `tap` as it lands, a `paper-swish` when the
+step tabs change, and a `click` on the Follow button. No typing sounds, no whooshes on captions. The reference has
+no noticeable music: voice only (or a very quiet bed, volume ≤ 0.05).
+
+**Pace & camera**: cut every pause (the reference has only 4 pauses over 1/3 s in 2 minutes, ~4 words/s). Static
+camera: no push-ins or punch-ins (`set NAME camera --json '{"push_in":0,"punches":[]}'`). Filter: none (natural).
+
 ## Pick ONE look per reel (same timing rules, different skin)
 | Look | When | Captions (`caption_style`) | Fonts in looks | Rhythm |
 |---|---|---|---|---|
@@ -18,7 +61,7 @@ it's spoken.** The edit gets out of the way when the moment is personal.
 | **B · Editorial serif** | teaching a framework, a breakdown | `editorial-serif` (one serif word left of the speaker) | serif/brush: set `font` to `InstrumentSerif_400Regular` / `CaveatBrush_400Regular`; persistent `chapter_header` | every 2–4 s |
 | **C · Cinematic finance** | money, data, news | `cinematic-pill` (1–3 words on a dark pill) or `cinematic-bold` | Inter (`Inter_700Bold`, `Inter_800ExtraBold`); `big_number`, `highlight_card`, `equation` | a new shot every 1.5–4 s: split screens and B-roll |
 
-Debt / money / investing content → usually **C**. Personal story → **A**. Step-by-step lesson → **B**.
+**Default: Look D (Notebook) for everything.** Only use A/B/C if I ask for that look by name.
 
 ## Where things go (y = 0 top, 1 bottom)
 - **Zone 1 · y 0.06–0.20** (center ~0.12): hook headline, chapter header, CTA keyword, emoji row, typed asides, numbered list.

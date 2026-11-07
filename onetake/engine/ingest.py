@@ -100,6 +100,16 @@ def make_master(clips, out, log=print):
     shutil.rmtree(tmp)
 
 
+def notebook_layout(focus):
+    """Where the caption and the notebook cards go so they never cover the face.
+    Framed like the reference (eyes in the top ~42%): caption on the chest, cards in the lower third.
+    Face low in the frame (e.g. filming in a car): caption just above the head, cards in the space above it."""
+    eye = float((focus or [0.5, 0.38])[1])
+    if eye <= 0.42:
+        return {"caption_y": round(max(0.555, eye + 0.22), 3), "card_y": round(min(0.72, max(0.69, eye + 0.37)), 3)}
+    return {"caption_y": round(max(0.30, eye - 0.20), 3), "card_y": round(max(0.22, eye - 0.36), 3)}
+
+
 def new(name=None, clips=None, log=print, move=True):
     clips = [Path(c) for c in clips] if clips else drop_clips()
     if not clips:
@@ -156,6 +166,8 @@ def new(name=None, clips=None, log=print, move=True):
     }
     from . import analyze as _an
     p["focus"] = _an.face_focus(d / "source.mp4")  # where the eyes are: punch-ins and split screens aim here
+    if s["default_caption_style"] == "notebook-word":
+        p.update(notebook_layout(p["focus"]))
     log("  checking for captions already in the video…")
     from . import analyze
     scan = analyze.scan_burned_text(d / "source.mp4", fps=2 if config.fast() else 4)
@@ -172,11 +184,16 @@ def new(name=None, clips=None, log=print, move=True):
     first = next((w for w in p["words"] if not w.get("cut")), None)
     if first is not None:
         ls = [l for l in project.lines(p) if not l["cut"]]
+        hook = s["default_hook_look"]
+        params = {"text": ls[0]["text"]}
+        if hook == "serif_hook":  # notebook style: the line goes in the big serif-italic middle; Claude rewrites it
+            words = ls[0]["text"].split()
+            params = {"top": "", "mid": " ".join(words[:5]).strip(" ,.!?").lower(), "bottom": ""}
         p["overlays"].append({
-            "id": project.new_id(), "kind": "look", "look": s["default_hook_look"], "role": "hook",
-            "w0": ls[0]["w0"], "w1": ls[0]["w1"], "x": 0.5, "y": 0.13, "scale": 1.0,
-            # your style: the headline types on from frame 1 and hard-cuts off
-            "anim_in": "none", "anim_out": "none", "params": {"text": ls[0]["text"]},
+            "id": project.new_id(), "kind": "look", "look": hook, "role": "hook",
+            "w0": ls[0]["w0"], "w1": ls[0]["w1"], "x": 0.5, "y": 0.185 if hook == "serif_hook" else 0.13, "scale": 1.0,
+            # your style: the headline is there from frame 1 and hard-cuts off
+            "anim_in": "none", "anim_out": "none", "params": params,
         })
     sounds = sorted((config.LIBRARY / "sounds").glob("*"))
     sounds = [x for x in sounds if x.suffix.lower() in config.AUDIO_EXT]

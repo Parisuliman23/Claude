@@ -1,3 +1,7 @@
+@font-face { font-family: "Poppins_500Medium"; src: url(/assets/fonts/Poppins_500Medium.ttf); }
+@font-face { font-family: "Poppins_600SemiBold"; src: url(/assets/fonts/Poppins_600SemiBold.ttf); }
+@font-face { font-family: "Poppins_700Bold"; src: url(/assets/fonts/Poppins_700Bold.ttf); }
+@font-face { font-family: "ArchitectsDaughter_400Regular"; src: url(/assets/fonts/ArchitectsDaughter_400Regular.ttf); }
 @font-face { font-family: "NanumPenScript_400Regular"; src: url(/assets/fonts/NanumPenScript_400Regular.ttf); }
 @font-face { font-family: "CaveatBrush_400Regular"; src: url(/assets/fonts/CaveatBrush_400Regular.ttf); }
 @font-face { font-family: "InstrumentSerif_400Regular"; src: url(/assets/fonts/InstrumentSerif_400Regular.ttf); }

@@ -1,5 +1,27 @@
 [
  {
+  "id": "notebook-word",
+  "name": "Notebook \u00b7 one word, serif-italic keywords",
+  "look": "D",
+  "mode": "single",
+  "max_words": 1,
+  "max_chars": 14,
+  "lowercase": true,
+  "font": "Poppins_800ExtraBold",
+  "size": 102,
+  "color": "#FFFFFF",
+  "active_color": "#FFFFFF",
+  "emph_font": "PlayfairDisplay_400Regular_Italic",
+  "emph_scale": 1.28,
+  "emph_color": "#EED98A",
+  "shadow": true,
+  "stroke_w": 0,
+  "stroke_color": "#000000",
+  "fade": 0.067,
+  "x": 0.5,
+  "y": 0.555
+ },
+ {
   "id": "warm-hand",
   "name": "Warm \u00b7 handwritten word",
   "look": "A",

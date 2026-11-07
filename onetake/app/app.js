@@ -799,7 +799,7 @@ function bindBrollFinder(root, redraw) {
   const st = root.querySelector("#pxStarter"); if (st) st.onclick = () => go(true);
 }
 
-const ANIMS = ["snap", "none", "pop", "fade", "slide-up", "slide-down", "slide-left", "slide-right", "spin", "zoom"];
+const ANIMS = ["snap", "none", "pop", "fade", "rise", "fade-quick", "slide-up", "slide-down", "slide-left", "slide-right", "spin", "zoom"];
 const animOpts = cur => ANIMS.map(a => `<option ${a === cur ? "selected" : ""}>${a}</option>`).join("");
 
 async function addBroll(src, t) {
