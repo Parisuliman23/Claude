@@ -62,14 +62,14 @@ def _publish(url):
     """Leave the newest link where the phone can find it: Google Drive (if shared with Linux)."""
     try:
         from . import inbox
-        b = inbox.base()
-        if not b:
+        inb, _, _ = inbox.folders()  # works with the default Drive folder and a custom "inbox" setting
+        if not inb or not inb.parent.is_dir():
             return
-        d = b / "One Take"
-        d.mkdir(parents=True, exist_ok=True)
+        d = inb.parent
         (d / "Open One Take.html").write_text(
             f'<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url={url}/phone">'
-            f'<a href="{url}/phone">Open One Take</a>')
+            f'<a href="{url}/phone" style="font:32px sans-serif">Open One Take</a>')
+        (d / "One Take link.txt").write_text(f"{url}/phone\n")  # plain text: copy it into the browser if needed
     except OSError:
         pass
 
