@@ -231,6 +231,8 @@ class Handler(BaseHTTPRequestHandler):
         st = config.settings()
         if not st.get("phone_access"):
             return not self.via_tunnel()
+        if st.get("phone_pin_off"):  # you chose no PIN: anyone with the link can use the phone page
+            return True
         c = self.headers.get("Cookie") or ""
         return f"onetake_pin={pin_token(st)}" in c.replace(" ", "").split(";")
 
@@ -334,6 +336,7 @@ class Handler(BaseHTTPRequestHandler):
                 st = config.settings()
                 from . import tunnel
                 return self.send_json({"phone_access": bool(st.get("phone_access")), "phone_pin": st.get("phone_pin"),
+                                       "phone_pin_off": bool(st.get("phone_pin_off")),
                                        "phone_link": tunnel.status(),
                                        "claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
                                        "stock": bool(os.environ.get("PIXABAY_API_KEY") or st.get("pixabay_key")),
@@ -407,6 +410,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"have": part.stat().st_size})
             part.replace(dest)
             return self.send_json({"saved": dest.name})
+        if path == "/api/phone-pin":  # ask for a PIN on the phone link, or not
+            f = config.ROOT / "settings.json"
+            st = json.loads(f.read_text()) if f.exists() else {}
+            st["phone_pin_off"] = not bool(self.jbody().get("on"))
+            f.write_text(json.dumps(st, indent=1))
+            return self.send_json({"pin_on": not st["phone_pin_off"]})
         if path == "/api/phone-access":  # turn sending from your phone on/off (creates the PIN)
             import secrets
             b = self.jbody()

@@ -158,7 +158,7 @@ async function drawPhoneCard() {
         <img src="/api/phone-qr.png?u=${encodeURIComponent(link.url)}" alt="" width="132" height="132" style="border-radius:10px;background:#fff" onerror="this.remove()">
         <div class="muted" style="flex:1;min-width:220px;line-height:1.6"><b>Point your phone's camera at the code</b>, or open this link on your phone:<br>
         <b style="word-break:break-all;user-select:all">${esc(link.url)}/phone</b><br>
-        Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone). Works on Wi-Fi or mobile data.
+        ${ps.phone_pin_off ? `No PIN needed: anyone with the link can open your phone page.` : `Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone).`} Works on Wi-Fi or mobile data.
         <br><small>The link changes when the studio restarts, so scan the new code then.</small></div></div>`
     : link.state === "error"
       ? `<div class="muted" style="margin-top:6px">⚠ ${esc(link.error)}<br>Check this Chromebook is online, then turn this off and on again.</div>`
@@ -166,7 +166,8 @@ async function drawPhoneCard() {
   if (ps.phone_access && !link.url && link.state !== "error") setTimeout(drawPhoneCard, 3000);
   const direct = ps.phone_access
     ? `<div class="card" style="background:var(--hl)"><b>📲 Send from your phone's gallery is on</b>${linkHtml}
-        <button class="ghost" id="phoneOff" style="margin-top:6px">Turn off</button></div>`
+        <button class="ghost" id="phoneOff" style="margin-top:6px">Turn off</button>
+        <button class="ghost" id="pinToggle" style="margin-top:6px">${ps.phone_pin_off ? "Ask for a PIN again" : "Don't ask for a PIN"}</button></div>`
     : `<div class="card"><b>📲 Send videos from your phone's gallery</b>
         <div class="muted" style="margin-top:4px">Pick a video on your phone, it's edited here, and you download the finished reel on your phone.
         Uses a private link protected by a PIN, so it works on Wi-Fi or mobile data.</div>
@@ -175,6 +176,8 @@ async function drawPhoneCard() {
     const on = $("#phoneOn"), off = $("#phoneOff");
     if (on) on.onclick = async () => { await api("/api/phone-access", { on: true }); drawPhoneCard(); };
     if (off) off.onclick = async () => { await api("/api/phone-access", { on: false }); drawPhoneCard(); };
+    const pt = $("#pinToggle");
+    if (pt) pt.onclick = async () => { await api("/api/phone-pin", { on: !!ps.phone_pin_off }); drawPhoneCard(); };
   }, 0);
   if (st.connected) {
     const last = st.status === "ready" ? `Last one: <b>${esc(st.last || "")}</b> is ready in Drive → One Take → Ready.`
