@@ -67,16 +67,17 @@ def lookbook():
             "filters": json.loads((config.LOOKBOOK / "filters.json").read_text()) if (config.LOOKBOOK / "filters.json").exists() else []}
 
 
-def thumb(name, t, w=360):
+def thumb(name, t, w=360, src=False):
+    """A still at output time t (or, with src=True, at source time t: the timeline's film strip)."""
     t = round(max(0.0, t), 1)
-    out = project.pdir(name) / "cache" / "thumbs" / f"{t:.1f}.jpg"
+    out = project.pdir(name) / "cache" / "thumbs" / (f"s{t:.1f}_{w}.jpg" if src else f"{t:.1f}.jpg")
     if not out.exists():
         import cv2
         out.parent.mkdir(parents=True, exist_ok=True)
         p = project.load(name)
         segs = project.segments(p)
         from . import timeline
-        _, ts = timeline.out_to_src(segs, t)
+        ts = t if src else timeline.out_to_src(segs, t)[1]
         reader = render.FrameReader(config.absolute(p["source"]))
         fr = None
         for back in (0, 0.5, 2, 5):  # the last frames of some phone videos can't be read: step back a little
@@ -343,7 +344,7 @@ class Handler(BaseHTTPRequestHandler):
                                        "settings": {k: st[k] for k in ("max_gap", "pad_before", "pad_after", "width", "height", "fps")}})
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)/thumb", path)
             if m:  # a still of your own video at output time t, for previews drawn "on your frame"
-                f = thumb(m.group(1), float(q.get("t", 1)))
+                f = thumb(m.group(1), float(q.get("t", 1)), int(q.get("w", 360)), bool(q.get("src")))
                 return self.send_file(f) if f else self.send_error(404)
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)(/rev)?", path)
             if m:

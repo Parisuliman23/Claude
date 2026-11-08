@@ -276,7 +276,7 @@ function setProject(p) {
 
 function recompute() {
   const p = S.p;
-  S.segs = buildSegments(p.words, p.duration, S.settings);
+  S.segs = applyTimeEdits(buildSegments(p.words, p.duration, S.settings), p.words, p.time_cuts, p.splits);
   S.T = totalLen(S.segs);
   S.style = Object.assign({}, S.lookbook.captions.find(c => c.id === p.caption_style) || S.lookbook.captions[0]);
   if (p.caption_y != null) S.style.y = +p.caption_y;
@@ -1786,86 +1786,150 @@ function drawCaptions(t) {
 const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24) & 255},${(n >>> 16) & 255},${(n >>> 8) & 255},${((n & 255) / 255).toFixed(2)})`; };
 
 // ------------------------------------------------------------------ timeline (bottom)
-const tl = $("#tl"), tctx = tl.getContext("2d");
-function tlScale() { return (tl.width / devicePixelRatio - 20) / Math.max(1, S.T); }
+// ------------------------------------------------------------------ timeline: CapCut-style
+// The film strip slides under a fixed playhead in the middle. Tap a clip to select it (white frame + handles),
+// drag a handle to trim, Split / Delete in the toolbar. Cuts are in seconds of footage (p.time_cuts, p.splits),
+// so silent moments like fixing the camera can be cut too. Mirrors engine/timeline.py apply_time_edits.
+const tl = $("#tl"), tctx = tl.getContext("2d"), tlBox = $("#tlScroll");
+S.pps = 60;  // pixels per second
+const TL_H = 112, STRIP_Y = 20, STRIP_H = 56;
+const tlPad = () => tlBox.clientWidth / 2;
+const timeToX = t => tlPad() + t * S.pps;
+const thumbImgs = {};
+function stripThumb(srcT) {
+  const k = (Math.round(srcT * 2) / 2).toFixed(1);
+  if (!thumbImgs[k]) { const im = new Image(); im.onload = () => drawTimelineSoon(); im.src = `/api/project/${S.name}/thumb?t=${k}&src=1&w=96`; thumbImgs[k] = im; }
+  return thumbImgs[k];
+}
+let tlTimer = 0;
+function drawTimelineSoon() { clearTimeout(tlTimer); tlTimer = setTimeout(drawTimeline, 60); }
 function drawTimeline() {
   if (!S.p) return;
-  const box = $("#tlScroll").getBoundingClientRect();
-  const cssW = Math.max(200, box.width * S.zoom), cssH = 76;
-  if (tl.width !== Math.round(cssW * devicePixelRatio)) { tl.width = Math.round(cssW * devicePixelRatio); tl.height = Math.round(cssH * devicePixelRatio); tl.style.width = cssW + "px"; tl.style.height = cssH + "px"; }
+  const cssW = Math.ceil(tlPad() * 2 + S.T * S.pps), cssH = TL_H;
+  if (tl.width !== Math.round(cssW * devicePixelRatio) || tl.height !== Math.round(cssH * devicePixelRatio)) {
+    tl.width = Math.round(cssW * devicePixelRatio); tl.height = Math.round(cssH * devicePixelRatio); tl.style.width = cssW + "px"; tl.style.height = cssH + "px";
+  }
   const c = tctx; c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
   c.clearRect(0, 0, cssW, cssH);
-  const k = tlScale(), x0 = 10, css = getComputedStyle(document.documentElement);
-  const accent = css.getPropertyValue("--accent").trim(), ink2 = css.getPropertyValue("--ink2").trim(), line = css.getPropertyValue("--line").trim();
+  const css = getComputedStyle(document.documentElement), ink2 = css.getPropertyValue("--ink2").trim(), accent = css.getPropertyValue("--accent").trim();
   c.font = "10px Montserrat_600SemiBold, sans-serif"; c.fillStyle = ink2;
-  const step = S.T / (cssW / 70) > 5 ? 10 : S.T / (cssW / 70) > 2 ? 5 : S.T / (cssW / 70) > 1 ? 2 : 1;
-  for (let t = 0; t <= S.T; t += step) { c.fillText(fmt(t), x0 + t * k + 2, 10); c.fillRect(x0 + t * k, 12, 1, 4); }
+  const step = S.pps > 120 ? 0.5 : S.pps > 40 ? 1 : S.pps > 15 ? 2 : 5;
+  for (let t = 0; t <= S.T + 1e-6; t += step) {
+    const x = timeToX(t), major = Math.abs(t / (step * 2) - Math.round(t / (step * 2))) < 1e-6;
+    if (major) c.fillText(fmt(t), x + 3, 11);
+    c.fillRect(x, major ? 12 : 15, 1, major ? 6 : 3);
+  }
+  const tileW = Math.round(STRIP_H * 0.75);
   S.segs.forEach((sg, i) => {
-    const x = x0 + sg.o * k, w = Math.max(1, (sg.e - sg.s) * k - 1);
-    c.fillStyle = i % 2 ? "#3d3a52" : "#4a4664"; c.beginPath(); c.roundRect(x, 18, w, 34, 5); c.fill();
-    c.save(); c.beginPath(); c.rect(x + 3, 18, w - 6, 34); c.clip(); c.fillStyle = "#fff";
-    c.fillText(S.p.words.slice(sg.w0, sg.w1 + 1).map(w => w.t).join(" "), x + 5, 39); c.restore();
+    const x = timeToX(sg.o), w = Math.max(2, (sg.e - sg.s) * S.pps - 2);
+    c.save(); c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.clip();
+    c.fillStyle = "#2a2838"; c.fillRect(x, STRIP_Y, w, STRIP_H);
+    for (let tx = x; tx < x + w; tx += tileW) {  // the film strip: one still per tile
+      const im = stripThumb(sg.s + (tx - x + tileW / 2) / S.pps);
+      if (im.complete && im.naturalWidth) {
+        const sh = im.naturalWidth * STRIP_H / tileW;  // centre-crop the tall still into the tile
+        c.drawImage(im, 0, (im.naturalHeight - sh) / 2, im.naturalWidth, sh, tx, STRIP_Y, tileW, STRIP_H);
+      }
+    }
+    c.restore();
   });
-  for (const [ov, [a, b]] of S.spans) { c.fillStyle = accent; c.globalAlpha = .8; c.beginPath(); c.roundRect(x0 + a * k, 56, Math.max(3, (b - a) * k), 7, 3); c.fill(); }
-  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(x0 + t * k, 16, 2.5, 0, 7); c.fill(); }
-  for (const [bb, [a, b]] of S.bspans || []) { c.fillStyle = "#1F9D6B"; c.beginPath(); c.roundRect(x0 + a * k, 65, Math.max(3, (b - a) * k), 7, 3); c.fill(); }
+  const sel = S.selClip != null ? S.segs[S.selClip] : null;
+  if (sel) {  // selected clip: white frame and two handles, like CapCut
+    const x = timeToX(sel.o), w = Math.max(2, (sel.e - sel.s) * S.pps - 2);
+    c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.stroke();
+    for (const hx of [x - 12, x + w]) {
+      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 12, STRIP_H, 4); c.fill();
+      c.fillStyle = "#888"; c.fillRect(hx + 5, STRIP_Y + STRIP_H / 2 - 9, 2, 18);
+    }
+    c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 38, 15, 4); c.fill();
+    c.fillStyle = "#fff"; c.fillText(`${(sel.e - sel.s).toFixed(1)}s`, x + 8, STRIP_Y + 15);
+  }
+  for (const [ov, [a, b]] of S.spans) { c.fillStyle = accent; c.globalAlpha = .85; c.beginPath(); c.roundRect(timeToX(a), STRIP_Y + STRIP_H + 6, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
+  for (const [bb, [a, b]] of S.bspans || []) { c.fillStyle = "#1F9D6B"; c.beginPath(); c.roundRect(timeToX(a), STRIP_Y + STRIP_H + 17, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
+  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(timeToX(t), STRIP_Y + STRIP_H + 31, 3, 0, 7); c.fill(); }
   c.globalAlpha = 1;
-  if (S.drag) { c.fillStyle = "#FFE14D"; c.fillRect(S.drag.x - 1, 16, 3, 40); }
-  S.tlBase = c.getImageData(0, 0, tl.width, tl.height);
+  if (S.trim) { c.fillStyle = "#FFE14D"; c.fillRect(S.trim.x - 1, STRIP_Y - 4, 3, STRIP_H + 8); }
+  drawPlayhead();
 }
-function drawPlayhead() {
-  if (!S.tlBase) return;
-  tctx.putImageData(S.tlBase, 0, 0);
-  const x = 10 + S.outT * tlScale();
-  tctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-  tctx.fillStyle = "#E5484D"; tctx.fillRect(x - 1, 12, 2, 64);
+function drawPlayhead() {  // the playhead stays in the middle; the strip scrolls under it
+  if (!S.p || S.trim) return;
+  const want = Math.round(S.outT * S.pps);
+  if (Math.abs(tlBox.scrollLeft - want) > 1) { S.tlAuto = true; tlBox.scrollLeft = want; }
 }
+tlBox.addEventListener("scroll", () => {
+  if (S.tlAuto) { S.tlAuto = false; return; }
+  if (S.playing) pause();
+  seek(Math.max(0, Math.min(S.T, tlBox.scrollLeft / S.pps)));
+});
+tlBox.addEventListener("wheel", e => {  // ctrl/pinch = zoom, wheel = scroll through time
+  if (e.ctrlKey) { e.preventDefault(); setZoom(S.pps * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }
+  else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); tlBox.scrollLeft += e.deltaY; }
+}, { passive: false });
+function setZoom(pps) { S.pps = Math.max(8, Math.min(400, pps)); $("#zoom").value = Math.log2(S.pps / 8); drawTimeline(); }
+function clipAtX(x) { return S.segs.findIndex(sg => x >= timeToX(sg.o) && x <= timeToX(sg.o) + (sg.e - sg.s) * S.pps); }
 function tlX(e) { const r = tl.getBoundingClientRect(); return e.clientX - r.left; }
 tl.onpointerdown = e => {
-  const x = tlX(e), k = tlScale();
-  const edge = S.segs.map((sg, i) => ({ i, l: 10 + sg.o * k, r: 10 + (sg.o + sg.e - sg.s) * k })).find(s => Math.abs(x - s.l) < 6 || Math.abs(x - s.r) < 6);
-  const y = e.clientY - tl.getBoundingClientRect().top;
-  if (edge && y > 16 && y < 54) {
-    S.drag = { seg: S.segs[edge.i], side: Math.abs(x - edge.l) < 6 ? "l" : "r", x0: x, x };
-    const mv = ev => { S.drag.x = tlX(ev); drawTimeline(); };
-    const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); finishTrim(); };
-    window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
-    return;
+  const x = tlX(e), y = e.clientY - tl.getBoundingClientRect().top;
+  const sel = S.selClip != null ? S.segs[S.selClip] : null;
+  if (sel && y > STRIP_Y - 4 && y < STRIP_Y + STRIP_H + 4) {  // grab a handle to trim
+    const l = timeToX(sel.o), r = l + (sel.e - sel.s) * S.pps;
+    const side = x >= l - 16 && x <= l + 4 ? "l" : x >= r - 4 && x <= r + 16 ? "r" : null;
+    if (side) {
+      e.preventDefault(); e.stopPropagation();
+      S.trim = { side, x0: x, x, clip: S.selClip };
+      const mv = ev => { S.trim.x = Math.max(l - (side === "l" ? sel.s * S.pps : 0), tlX(ev)); drawTimeline(); };
+      const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); finishTrim(); };
+      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+      return;
+    }
   }
-  const scrub = ev => seek((tlX(ev) - 10) / k);
-  scrub(e);
-  const up = () => { window.removeEventListener("pointermove", scrub); window.removeEventListener("pointerup", up); };
-  window.addEventListener("pointermove", scrub); window.addEventListener("pointerup", up);
+  S.tapStart = { x: e.clientX, y };
 };
-tl.onpointermove = e => {
-  if (S.drag) return;
-  const x = tlX(e), k = tlScale();
-  tl.style.cursor = S.segs.some(sg => Math.abs(x - 10 - sg.o * k) < 6 || Math.abs(x - 10 - (sg.o + sg.e - sg.s) * k) < 6) ? "ew-resize" : "pointer";
+tl.onpointerup = e => {  // a tap (not a drag-scroll) selects / deselects a clip
+  const st = S.tapStart; S.tapStart = null;
+  if (!st || Math.abs(e.clientX - st.x) > 6 || st.y < STRIP_Y || st.y > STRIP_Y + STRIP_H) return;
+  const i = clipAtX(tlX(e));
+  S.selClip = i < 0 || i === S.selClip ? null : i;
+  updateTlTools(); drawTimeline();
 };
 function finishTrim() {
-  const { seg, side, x0, x } = S.drag; S.drag = null;
-  const dt = (x - x0) / tlScale(), w = S.p.words;
-  if (Math.abs(dt) < 0.05) return drawTimeline();
+  const { side, x0, x, clip } = S.trim; S.trim = null;
+  const sg = S.segs[clip], dt = (x - x0) / S.pps;
+  if (!sg || Math.abs(dt) < 0.03) return drawTimeline();
   mutate(p => {
-    const W_ = p.words;
-    if (side === "l" && dt > 0) { for (let i = seg.w0; i <= seg.w1; i++) if (W_[i].s - seg.s < dt) { W_[i].cut = true; W_[i].why = "you"; } }
-    if (side === "r" && dt < 0) { const len = seg.e - seg.s; for (let i = seg.w0; i <= seg.w1; i++) if (W_[i].e - seg.s > len + dt) { W_[i].cut = true; W_[i].why = "you"; } }
-    if (side === "l" && dt < 0) { let need = -dt; for (let i = seg.w0 - 1; i >= 0 && need > 0 && W_[i].cut; i--) { need -= W_[i + 1].s - W_[i].s; W_[i].cut = false; } }
-    if (side === "r" && dt > 0) { let need = dt; for (let i = seg.w1 + 1; i < W_.length && need > 0 && W_[i].cut; i++) { need -= W_[i].e - W_[i - 1].e; W_[i].cut = false; } }
+    p.time_cuts = p.time_cuts || [];
+    if (side === "l" && dt > 0) p.time_cuts.push([sg.s, Math.min(sg.e - 0.1, sg.s + dt)]);
+    if (side === "r" && dt < 0) p.time_cuts.push([Math.max(sg.s + 0.1, sg.e + dt), sg.e]);
+    if (side === "l" && dt < 0) unCut(p, sg.s + dt, sg.s);   // pulled out: bring footage back
+    if (side === "r" && dt > 0) unCut(p, sg.e, sg.e + dt);
   });
 }
-$("#zoom").oninput = e => { S.zoom = +e.target.value; drawTimeline(); };
+function unCut(p, a, b) {  // give back [a, b]: shrink time cuts, and bring back words cut there
+  p.time_cuts = (p.time_cuts || []).flatMap(([s, e]) => e <= a || s >= b ? [[s, e]] : [s < a ? [s, a] : null, e > b ? [b, e] : null].filter(Boolean));
+  p.words.forEach(w => { if (w.cut && w.s >= a - 0.05 && w.e <= b + 0.05) { w.cut = false; delete w.why; } });
+}
+function srcAtPlayhead() { const sg = S.segs.find(s => s.o <= S.outT && S.outT < s.o + s.e - s.s) || S.segs[S.segs.length - 1]; return sg ? [sg, sg.s + (S.outT - sg.o)] : [null, 0]; }
+function updateTlTools() {
+  const on = S.selClip != null;
+  document.querySelectorAll('.tltools [data-op="delete"]').forEach(b => b.classList.toggle("on", on));
+}
+$("#zoom").min = 0; $("#zoom").max = 5.6; $("#zoom").step = 0.1;
+$("#zoom").oninput = e => setZoom(8 * Math.pow(2, +e.target.value));
 document.querySelectorAll(".tltools [data-op]").forEach(b => b.onclick = () => tlOp(b.dataset.op));
 function tlOp(op) {
-  const i = S.curWord, p = S.p;
-  if (op === "zoomIn" || op === "zoomOut") { S.zoom = Math.max(1, Math.min(12, S.zoom * (op === "zoomIn" ? 1.5 : 1 / 1.5))); $("#zoom").value = S.zoom; return drawTimeline(); }
-  if (op === "delete") { if (S.sel) return selAction("cut"); if (i >= 0) return mutate(p => { p.words[i].cut = true; p.words[i].why = "you"; }); return; }
-  if (i < 0) return toast("Move the playhead onto a word first.");
-  const l = linesOf(p).find(l => l.w0 <= i && i <= l.w1);
-  if (op === "split") { if (i === l.w0) return; return mutate(p => { const L = l.id; p.words.forEach((w, j) => { if (w.l > L) w.l += 1; else if (w.l === L && j >= i) w.l = L + 1; }); }); }
-  if (op === "cutBefore") return mutate(p => { for (let j = l.w0; j < i; j++) { p.words[j].cut = true; p.words[j].why = "you"; } });
-  if (op === "cutAfter") return mutate(p => { for (let j = i + 1; j <= l.w1; j++) { p.words[j].cut = true; p.words[j].why = "you"; } });
+  if (op === "zoomIn" || op === "zoomOut") return setZoom(S.pps * (op === "zoomIn" ? 1.5 : 1 / 1.5));
+  const [sg, ts] = srcAtPlayhead();
+  if (op === "delete") {
+    if (S.selClip != null && S.segs[S.selClip]) { const c = S.segs[S.selClip]; S.selClip = null; updateTlTools(); return mutate(p => { (p.time_cuts = p.time_cuts || []).push([c.s, c.e]); }); }
+    if (S.sel) return selAction("cut");
+    return toast("Tap a clip on the timeline to select it, then Delete.");
+  }
+  if (!sg) return;
+  if (op === "split") { S.selClip = null; return mutate(p => { (p.splits = p.splits || []).push(+ts.toFixed(3)); }); }
+  if (op === "cutBefore") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([sg.s, ts]); });
+  if (op === "cutAfter") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([ts, sg.e]); });
 }
+new ResizeObserver(() => drawTimeline()).observe(tlBox);
 
 // ------------------------------------------------------------------ keys, help, theme
 document.addEventListener("keydown", e => {

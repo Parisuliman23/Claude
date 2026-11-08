@@ -102,7 +102,7 @@ small { color: var(--ink2); }
 .tltools button { padding: 3px 9px; font-size: 12px; border-color: transparent; }
 .tltools .spacer { flex: 1; }
 #zoom { width: 110px; }
-#tlScroll { overflow-x: auto; overflow-y: hidden; }
+#tlScroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; touch-action: pan-x; }
 #tl { display: block; cursor: pointer; }
 
 /* panels */
@@ -228,3 +228,16 @@ small { color: var(--ink2); }
 .dropzone > b { font-family: "Montserrat_800ExtraBold"; font-size: 18px; display: block; margin: 6px 0; }
 .dropzone .dz-icon { font-size: 30px; color: var(--accent); }
 .dropzone.over { transform: scale(1.01); background: var(--hl); }
+
+/* CapCut-style timeline: the strip scrolls under a fixed playhead */
+.tlframe { position: relative; }
+#tlHead { position: absolute; top: 2px; bottom: 6px; left: 50%; width: 2px; margin-left: -1px; background: #fff;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.35); border-radius: 2px; pointer-events: none; }
+#tlHead::before { content: ""; position: absolute; top: -2px; left: -4px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
+.tltools button.big { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; min-width: 64px; padding: 4px 8px; font-size: 12px; }
+.tltools button.big b { font-size: 18px; line-height: 1; }
+.tltools button.big.on { background: var(--accent); color: #fff; }
+.tlhint { font-size: 11px; color: var(--ink2); margin-top: 2px; }
+
+.tlwrap { min-width: 0; }
+#tlScroll { width: 100%; max-width: 100%; }

@@ -13,6 +13,54 @@ def kept(words):
     return [i for i, w in enumerate(words) if not w.get("cut")]
 
 
+def _reassign(piece, words, w0, w1):
+    """The words of a clip after it was trimmed: those whose middle is still inside it."""
+    ins = [i for i in range(w0, w1 + 1) if piece[0] <= (words[i]["s"] + words[i]["e"]) / 2 < piece[1]]
+    return (ins[0], ins[-1]) if ins else None
+
+
+def apply_time_edits(segs, words, cuts=None, splits=None):
+    """CapCut-style edits on top of the word cut: `cuts` = [[a, b], …] source seconds removed (camera fiddling,
+    a stumble the transcript missed…), `splits` = source seconds where a clip is divided in two without removing
+    anything. Pieces with no words left are dropped (they're only silence)."""
+    if not cuts and not splits:
+        return segs
+    cuts = sorted((float(a), float(b)) for a, b in (cuts or []) if float(b) > float(a))
+    out = []
+    for sg in segs:
+        pieces = [(sg["s"], sg["e"])]
+        for a, b in cuts:
+            nxt = []
+            for s, e in pieces:
+                if b <= s or a >= e:
+                    nxt.append((s, e))
+                    continue
+                if a > s:
+                    nxt.append((s, a))
+                if b < e:
+                    nxt.append((b, e))
+            pieces = nxt
+        for x in sorted(float(t) for t in (splits or [])):
+            nxt = []
+            for s, e in pieces:
+                if s + 0.05 < x < e - 0.05:
+                    nxt += [(s, x), (x, e)]
+                else:
+                    nxt.append((s, e))
+            pieces = nxt
+        for s, e in pieces:
+            if e - s < 0.04:
+                continue
+            ww = _reassign((s, e), words, sg["w0"], sg["w1"])
+            if ww:
+                out.append({"w0": ww[0], "w1": ww[1], "s": round(s, 3), "e": round(e, 3)})
+    t = 0.0
+    for sg in out:
+        sg["o"] = round(t, 3)
+        t += sg["e"] - sg["s"]
+    return out
+
+
 def build_segments(words, duration, max_gap=0.35, pad_before=0.06, pad_after=0.12, order=None):
     """order: optional list of (w0, w1) word ranges to play in that order
     (used by trial reels to move a line to the front). Default: everything in order."""

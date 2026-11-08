@@ -27,6 +27,39 @@ function buildSegments(words, duration, s) {
   return segs;
 }
 
+// mirror of engine/timeline.py apply_time_edits: CapCut-style cuts/splits in source seconds
+function applyTimeEdits(segs, words, cuts, splits) {
+  if (!(cuts && cuts.length) && !(splits && splits.length)) return segs;
+  cuts = (cuts || []).map(([a, b]) => [+a, +b]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  const sp = (splits || []).map(Number).sort((a, b) => a - b), out = [];
+  for (const sg of segs) {
+    let pieces = [[sg.s, sg.e]];
+    for (const [a, b] of cuts) {
+      const nxt = [];
+      for (const [s, e] of pieces) {
+        if (b <= s || a >= e) { nxt.push([s, e]); continue; }
+        if (a > s) nxt.push([s, a]);
+        if (b < e) nxt.push([b, e]);
+      }
+      pieces = nxt;
+    }
+    for (const x of sp) {
+      const nxt = [];
+      for (const [s, e] of pieces) { if (s + 0.05 < x && x < e - 0.05) nxt.push([s, x], [x, e]); else nxt.push([s, e]); }
+      pieces = nxt;
+    }
+    for (const [s, e] of pieces) {
+      if (e - s < 0.04) continue;
+      const ins = [];
+      for (let i = sg.w0; i <= sg.w1; i++) { const m = (words[i].s + words[i].e) / 2; if (s <= m && m < e) ins.push(i); }
+      if (ins.length) out.push({ w0: ins[0], w1: ins[ins.length - 1], s: +s.toFixed(3), e: +e.toFixed(3) });
+    }
+  }
+  let t = 0;
+  for (const sg of out) { sg.o = +t.toFixed(3); t += sg.e - sg.s; }
+  return out;
+}
+
 const totalLen = segs => segs.reduce((a, sg) => a + sg.e - sg.s, 0);
 
 function segOfWord(segs, i) {
