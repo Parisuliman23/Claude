@@ -1,8 +1,8 @@
 """Film on your phone, upload, done.
 
 Your phone puts videos in a Google Drive folder ("One Take/Inbox"). On a Chromebook, Drive shows up
-inside Linux once you share it (Files app: right-click "Google Drive" → Share with Linux), at
-/mnt/chromeos/GoogleDrive/MyDrive. The studio watches the Inbox; each new video is edited in your
+inside Linux once you share it (Files app: right-click "My Drive" → Share with Linux), at
+/mnt/chromeos/GoogleDrive/MyDrive (newer ChromeOS: /mnt/chromeos/shared/GoogleDrive/MyDrive). The studio watches the Inbox; each new video is edited in your
 style, rendered, and the finished reel lands in "One Take/Ready", so it's on your phone again.
 Originals move to "One Take/Originals". Any synced folder works (settings.json "inbox" / "outbox").
 """
@@ -16,7 +16,8 @@ from pathlib import Path
 
 from . import config
 
-DRIVE_ROOTS = [Path("/mnt/chromeos/GoogleDrive/MyDrive"), Path.home() / "Google Drive" / "My Drive",
+DRIVE_ROOTS = [Path("/mnt/chromeos/GoogleDrive/MyDrive"), Path("/mnt/chromeos/shared/GoogleDrive/MyDrive"),
+               Path.home() / "Google Drive" / "My Drive",
                Path.home() / "GoogleDrive"]
 STATE = config.PROJECTS / ".inbox.json"
 
