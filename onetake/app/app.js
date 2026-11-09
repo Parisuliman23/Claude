@@ -1896,10 +1896,10 @@ function drawTimeline() {
     }
     c.strokeStyle = "#333"; c.lineWidth = 5; c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.stroke();
     c.strokeStyle = "#fff"; c.lineWidth = 3; c.stroke();
-    for (const hx of [x - 16, x + w]) {
-      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 16, STRIP_H, 5); c.fill();
+    for (const hx of [x - 12, x + w]) {
+      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 12, STRIP_H, 4); c.fill();
       c.strokeStyle = "#333"; c.lineWidth = 1.5; c.stroke();  // outlined so it shows on the light background
-      c.fillStyle = "#777"; c.fillRect(hx + 6, STRIP_Y + STRIP_H / 2 - 10, 2, 20); c.fillRect(hx + 9, STRIP_Y + STRIP_H / 2 - 10, 2, 20);
+      c.fillStyle = "#888"; c.fillRect(hx + 5, STRIP_Y + STRIP_H / 2 - 9, 2, 18);
     }
     c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 40, 15, 4); c.fill();
     c.fillStyle = "#fff"; c.fillText(`${len.toFixed(1)}s`, x + 8, STRIP_Y + 15);
