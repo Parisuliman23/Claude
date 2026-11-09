@@ -63,6 +63,13 @@ def make(name, styles=None):
             os.link(src, d / "source.mp4")
         except OSError:
             shutil.copy2(src, d / "source.mp4")
+        prox = project.pdir(name) / "cache" / "proxy.mp4"  # share the light preview copy too
+        if prox.exists():
+            (d / "cache").mkdir(exist_ok=True)
+            try:
+                os.link(prox, d / "cache" / "proxy.mp4")
+            except OSError:
+                shutil.copy2(prox, d / "cache" / "proxy.mp4")
         q = copy.deepcopy(p)
         cap, hook, label = STYLES[st]
         q.update({"source": config.rel(d / "source.mp4"), "variant_of": base, "style_variant": st,

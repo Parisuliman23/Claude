@@ -256,7 +256,8 @@ async function loadProject(name) {
   const [p, lb, lib] = await Promise.all([api(`/api/project/${name}`), api("/api/lookbook"), api("/api/library")]);
   S.lookbook = lb; S.library = lib;
   setProject(p);
-  v.src = media(p.source);
+  v.src = media(p._proxy || p.source);  // the light preview copy when there is one (renders use the full video)
+  v.muted = +(p.voice_volume ?? 1) === 0;
   $("#ptitle").textContent = p.title;
   $("#homeBtn").hidden = false;
   document.title = `${p.title} · One Take Studio`;
@@ -652,7 +653,12 @@ function lookbookModal() {
     <h3>Caption styles</h3><div class="grid">${capTiles}</div>
     <h3>Hooks</h3><div class="grid frames">${hooks.map(l => `<div class="tile" data-hook="${l.id}">${onFrame(l.id, { text: hookText }, 0.8)}${esc(l.name)}</div>`).join("")}
       ${saved.filter(s => s.group === "hook").map(s => `<div class="tile" data-hooksaved="${s.id}">${onFrame(s.look, Object.assign({}, s.params, { text: hookText }), 0.8)}${esc(s.name)}</div>`).join("")}</div>
-    <h3>Saved looks</h3><div class="grid frames">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}">${onFrame(s.look, s.params, timeOfWord(Math.max(0, S.curWord)))}${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>`,
+    <h3>Saved looks</h3><div class="grid frames">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}">${onFrame(s.look, s.params, timeOfWord(Math.max(0, S.curWord)))}${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>
+    <h3>Reference reels</h3>
+    <div class="muted">Reels you love. Claude studies each one frame by frame (cuts, captions, graphics, sound, pace) and adds its style to your rulebook, so it guides your edits.</div>
+    <label class="dropzone" id="refDrop" style="margin:8px 0;padding:14px"><b>＋ Add a reference reel</b> <small class="muted">(drop a video here or click)</small>
+      <input type="file" id="refFile" accept="video/*" multiple hidden></label>
+    <div id="refList">${refListHTML()}</div>`,
     root => {
       root.querySelectorAll("[data-cap]").forEach(t => t.onclick = () => { mutate(p => p.caption_style = t.dataset.cap); closeModal(); });
       const setHook = (look, params) => mutate(p => {
@@ -665,7 +671,43 @@ function lookbookModal() {
       root.querySelectorAll("[data-hooksaved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.hooksaved); setHook(s.look, s.params); closeModal(); });
       root.querySelectorAll("[data-saved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.saved); addOverlay({ kind: "look", look: s.look, params: Object.assign({}, s.params, lookParams(s.look, target().text)), scale: s.scale ?? 1, y: s.y ?? .4, anim_in: s.anim_in ?? "pop", anim_out: s.anim_out ?? "fade" }); });
       mountSprites(root, true);
+      bindRefs(root);
     });
+}
+
+// ---------- reference reels (Lookbook): videos that guide the edits
+function refListHTML() {
+  const refs = S.library.references || [];
+  if (!refs.length) return `<small class="muted">No reference reels yet.</small>`;
+  return refs.map((r, k) => {
+    const job = (S.p.requests || []).find(q => q.kind === "reference" && q.src === r.path && q.status === "running");
+    const st = r.guide ? "✓ learned: it's in your style guide" : job ? "Claude is studying it…" : r.studied ? "measured, not written up yet" : "not studied yet";
+    return `<div class="card row" style="gap:10px;align-items:center">${r.sheet ? `<img src="${media(r.sheet)}" style="height:54px;border-radius:6px">` : `<span style="font-size:28px">🎬</span>`}
+      <div style="flex:1"><b>${esc(r.name)}</b><br><small class="muted">${st}</small></div>
+      <input placeholder="What do you like about it? (optional)" data-refnote="${k}" style="flex:1.3">
+      <button class="primary" data-refstudy="${k}" ${job ? "disabled" : ""}>${r.guide ? "Study again" : "Study it"}</button></div>`;
+  }).join("");
+}
+function bindRefs(root) {
+  const inp = root.querySelector("#refFile"), dz = root.querySelector("#refDrop");
+  if (!inp) return;
+  const up = async files => {
+    for (const f of files) {
+      if (!f.type.startsWith("video/")) continue;
+      toast(`Uploading ${f.name}…`);
+      await fetch(`/api/upload?kind=references&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+    }
+    S.library = await api("/api/library");
+    root.querySelector("#refList").innerHTML = refListHTML(); bindRefs(root);
+  };
+  inp.onchange = () => up([...inp.files]);
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+  dz.ondragleave = () => dz.classList.remove("over");
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); up([...e.dataTransfer.files]); };
+  root.querySelectorAll("[data-refstudy]").forEach(b => b.onclick = () => {
+    const r = S.library.references[+b.dataset.refstudy], note = root.querySelector(`[data-refnote="${b.dataset.refstudy}"]`).value;
+    sendRequest({ kind: "reference", src: r.path, text: note || "" }, "Claude is studying your reference reel. It'll ping you when it's learned the style.");
+  });
 }
 
 function captionTile(c) {  // the caption style on your frame, with your words
@@ -1803,13 +1845,16 @@ function stripThumb(srcT) {
 }
 let tlTimer = 0;
 function drawTimelineSoon() { clearTimeout(tlTimer); tlTimer = setTimeout(drawTimeline, 60); }
+const TDPR = Math.min(devicePixelRatio || 1, 1.5);  // a lighter canvas on high-res screens; still sharp
 function drawTimeline() {
   if (!S.p) return;
+  S.pps = Math.min(S.pps, (14000 - tlPad() * 2) / Math.max(1, S.T));  // keep the canvas within what Chrome draws quickly
   const cssW = Math.ceil(tlPad() * 2 + S.T * S.pps), cssH = TL_H;
-  if (tl.width !== Math.round(cssW * devicePixelRatio) || tl.height !== Math.round(cssH * devicePixelRatio)) {
-    tl.width = Math.round(cssW * devicePixelRatio); tl.height = Math.round(cssH * devicePixelRatio); tl.style.width = cssW + "px"; tl.style.height = cssH + "px";
+  if (tl.width !== Math.round(cssW * TDPR) || tl.height !== Math.round(cssH * TDPR)) {
+    tl.width = Math.round(cssW * TDPR); tl.height = Math.round(cssH * TDPR); tl.style.width = cssW + "px"; tl.style.height = cssH + "px";
   }
-  const c = tctx; c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  placeTrackButtons();
+  const c = tctx; c.setTransform(TDPR, 0, 0, TDPR, 0, 0);
   c.clearRect(0, 0, cssW, cssH);
   const css = getComputedStyle(document.documentElement), ink2 = css.getPropertyValue("--ink2").trim(), accent = css.getPropertyValue("--accent").trim();
   c.font = "10px Montserrat_600SemiBold, sans-serif"; c.fillStyle = ink2;
@@ -1851,8 +1896,12 @@ function drawTimeline() {
   if (S.trim) { c.fillStyle = "#FFE14D"; c.fillRect(S.trim.x - 1, STRIP_Y - 4, 3, STRIP_H + 8); }
   drawPlayhead();
 }
+let lastFollow = 0;
 function drawPlayhead() {  // the playhead stays in the middle; the strip scrolls under it
   if (!S.p || S.trim) return;
+  const now = performance.now();
+  if (S.playing && now - lastFollow < 80) return;  // ~12 moves a second while playing: smooth and much lighter
+  lastFollow = now;
   const want = Math.round(S.outT * S.pps);
   if (Math.abs(tlBox.scrollLeft - want) > 1) { S.tlAuto = true; tlBox.scrollLeft = want; }
 }
@@ -1930,6 +1979,29 @@ function tlOp(op) {
   if (op === "cutAfter") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([ts, sg.e]); });
 }
 new ResizeObserver(() => drawTimeline()).observe(tlBox);
+
+// CapCut's track buttons: they sit just left of 0:00 inside the scrolling strip, so the clip starts right at the
+// playhead and the buttons scroll away as you move along
+function placeTrackButtons() {
+  const tr = $("#tlTrack"); if (!tr) return;
+  tr.style.left = Math.max(4, tlPad() - tr.offsetWidth - 10) + "px";
+  const mute = +(S.p.voice_volume ?? 1) === 0;
+  $("#tlMute").classList.toggle("on", mute);
+  $("#tlMute b").textContent = mute ? "🔇" : "🔊";
+  $("#tlMute span").textContent = mute ? "Muted" : "Mute clip";
+}
+$("#tlMute").onclick = () => {  // silences your voice track (music and sound effects stay)
+  const mute = +(S.p.voice_volume ?? 1) !== 0;
+  mutate(p => { p.voice_volume = mute ? 0 : 1; });
+  v.muted = mute; toast(mute ? "Clip audio muted. Music and sound effects still play." : "Clip audio back on.");
+};
+$("#tlCover").onclick = async () => {  // the frame under the playhead becomes the reel's cover
+  await api(`/api/project/${S.name}/frame`, { t: S.outT });
+  await reload();
+  const k = (S.p.frames || []).length - 1;
+  if (k >= 0) mutate(p => { p.frames.forEach((f, j) => f.star = j === k); });
+  toast("This frame is your cover now (Finish → Frames).");
+};
 
 // ------------------------------------------------------------------ keys, help, theme
 document.addEventListener("keydown", e => {

@@ -29,6 +29,8 @@
   add-fx NAME --json '{"kind": "whip", "w": 57}'   transition on a word: whip | zoom | flash | shake | glitch | light_leak
   remove-fx NAME ID
   style-pick NAME           which editing style fits this video best (notebook / motion / mix), and why
+  study-ref library/references/x.mp4   measure a reference reel (frame sheets, cuts, words, sound) into lookbook/references/
+  proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
   variants NAME [STYLE ...] make extra versions of an edit (default: class + the style-pick), each its own project
   list                      list projects
@@ -193,6 +195,16 @@ def main(argv=None):
             print(f"{'Already have' if v.get('existing') else 'Made'} {v['name']}  ({v['style']} style)")
         if made:
             print("Style each one like a normal edit (same words, its own looks), e.g. `show " + made[0]["name"] + "`.")
+        return
+    if c == "study-ref":  # measure a reference reel (frames, cuts, words, sound) for Claude to learn its style
+        from . import reference
+        info = reference.study(args[0])
+        print(json.dumps(info, indent=1))
+        print("Now look at each sheet image, then write lookbook/style/NN-<name>.md and a STYLE.md section (CLAUDE.md, kind reference).")
+        return
+    if c == "proxy":  # the light preview copy for the studio (normally made at import)
+        from . import ingest
+        print(ingest.make_proxy(args[0]) or "Couldn't make it.")
         return
     if c == "image-find":  # stickers / illustrations / photos for looks (Pixabay)
         from . import stock

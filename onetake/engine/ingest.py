@@ -100,6 +100,24 @@ def make_master(clips, out, log=print):
     shutil.rmtree(tmp)
 
 
+def make_proxy(name):
+    """A light 540p copy of the footage for the studio's preview (renders still use the full video).
+    Made at import, while the computer is busy anyway, so it never slows down editing."""
+    from . import project as _p
+    src = config.absolute(_p.load(name)["source"])
+    out = _p.pdir(name) / "cache" / "proxy.mp4"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_name("proxy.part.mp4")
+    try:
+        subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-vf", "scale=540:960",
+                        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-g", "15", "-pix_fmt", "yuv420p",
+                        "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(tmp)], check=True)
+        tmp.replace(out)
+        return config.rel(out)
+    except (subprocess.CalledProcessError, OSError):
+        return None
+
+
 def notebook_layout(focus):
     """Where the caption and the notebook cards go so they never cover the face.
     Framed like the reference (eyes in the top ~42%): caption on the chest, cards in the lower third.
@@ -205,6 +223,8 @@ def new(name=None, clips=None, log=print, move=True):
     if sounds:
         p["sound"]["src"] = config.rel(sounds[0])
     project.save(name, p)
+    log("  making a light preview copy for the studio…")
+    make_proxy(name)
     if move:  # empty the drop folder so the next reel starts clean (only now: if the import stops, they're still there)
         for c in clips:
             if c.parent.resolve() == config.DROP.resolve():

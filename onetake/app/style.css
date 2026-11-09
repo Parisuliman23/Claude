@@ -241,3 +241,11 @@ small { color: var(--ink2); }
 
 .tlwrap { min-width: 0; }
 #tlScroll { width: 100%; max-width: 100%; }
+
+/* CapCut track buttons left of 0:00 (they scroll with the strip) */
+#tlScroll { position: relative; }
+#tlTrack { position: absolute; top: 20px; display: flex; gap: 8px; height: 56px; }
+#tlTrack button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; width: 70px;
+  border-radius: 10px; font-size: 11px; padding: 4px; background: var(--panel); border: 1px solid var(--line); }
+#tlTrack button b { font-size: 18px; line-height: 1; }
+#tlTrack button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
