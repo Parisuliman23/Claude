@@ -1933,6 +1933,12 @@ tl.onpointerdown = e => {
     }
   }
   S.tapStart = { x: e.clientX, y };
+  // grab and slide the strip: drag right = rewind, drag left = forward (like CapCut)
+  const startX = e.clientX, startScroll = tlBox.scrollLeft;
+  tl.style.cursor = "grabbing";
+  const mv = ev => { if (Math.abs(ev.clientX - startX) > 3) tlBox.scrollLeft = startScroll - (ev.clientX - startX); };
+  const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); tl.style.cursor = "grab"; };
+  window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
 };
 tl.onpointerup = e => {  // a tap (not a drag-scroll) selects / deselects a clip
   const st = S.tapStart; S.tapStart = null;
