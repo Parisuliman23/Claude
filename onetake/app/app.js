@@ -1834,7 +1834,7 @@ const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24
 // so silent moments like fixing the camera can be cut too. Mirrors engine/timeline.py apply_time_edits.
 const tl = $("#tl"), tctx = tl.getContext("2d"), tlBox = $("#tlScroll");
 S.pps = 60;  // pixels per second
-const TL_H = 112, STRIP_Y = 20, STRIP_H = 56;
+const TL_H = 124, STRIP_Y = 20, STRIP_H = 56, OV_Y = STRIP_Y + STRIP_H + 5, BR_Y = OV_Y + 22, BAR_H = 18;
 const tlPad = () => tlBox.clientWidth / 2;
 const timeToX = t => tlPad() + t * S.pps;
 const thumbImgs = {};
@@ -1889,14 +1889,24 @@ function drawTimeline() {
     c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 38, 15, 4); c.fill();
     c.fillStyle = "#fff"; c.fillText(`${(sel.e - sel.s).toFixed(1)}s`, x + 8, STRIP_Y + 15);
   }
-  for (const [ov, [a, b]] of S.spans) { c.fillStyle = accent; c.globalAlpha = .85; c.beginPath(); c.roundRect(timeToX(a), STRIP_Y + STRIP_H + 6, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
-  for (const [bb, [a, b]] of S.bspans || []) { c.fillStyle = "#1F9D6B"; c.beginPath(); c.roundRect(timeToX(a), STRIP_Y + STRIP_H + 17, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
-  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(timeToX(t), STRIP_Y + STRIP_H + 31, 3, 0, 7); c.fill(); }
+  // tappable bars like CapCut: blue = your graphics (looks, text, stickers), green = cut-away clips (B-roll)
+  const bar = (x, w, y, col, label, on) => {
+    c.globalAlpha = 1; c.fillStyle = col; c.beginPath(); c.roundRect(x, y, w, BAR_H, 4); c.fill();
+    if (on) { c.strokeStyle = "#fff"; c.lineWidth = 2; c.stroke(); }
+    if (w > 24) { c.save(); c.beginPath(); c.rect(x + 4, y, w - 8, BAR_H); c.clip(); c.fillStyle = "#fff"; c.font = "11px Montserrat_600SemiBold, sans-serif"; c.fillText(label, x + 6, y + 13); c.restore(); }
+  };
+  for (const [ov, [a, b]] of S.spans) bar(timeToX(a), Math.max(4, (b - a) * S.pps - 2), OV_Y, accent, ovLabel(ov), ov.id === S.selOv);
+  for (const [bb, [a, b]] of S.bspans || []) bar(timeToX(a), Math.max(4, (b - a) * S.pps - 2), BR_Y, "#1F9D6B", bb.src ? bb.src.split("/").pop() : "panel", false);
+  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(timeToX(t), 16, 2.5, 0, 7); c.fill(); }
   c.globalAlpha = 1;
   if (S.trim) { c.fillStyle = "#FFE14D"; c.fillRect(S.trim.x - 1, STRIP_Y - 4, 3, STRIP_H + 8); }
   drawPlayhead();
 }
 let lastFollow = 0;
+function ovLabel(ov) {
+  if (ov.kind === "look") { const m = lookMeta(ov.look); return (ov.role === "hook" ? "Hook · " : "") + (m?.name || ov.look); }
+  return ov.kind === "emoji" ? "Emoji" : (ov.src || ov.kind || "").split("/").pop();
+}
 function drawPlayhead() {  // the playhead stays in the middle; the strip scrolls under it
   if (!S.p || S.trim) return;
   const now = performance.now();
@@ -1942,6 +1952,17 @@ tl.onpointerdown = e => {
 };
 tl.onpointerup = e => {  // a tap (not a drag-scroll) selects / deselects a clip
   const st = S.tapStart; S.tapStart = null;
+  if (st && Math.abs(e.clientX - st.x) <= 6 && st.y >= OV_Y - 2) {  // tapped a blue / green bar: open it to edit
+    const t = (tlX(e) - tlPad()) / S.pps;
+    if (st.y < BR_Y - 2) {
+      const hits = S.spans.filter(([ov, [a, b]]) => a <= t && t < b);
+      if (hits.length) { const [ov, [a]] = hits[hits.length - 1]; seek(a + 0.05); return overlayEditor(ov.id); }
+    } else {
+      const hit = (S.bspans || []).find(([bb, [a, b]]) => a <= t && t < b);
+      if (hit) { seek(hit[1][0] + 0.05); return brollEditor(hit[0].id); }
+    }
+    return;
+  }
   if (!st || Math.abs(e.clientX - st.x) > 6 || st.y < STRIP_Y || st.y > STRIP_Y + STRIP_H) return;
   const i = clipAtX(tlX(e));
   S.selClip = i < 0 || i === S.selClip ? null : i;
