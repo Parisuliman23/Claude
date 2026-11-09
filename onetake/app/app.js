@@ -157,7 +157,8 @@ async function drawPhoneCard() {
     ? `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px">
         <img src="/api/phone-qr.png?u=${encodeURIComponent(link.url)}" alt="" width="132" height="132" style="border-radius:10px;background:#fff" onerror="this.remove()">
         <div class="muted" style="flex:1;min-width:220px;line-height:1.6"><b>Point your phone's camera at the code</b>, or open this link on your phone:<br>
-        <b style="word-break:break-all;user-select:all">${esc(link.url)}/phone</b><br>
+        <b style="word-break:break-all;user-select:all">${esc(link.url)}/phone</b> (upload a video)<br>
+        Full studio on your phone (edit, Finish, your reels): <b style="word-break:break-all;user-select:all">${esc(link.url)}</b><br>
         ${ps.phone_pin_off ? `No PIN needed: anyone with the link can open your phone page.` : `Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone).`} Works on Wi-Fi or mobile data.
         <br><small>The link changes when the studio restarts, so scan the new code then.</small></div></div>`
     : link.state === "error"

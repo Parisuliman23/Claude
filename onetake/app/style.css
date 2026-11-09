@@ -192,7 +192,31 @@ small { color: var(--ink2); }
   #previewCol { order: -1; }
   #phone { height: 420px; }
   #bottom { grid-template-columns: auto 1fr; }
-  #bottom .clock, #nextBtn { display: none; }
+  #bottom .clock { display: none; }
+}
+@media (max-width: 600px) {  /* the studio on a phone */
+  html, body { overflow-x: hidden; max-width: 100vw; }
+  #top { flex-wrap: wrap; gap: 6px; padding: 8px 10px; }
+  .brand { min-width: 0; flex: 1 1 auto; gap: 6px; }
+  .brand small { max-width: 50vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #homeBtn { padding: 4px 8px; white-space: nowrap; }
+  .tools { flex: 0 0 auto; gap: 4px; }
+  .tools button { padding: 5px 8px; }
+  #helpBtn, #themeBtn { display: none; }
+  #tabs { order: 3; flex: 1 1 100%; justify-content: space-between; gap: 2px; }
+  #tabs button { flex: 1; padding: 7px 4px; font-size: 13px; }
+  #main { display: flex !important; flex-direction: column; overflow-y: auto; overflow-x: hidden; min-width: 0; padding: 10px 10px 8px; gap: 12px; }
+  #panel, #previewCol { min-width: 0; max-width: 100%; }
+  #panel { overflow: visible; padding: 0 2px 20px; flex: none; }
+  #previewCol { order: -1; flex: none; }
+  #phone { height: 300px; }
+  .tray { left: 8px !important; right: 8px !important; width: auto !important; }
+  #bottom { grid-template-columns: auto 1fr auto; gap: 8px; padding: 6px 10px 10px; }
+  #bottom .tlwrap { grid-column: 1 / -1; order: 3; min-width: 0; }
+  #nextBtn { justify-self: end; grid-column: 3; }
+  .tltools { flex-wrap: wrap; }
+  .tltools button.big { min-width: 56px; padding: 3px 4px; }
+  .tlhint { display: none; }
 }
 
 .fxrow { display: flex; gap: 6px; align-items: center; padding: 5px 8px; margin: 4px 0; border: 1px solid var(--line); border-radius: 10px; font-size: 12px; }
