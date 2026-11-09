@@ -175,19 +175,6 @@ def render(ctx):   # called for every frame; return a PIL RGBA image of just the
   and look at the image. Fix anything clipped, unreadable or ugly before finishing.
 - Finish with `--options <slug>_1,<slug>_2,<slug>_3`.
 
-### kind: `reference` — a reference reel to learn from (Lookbook → Reference reels)
-The user uploaded a reel they love (`src`, in `library/references/`); `note` may say what they like about it.
-Study it like a senior editor and make it guide future edits:
-1. `python3 -m engine study-ref <src>`: makes one-frame-per-second sheets, cut times, the transcript and sound stats in
-   `lookbook/references/<name>/`. Look at EVERY sheet image (Read), plus `stats.json` and `transcript.txt`.
-2. Write `lookbook/style/NN-<name>.md` (next free number): the format/structure, captions (font look, size, position,
-   how they appear), every kind of graphic and when it's used, cuts and pace, camera moves, transitions, sound and
-   music, and where the creator's information/visuals come from, with timestamps. Copy the style, never their identity.
-3. Make it usable: map each graphic to an existing look (or write custom looks in `lookbook/looks/custom/` for ones that
-   don't exist), and add a short "Reference: <name>" section to `lookbook/STYLE.md` saying when to use it and how.
-   If the user's note says it should be a style of its own, add it as a new Look and mention it in "Versions".
-4. Finish with `request-done NAME ID --note "<what you learned, in one or two sentences>"`.
-
 ### kind: `edit` — "Ask Claude" / a note on an overlay
 Free-form instruction, usually about words `w0`–`w1` (and maybe a specific `overlay` id). From the studio's
 **Ask Claude** box there are no word indexes: use `text`, plus `at` (playhead time) and `playhead_line`

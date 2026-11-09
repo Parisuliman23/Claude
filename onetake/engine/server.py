@@ -54,9 +54,8 @@ def library():
         d = config.LIBRARY / kind
         files = sorted([f for f in d.glob("*") if f.suffix.lower() in exts], key=lambda f: f.name.lower()) if d.exists() else []
         out[kind] = [{"path": config.rel(f), "name": f.stem} for f in files]
-    from . import sfx, reference
+    from . import sfx
     out["sfx"] = sfx.library()
-    out["references"] = reference.listing()
     fav = config.LOOKBOOK / "favorites.json"
     out["favorites"] = json.loads(fav.read_text()) if fav.exists() else []
     return out
@@ -168,7 +167,7 @@ class Handler(BaseHTTPRequestHandler):
         b = self.body()
         return json.loads(b) if b else {}
 
-    def send_file(self, path, cache=False):
+    def send_file(self, path):
         path = Path(path)
         if not path.is_file():
             return self.send_error(404)
@@ -192,7 +191,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))
-        self.send_header("Cache-Control", "public, max-age=604800" if cache else "no-cache")
+        self.send_header("Cache-Control", "no-cache")
         self.end_headers()
         with open(path, "rb") as f:
             f.seek(start)
@@ -346,7 +345,7 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)/thumb", path)
             if m:  # a still of your own video at output time t, for previews drawn "on your frame"
                 f = thumb(m.group(1), float(q.get("t", 1)), int(q.get("w", 360)), bool(q.get("src")))
-                return self.send_file(f, cache=bool(q.get("src"))) if f else self.send_error(404)
+                return self.send_file(f) if f else self.send_error(404)
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)(/rev)?", path)
             if m:
                 p = project.load(m.group(1))
@@ -356,11 +355,6 @@ class Handler(BaseHTTPRequestHandler):
                 if m.group(2):
                     return self.send_json({"rev": p.get("rev", 0), "jobs": jobs_for(m.group(1)),
                                            "requests": p.get("requests", [])})
-                from . import proxy
-                try:  # a light copy of the footage for smooth previewing (made in the background the first time)
-                    p = dict(p, _proxy=proxy.ready(m.group(1)))
-                except OSError:
-                    pass
                 return self.send_json(p)
             return self.send_error(404)
 
@@ -463,19 +457,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"started": True})
         if path == "/api/upload":
             kind = q.get("kind", "images")
-            if kind not in ("gifs", "images", "broll", "sounds", "sfx", "references"):
+            if kind not in ("gifs", "images", "broll", "sounds", "sfx"):
                 return self.send_error(400)
             fname = re.sub(r"[^\w.\- ]", "_", Path(q.get("name", "upload")).name)
             dest = config.LIBRARY / kind / fname
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            left = int(self.headers.get("Content-Length") or 0)
-            with open(dest, "wb") as fh:  # stream: reference reels can be big
-                while left > 0:
-                    chunk = self.rfile.read(min(1 << 20, left))
-                    if not chunk:
-                        break
-                    fh.write(chunk)
-                    left -= len(chunk)
+            dest.write_bytes(self.body())
             return self.send_json({"path": config.rel(dest)})
         m = re.fullmatch(r"/api/project/([a-z0-9-]+)(?:/([a-z-]+))?", path)
         if not m:
