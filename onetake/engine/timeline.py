@@ -19,12 +19,28 @@ def _reassign(piece, words, w0, w1):
     return (ins[0], ins[-1]) if ins else None
 
 
-def apply_time_edits(segs, words, cuts=None, splits=None):
+def _apply_keeps(segs, keeps):
+    """Footage you dragged a clip's edge out over (e.g. a pause One Take had trimmed): the clip grows to cover it."""
+    segs = [dict(s) for s in segs]
+    for a, b in sorted((float(a), float(b)) for a, b in keeps if float(b) > float(a)):
+        a = max(0.0, a)
+        hit = [s for s in segs if s["s"] <= b + 0.05 and s["e"] >= a - 0.05]
+        if not hit:
+            continue
+        m = {"w0": min(s["w0"] for s in hit), "w1": max(s["w1"] for s in hit),
+             "s": round(min([a] + [s["s"] for s in hit]), 3), "e": round(max([b] + [s["e"] for s in hit]), 3)}
+        segs = sorted([s for s in segs if s not in hit] + [m], key=lambda s: s["s"])
+    return segs
+
+
+def apply_time_edits(segs, words, cuts=None, splits=None, keeps=None):
     """CapCut-style edits on top of the word cut: `cuts` = [[a, b], …] source seconds removed (camera fiddling,
     a stumble the transcript missed…), `splits` = source seconds where a clip is divided in two without removing
     anything. Pieces with no words left are dropped (they're only silence)."""
-    if not cuts and not splits:
+    if not cuts and not splits and not keeps:
         return segs
+    if keeps:
+        segs = _apply_keeps(segs, keeps)
     cuts = sorted((float(a), float(b)) for a, b in (cuts or []) if float(b) > float(a))
     out = []
     for sg in segs:

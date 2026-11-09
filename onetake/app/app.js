@@ -277,7 +277,7 @@ function setProject(p) {
 
 function recompute() {
   const p = S.p;
-  S.segs = applyTimeEdits(buildSegments(p.words, p.duration, S.settings), p.words, p.time_cuts, p.splits);
+  S.segs = applyTimeEdits(buildSegments(p.words, p.duration, S.settings), p.words, p.time_cuts, p.splits, p.time_keeps);
   S.T = totalLen(S.segs);
   S.style = Object.assign({}, S.lookbook.captions.find(c => c.id === p.caption_style) || S.lookbook.captions[0]);
   if (p.caption_y != null) S.style.y = +p.caption_y;
@@ -1879,15 +1879,30 @@ function drawTimeline() {
     c.restore();
   });
   const sel = S.selClip != null ? S.segs[S.selClip] : null;
-  if (sel) {  // selected clip: white frame and two handles, like CapCut
-    const x = timeToX(sel.o), w = Math.max(2, (sel.e - sel.s) * S.pps - 2);
-    c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.stroke();
-    for (const hx of [x - 12, x + w]) {
-      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 12, STRIP_H, 4); c.fill();
-      c.fillStyle = "#888"; c.fillRect(hx + 5, STRIP_Y + STRIP_H / 2 - 9, 2, 18);
+  if (sel) {  // selected clip: white frame and two handles, like CapCut; while you drag a handle the clip resizes live
+    let x = timeToX(sel.o), w = Math.max(2, (sel.e - sel.s) * S.pps - 2), len = sel.e - sel.s;
+    if (S.trim) {
+      const d = S.trim.x - S.trim.x0;
+      if (S.trim.side === "r") { w = Math.max(8, w + d); len = Math.max(0.1, len + d / S.pps); }
+      else { x += d; w = Math.max(8, w - d); len = Math.max(0.1, len - d / S.pps); }
+      const ox = timeToX(sel.o), ow = (sel.e - sel.s) * S.pps;
+      c.fillStyle = "rgba(0,0,0,.55)";  // the part you're trimming off goes dark
+      if (S.trim.side === "r" && d < 0) c.fillRect(ox + ow + d, STRIP_Y, -d, STRIP_H);
+      if (S.trim.side === "l" && d > 0) c.fillRect(ox, STRIP_Y, d, STRIP_H);
+      if (d > 0 && S.trim.side === "r" || d < 0 && S.trim.side === "l") {  // extending: show the new footage area
+        c.fillStyle = "rgba(255,255,255,.25)";
+        c.fillRect(S.trim.side === "r" ? ox + ow : x, STRIP_Y, Math.abs(d), STRIP_H);
+      }
     }
-    c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 38, 15, 4); c.fill();
-    c.fillStyle = "#fff"; c.fillText(`${(sel.e - sel.s).toFixed(1)}s`, x + 8, STRIP_Y + 15);
+    c.strokeStyle = "#333"; c.lineWidth = 5; c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.stroke();
+    c.strokeStyle = "#fff"; c.lineWidth = 3; c.stroke();
+    for (const hx of [x - 16, x + w]) {
+      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 16, STRIP_H, 5); c.fill();
+      c.strokeStyle = "#333"; c.lineWidth = 1.5; c.stroke();  // outlined so it shows on the light background
+      c.fillStyle = "#777"; c.fillRect(hx + 6, STRIP_Y + STRIP_H / 2 - 10, 2, 20); c.fillRect(hx + 9, STRIP_Y + STRIP_H / 2 - 10, 2, 20);
+    }
+    c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 40, 15, 4); c.fill();
+    c.fillStyle = "#fff"; c.fillText(`${len.toFixed(1)}s`, x + 8, STRIP_Y + 15);
   }
   // tappable bars like CapCut: blue = your graphics (looks, text, stickers), green = cut-away clips (B-roll)
   const bar = (x, w, y, col, label, on) => {
@@ -1899,7 +1914,7 @@ function drawTimeline() {
   for (const [bb, [a, b]] of S.bspans || []) bar(timeToX(a), Math.max(4, (b - a) * S.pps - 2), BR_Y, "#1F9D6B", bb.src ? bb.src.split("/").pop() : "panel", false);
   if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(timeToX(t), 16, 2.5, 0, 7); c.fill(); }
   c.globalAlpha = 1;
-  if (S.trim) { c.fillStyle = "#FFE14D"; c.fillRect(S.trim.x - 1, STRIP_Y - 4, 3, STRIP_H + 8); }
+
   drawPlayhead();
 }
 let lastFollow = 0;
@@ -1932,7 +1947,7 @@ tl.onpointerdown = e => {
   const sel = S.selClip != null ? S.segs[S.selClip] : null;
   if (sel && y > STRIP_Y - 4 && y < STRIP_Y + STRIP_H + 4) {  // grab a handle to trim
     const l = timeToX(sel.o), r = l + (sel.e - sel.s) * S.pps;
-    const side = x >= l - 16 && x <= l + 4 ? "l" : x >= r - 4 && x <= r + 16 ? "r" : null;
+    const side = x >= l - 22 && x <= l + 6 ? "l" : x >= r - 6 && x <= r + 22 ? "r" : null;
     if (side) {
       e.preventDefault(); e.stopPropagation();
       S.trim = { side, x0: x, x, clip: S.selClip };
@@ -1976,8 +1991,9 @@ function finishTrim() {
     p.time_cuts = p.time_cuts || [];
     if (side === "l" && dt > 0) p.time_cuts.push([sg.s, Math.min(sg.e - 0.1, sg.s + dt)]);
     if (side === "r" && dt < 0) p.time_cuts.push([Math.max(sg.s + 0.1, sg.e + dt), sg.e]);
-    if (side === "l" && dt < 0) unCut(p, sg.s + dt, sg.s);   // pulled out: bring footage back
-    if (side === "r" && dt > 0) unCut(p, sg.e, sg.e + dt);
+    // pulled out: bring footage back, including pauses One Take had trimmed automatically
+    if (side === "l" && dt < 0) { const a = Math.max(0, sg.s + dt); unCut(p, a, sg.s); (p.time_keeps = p.time_keeps || []).push([a, sg.s]); }
+    if (side === "r" && dt > 0) { const b = Math.min(p.duration, sg.e + dt); unCut(p, sg.e, b); (p.time_keeps = p.time_keeps || []).push([sg.e, b]); }
   });
 }
 function unCut(p, a, b) {  // give back [a, b]: shrink time cuts, and bring back words cut there

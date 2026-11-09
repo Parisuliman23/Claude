@@ -28,8 +28,21 @@ function buildSegments(words, duration, s) {
 }
 
 // mirror of engine/timeline.py apply_time_edits: CapCut-style cuts/splits in source seconds
-function applyTimeEdits(segs, words, cuts, splits) {
-  if (!(cuts && cuts.length) && !(splits && splits.length)) return segs;
+function applyKeeps(segs, keeps) {  // mirror of engine/timeline.py _apply_keeps
+  segs = segs.map(s => Object.assign({}, s));
+  for (let [a, b] of (keeps || []).map(([a, b]) => [+a, +b]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0])) {
+    a = Math.max(0, a);
+    const hit = segs.filter(s => s.s <= b + 0.05 && s.e >= a - 0.05);
+    if (!hit.length) continue;
+    const m = { w0: Math.min(...hit.map(s => s.w0)), w1: Math.max(...hit.map(s => s.w1)),
+      s: +Math.min(a, ...hit.map(s => s.s)).toFixed(3), e: +Math.max(b, ...hit.map(s => s.e)).toFixed(3) };
+    segs = segs.filter(s => !hit.includes(s)).concat([m]).sort((x, y) => x.s - y.s);
+  }
+  return segs;
+}
+function applyTimeEdits(segs, words, cuts, splits, keeps) {
+  if (!(cuts && cuts.length) && !(splits && splits.length) && !(keeps && keeps.length)) return segs;
+  if (keeps && keeps.length) segs = applyKeeps(segs, keeps);
   cuts = (cuts || []).map(([a, b]) => [+a, +b]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
   const sp = (splits || []).map(Number).sort((a, b) => a - b), out = [];
   for (const sg of segs) {
