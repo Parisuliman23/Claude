@@ -305,6 +305,7 @@ def _box(p, ov, words, segs, W=1080, H=1920):
     if not sp:
         return None
     a, b = sp
+    ov = timeline.with_cues(ov, words, segs, a)
     if ov["kind"] == "look":
         img = _looks.frame(ov["look"], ov.get("params", {}), max(0.0, (b - a) - 0.05), b - a, W, H)  # fully built
         if img is None:
@@ -329,9 +330,25 @@ def _box(p, ov, words, segs, W=1080, H=1920):
     return ((cx - w / 2) / W, (cy - h / 2) / H, (cx + w / 2) / W, (cy + h / 2) / H), a
 
 
+def caption_band(p):
+    """(y0, y1) the captions occupy, or None when captions are off."""
+    if not p.get("captions", True):
+        return None
+    st = next((s for s in project.caption_styles() if s["id"] == p.get("caption_style")), None) or {}
+    cy = float(p["caption_y"]) if p.get("caption_y") is not None else float(st.get("y", 0.7))
+    lines = 1 if (st.get("mode") == "single" or int(st.get("max_words", 3)) <= 2) else 2
+    half = float(st.get("size", 80)) * 1.18 * lines / 2 / 1920 + 0.008
+    return cy - half, cy + half
+
+
+FULL_BLEED = {"jess_chalkboard", "jess_apples", "confetti", "title_card"}
+
+
 def edge_check(p):
-    """[{id, name, at, issue}] for looks that are partly hidden by the app's buttons/text or run off the frame."""
+    """[{id, name, at, issue}] for looks that are partly hidden by the app's buttons/text, cover the captions, or
+    run off the frame."""
     words, segs = p["words"], project.segments(p)
+    band = caption_band(p)
     out = []
     for ov in p.get("overlays", []):
         r = _box(p, ov, words, segs)
@@ -339,6 +356,8 @@ def edge_check(p):
             continue
         (x0, y0, x1, y1), at = r
         name = ov.get("look") or ov.get("emoji") or (ov.get("src") or "").split("/")[-1]
+        if ov.get("look") in FULL_BLEED:  # meant to fill the frame edge to edge (chalkboard, confetti, apples…)
+            continue
         issue = None
         if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1:
             issue = "runs off the edge"
@@ -348,6 +367,8 @@ def edge_check(p):
             issue = "under your caption and username"
         elif x1 > SAFE["right_buttons_x"] and y1 > SAFE["right_buttons_y"]:
             issue = "under the like / comment / share buttons"
+        elif band and ov.get("kind") == "look" and y0 < band[1] and y1 > band[0] and not ov.get("over_captions"):
+            issue = "covers the captions"
         if issue:
             out.append({"id": ov["id"], "name": name, "at": round(at, 2), "issue": issue})
     return out
@@ -367,6 +388,12 @@ def fix_edges(p):
         (x0, y0, x1, y1), _ = r
         w, h = x1 - x0, y1 - y0
         top, bottom, edge = SAFE["top"], SAFE["bottom"], SAFE["edge"]
+        band = caption_band(p)
+        if band and y0 < band[1] and y1 > band[0]:  # covers the captions: keep it on its side of them
+            if (y0 + y1) / 2 < (band[0] + band[1]) / 2:
+                bottom = band[0] - 0.01
+            else:
+                top = band[1] + 0.01
         right = SAFE["right_buttons_x"] if (y1 > SAFE["right_buttons_y"]) else 1 - edge
         maxw, maxh = right - edge, bottom - top
         k = min(1.0, maxw / max(w, 1e-6), maxh / max(h, 1e-6))

@@ -2,13 +2,14 @@ META = {
     "name": "Count-up card",
     "description": "A number that counts up, with a label underneath (e.g. 800+ members).",
     "params": {"to": 800, "from": 0, "prefix": "", "suffix": "+", "label": "people in my community",
-               "accent": "#5B4BDB", "card": "#FFFFFF", "text_color": "#1B1B1F", "count_time": 1.4, "commas": True},
+               "accent": "#5B4BDB", "card": "#FFFFFF", "text_color": "#1B1B1F", "count_time": 1.4, "commas": True, "count_at": 0.0},
 }
 
 
 def render(ctx):
     p = ctx.p
-    k = ctx.ease(min(1.0, ctx.t / max(0.1, min(p["count_time"], ctx.dur * 0.7))))
+    t = max(0.0, ctx.t - p["count_at"])  # count_at: start counting when the number is said, e.g. {"w": 57}
+    k = ctx.ease(min(1.0, t / max(0.1, min(p["count_time"], ctx.dur * 0.7))))
     n = int(round(p["from"] + (p["to"] - p["from"]) * k))
     num = f"{n:,}" if p["commas"] else str(n)
     num = f"{p['prefix']}{num}{p['suffix'] if k >= 1 else ''}"

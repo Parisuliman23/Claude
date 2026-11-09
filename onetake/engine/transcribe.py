@@ -22,13 +22,14 @@ def model():
     if _model is None:
         from faster_whisper import WhisperModel
         name = os.environ.get("ONETAKE_WHISPER_MODEL") or config.settings()["whisper_model"]
-        _model = WhisperModel(name, device="cpu", compute_type="int8")
+        _model = WhisperModel(name, device="cpu", compute_type="int8", cpu_threads=os.cpu_count() or 4)
     return _model
 
 
 def run(path, progress=None):
     audio = load_audio(path)
     segs, info = model().transcribe(audio, language="en", word_timestamps=True, vad_filter=False,
+                                    beam_size=1 if config.fast() else 5,  # ~40% faster; same words in testing
                                  condition_on_previous_text=False,
                                  # keeps "um"/"uh" in the text so the rough cut can remove them
                                  initial_prompt="Um, uh, so, like, okay. Hmm, I mean, yeah.")

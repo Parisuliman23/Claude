@@ -207,7 +207,7 @@ def build(name, progress=None):
 
     # 3. every look on its own track
     ovs = [(ov, timeline.overlay_span(p, words, segs, ov)) for ov in p.get("overlays", [])]
-    ovs = [(ov, r) for ov, r in ovs if r]
+    ovs = [(timeline.with_cues(ov, words, segs, r[0]), r) for ov, r in ovs if r]
     for k, (ov, (a, z)) in enumerate(ovs):
         label = (ov.get("look") or ov.get("emoji") or Path(ov.get("src") or "media").stem)
         cached = cache / f"look_{_key(ov, round(z - a, 3))}.mov"

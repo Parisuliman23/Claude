@@ -77,6 +77,12 @@ function nrText(nr) {
   const left = nr.left == null ? "" : nr.left < 90 ? "almost done · " : `about ${Math.round(nr.left / 60)} min left · `;
   return `<b>${esc(nr.label || "Getting started")}</b> · ${left}started ${mins} min ago. This page updates by itself.`;
 }
+const STEP_NAMES = { start: "starting", join: "joining", transcribe: "captions", analyze: "face check", cut: "Claude's cut",
+  style: "Claude's styling", sfx: "sound effects", check: "checks", render: "rendering" };
+function tookText(nr) {  // "12 min: joining 2 min, captions 4 min, …" so you can see what's slow
+  const m = s => s >= 90 ? `${Math.round(s / 60)} min` : `${Math.round(s)} s`;
+  return `${m(nr.ended - nr.started)}: ` + Object.entries(nr.times).filter(([, v]) => v >= 1).map(([k, v]) => `${STEP_NAMES[k] || k} ${m(v)}`).join(", ");
+}
 async function tickNewReel() {
   if (!document.body.classList.contains("home") || !$("#nrPct")) return;  // you've opened a reel: stop
   const nr = await api("/api/newreel").catch(() => null);
@@ -103,6 +109,7 @@ async function home() {
       <div class="muted">Put your video in <b>Linux files → Claude → onetake → drop-in-order</b>, then click <b>One Take – New reel</b> again.</div></div>`,
     done: `<div class="card"><h3 style="margin-top:0">✓ Your new reel is ready</h3>
       <div class="muted" style="white-space:pre-wrap">${esc((nr.log || "").trim().split("\n\n").pop().slice(-700))}</div>
+      ${nr.times && nr.started ? `<div class="muted" style="margin-top:6px;font-size:12px">⏱ Took ${tookText(nr)}</div>` : ""}
       ${list.length ? `<button class="primary" style="margin-top:10px" onclick="openReel('${list[0].name}')">Open it</button>` : ""}</div>`,
     failed: `<div class="card"><h3 style="margin-top:0">${nr.stuck ? "The edit stopped partway" : "Claude couldn't finish the edit"}</h3>
       <div class="muted" style="white-space:pre-wrap">${nr.stuck
@@ -151,7 +158,7 @@ async function drawPhoneCard() {
         <img src="/api/phone-qr.png?u=${encodeURIComponent(link.url)}" alt="" width="132" height="132" style="border-radius:10px;background:#fff" onerror="this.remove()">
         <div class="muted" style="flex:1;min-width:220px;line-height:1.6"><b>Point your phone's camera at the code</b>, or open this link on your phone:<br>
         <b style="word-break:break-all;user-select:all">${esc(link.url)}/phone</b><br>
-        Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone). Works on Wi-Fi or mobile data.
+        ${ps.phone_pin_off ? `No PIN needed: anyone with the link can open your phone page.` : `Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone).`} Works on Wi-Fi or mobile data.
         <br><small>The link changes when the studio restarts, so scan the new code then.</small></div></div>`
     : link.state === "error"
       ? `<div class="muted" style="margin-top:6px">⚠ ${esc(link.error)}<br>Check this Chromebook is online, then turn this off and on again.</div>`
@@ -159,7 +166,8 @@ async function drawPhoneCard() {
   if (ps.phone_access && !link.url && link.state !== "error") setTimeout(drawPhoneCard, 3000);
   const direct = ps.phone_access
     ? `<div class="card" style="background:var(--hl)"><b>📲 Send from your phone's gallery is on</b>${linkHtml}
-        <button class="ghost" id="phoneOff" style="margin-top:6px">Turn off</button></div>`
+        <button class="ghost" id="phoneOff" style="margin-top:6px">Turn off</button>
+        <button class="ghost" id="pinToggle" style="margin-top:6px">${ps.phone_pin_off ? "Ask for a PIN again" : "Don't ask for a PIN"}</button></div>`
     : `<div class="card"><b>📲 Send videos from your phone's gallery</b>
         <div class="muted" style="margin-top:4px">Pick a video on your phone, it's edited here, and you download the finished reel on your phone.
         Uses a private link protected by a PIN, so it works on Wi-Fi or mobile data.</div>
@@ -168,6 +176,8 @@ async function drawPhoneCard() {
     const on = $("#phoneOn"), off = $("#phoneOff");
     if (on) on.onclick = async () => { await api("/api/phone-access", { on: true }); drawPhoneCard(); };
     if (off) off.onclick = async () => { await api("/api/phone-access", { on: false }); drawPhoneCard(); };
+    const pt = $("#pinToggle");
+    if (pt) pt.onclick = async () => { await api("/api/phone-pin", { on: !!ps.phone_pin_off }); drawPhoneCard(); };
   }, 0);
   if (st.connected) {
     const last = st.status === "ready" ? `Last one: <b>${esc(st.last || "")}</b> is ready in Drive → One Take → Ready.`
@@ -246,7 +256,8 @@ async function loadProject(name) {
   const [p, lb, lib] = await Promise.all([api(`/api/project/${name}`), api("/api/lookbook"), api("/api/library")]);
   S.lookbook = lb; S.library = lib;
   setProject(p);
-  v.src = media(p.source);
+  v.src = media(p._proxy || p.source);  // the light preview copy when there is one (renders use the full video)
+  v.muted = +(p.voice_volume ?? 1) === 0;
   $("#ptitle").textContent = p.title;
   $("#homeBtn").hidden = false;
   document.title = `${p.title} · One Take Studio`;
@@ -266,7 +277,7 @@ function setProject(p) {
 
 function recompute() {
   const p = S.p;
-  S.segs = buildSegments(p.words, p.duration, S.settings);
+  S.segs = applyTimeEdits(buildSegments(p.words, p.duration, S.settings), p.words, p.time_cuts, p.splits, p.time_keeps);
   S.T = totalLen(S.segs);
   S.style = Object.assign({}, S.lookbook.captions.find(c => c.id === p.caption_style) || S.lookbook.captions[0]);
   if (p.caption_y != null) S.style.y = +p.caption_y;
@@ -315,6 +326,7 @@ async function poll() {
     if (was === "running" && j.status === "done") jobDone(k, j);
     if (was === "running" && j.status === "error") toast(`${k} failed: ${j.error}`);
   }
+  updateNextBtn();
   for (const q of r.requests) {
     if (S.reqStatus[q.id] && S.reqStatus[q.id] !== q.status && (q.status === "done" || q.status === "failed")) requestFinished(q);
     S.reqStatus[q.id] = q.status;
@@ -336,8 +348,14 @@ function setTab(t) {
   S.tab = t; localStorage.setItem("cc_tab_" + S.name, t);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
   const i = TABS.indexOf(t);
-  $("#nextBtn").textContent = i < 3 ? `Next: ${TABS[i + 1][0].toUpperCase() + TABS[i + 1].slice(1)} ›` : "Lock in my looks";
+  updateNextBtn();
   renderPanel();
+}
+function updateNextBtn() {  // while the reel renders, the button shows how far along it is
+  const i = TABS.indexOf(S.tab), j = S.jobs?.render, b = $("#nextBtn");
+  if (j?.status === "running") { b.textContent = `Rendering… ${Math.round((j.progress || 0) * 100)}%`; b.disabled = true; return; }
+  b.disabled = false;
+  b.textContent = i < 3 ? `Next: ${TABS[i + 1][0].toUpperCase() + TABS[i + 1].slice(1)} ›` : "Lock in my looks";
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
 $("#nextBtn").onclick = () => { const i = TABS.indexOf(S.tab); if (i < 3) setTab(TABS[i + 1]); else lockIn(); };
@@ -642,7 +660,12 @@ function lookbookModal() {
     <h3>Caption styles</h3><div class="grid">${capTiles}</div>
     <h3>Hooks</h3><div class="grid frames">${hooks.map(l => `<div class="tile" data-hook="${l.id}">${onFrame(l.id, { text: hookText }, 0.8)}${esc(l.name)}</div>`).join("")}
       ${saved.filter(s => s.group === "hook").map(s => `<div class="tile" data-hooksaved="${s.id}">${onFrame(s.look, Object.assign({}, s.params, { text: hookText }), 0.8)}${esc(s.name)}</div>`).join("")}</div>
-    <h3>Saved looks</h3><div class="grid frames">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}">${onFrame(s.look, s.params, timeOfWord(Math.max(0, S.curWord)))}${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>`,
+    <h3>Saved looks</h3><div class="grid frames">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}">${onFrame(s.look, s.params, timeOfWord(Math.max(0, S.curWord)))}${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>
+    <h3>Reference reels</h3>
+    <div class="muted">Reels you love. Claude studies each one frame by frame (cuts, captions, graphics, sound, pace) and adds its style to your rulebook, so it guides your edits.</div>
+    <label class="dropzone" id="refDrop" style="margin:8px 0;padding:14px"><b>＋ Add a reference reel</b> <small class="muted">(drop a video here or click)</small>
+      <input type="file" id="refFile" accept="video/*" multiple hidden></label>
+    <div id="refList">${refListHTML()}</div>`,
     root => {
       root.querySelectorAll("[data-cap]").forEach(t => t.onclick = () => { mutate(p => p.caption_style = t.dataset.cap); closeModal(); });
       const setHook = (look, params) => mutate(p => {
@@ -655,7 +678,43 @@ function lookbookModal() {
       root.querySelectorAll("[data-hooksaved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.hooksaved); setHook(s.look, s.params); closeModal(); });
       root.querySelectorAll("[data-saved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.saved); addOverlay({ kind: "look", look: s.look, params: Object.assign({}, s.params, lookParams(s.look, target().text)), scale: s.scale ?? 1, y: s.y ?? .4, anim_in: s.anim_in ?? "pop", anim_out: s.anim_out ?? "fade" }); });
       mountSprites(root, true);
+      bindRefs(root);
     });
+}
+
+// ---------- reference reels (Lookbook): videos that guide the edits
+function refListHTML() {
+  const refs = S.library.references || [];
+  if (!refs.length) return `<small class="muted">No reference reels yet.</small>`;
+  return refs.map((r, k) => {
+    const job = (S.p.requests || []).find(q => q.kind === "reference" && q.src === r.path && q.status === "running");
+    const st = r.guide ? "✓ learned: it's in your style guide" : job ? "Claude is studying it…" : r.studied ? "measured, not written up yet" : "not studied yet";
+    return `<div class="card row" style="gap:10px;align-items:center">${r.sheet ? `<img src="${media(r.sheet)}" style="height:54px;border-radius:6px">` : `<span style="font-size:28px">🎬</span>`}
+      <div style="flex:1"><b>${esc(r.name)}</b><br><small class="muted">${st}</small></div>
+      <input placeholder="What do you like about it? (optional)" data-refnote="${k}" style="flex:1.3">
+      <button class="primary" data-refstudy="${k}" ${job ? "disabled" : ""}>${r.guide ? "Study again" : "Study it"}</button></div>`;
+  }).join("");
+}
+function bindRefs(root) {
+  const inp = root.querySelector("#refFile"), dz = root.querySelector("#refDrop");
+  if (!inp) return;
+  const up = async files => {
+    for (const f of files) {
+      if (!f.type.startsWith("video/")) continue;
+      toast(`Uploading ${f.name}…`);
+      await fetch(`/api/upload?kind=references&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+    }
+    S.library = await api("/api/library");
+    root.querySelector("#refList").innerHTML = refListHTML(); bindRefs(root);
+  };
+  inp.onchange = () => up([...inp.files]);
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+  dz.ondragleave = () => dz.classList.remove("over");
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); up([...e.dataTransfer.files]); };
+  root.querySelectorAll("[data-refstudy]").forEach(b => b.onclick = () => {
+    const r = S.library.references[+b.dataset.refstudy], note = root.querySelector(`[data-refnote="${b.dataset.refstudy}"]`).value;
+    sendRequest({ kind: "reference", src: r.path, text: note || "" }, "Claude is studying your reference reel. It'll ping you when it's learned the style.");
+  });
 }
 
 function captionTile(c) {  // the caption style on your frame, with your words
@@ -682,6 +741,7 @@ function wordSpan(w, active, st, text) {
   let css = `font-family:'${font}';font-size:${size}px;color:${color};`;
   if (sw) css += `-webkit-text-stroke:${sw * 2 * (st.size / (st._base || st.size))}px ${st.stroke_color || "#000"};`;
   if (st.shadow) css += `text-shadow:0 ${size * .06}px ${size * .08}px rgba(0,0,0,.6);`;
+  if (active && st.active_box && !emph) css += `background:${st.active_box};border-radius:${size * .2}px;box-shadow:0 0 0 ${size * .16}px ${st.active_box};`;
   return `<span class="cw" style="${css}">${esc(text)}</span>`;
 }
 
@@ -792,7 +852,7 @@ function bindBrollFinder(root, redraw) {
   const st = root.querySelector("#pxStarter"); if (st) st.onclick = () => go(true);
 }
 
-const ANIMS = ["snap", "none", "pop", "fade", "slide-up", "slide-down", "slide-left", "slide-right", "spin", "zoom"];
+const ANIMS = ["snap", "none", "pop", "fade", "rise", "fade-quick", "slide-up", "slide-down", "slide-left", "slide-right", "spin", "zoom"];
 const animOpts = cur => ANIMS.map(a => `<option ${a === cur ? "selected" : ""}>${a}</option>`).join("");
 
 async function addBroll(src, t) {
@@ -1108,6 +1168,7 @@ function sfxLine(fx) {
   const a = fx.anchor || {};
   if (a.ov) { const o = S.p.overlays.find(o => o.id === a.ov); return o ? (o.role === "hook" ? 0 : o.w0) : null; }
   if (a.broll) { const b = S.p.broll.find(b => b.id === a.broll); return b ? b.w0 : null; }
+  if (a.fx) { const f = (S.p.fx || []).find(f => f.id === a.fx); return f ? f.w : null; }
   return a.w ?? null;
 }
 function sfxTimes() {  // mirror of engine/sfx.py times()
@@ -1117,6 +1178,7 @@ function sfxTimes() {  // mirror of engine/sfx.py times()
     const a = fx.anchor || {}; let t = null;
     if (a.ov) { const hit = S.spans.find(([o]) => o.id === a.ov); t = hit ? hit[1][0] : null; }
     else if (a.broll) { const hit = (S.bspans || []).find(([b]) => b.id === a.broll); t = hit ? hit[1][0] : null; }
+    else if (a.fx) { const f = (p.fx || []).find(f => f.id === a.fx); const o = f ? wordOut(p.words, S.segs, f.w) : null; t = o ? o[0] : null; }
     else if (a.w != null) { const o = wordOut(p.words, S.segs, a.w); t = o ? o[0] : null; }
     if (t != null) m.set(fx.id, Math.max(0, t + (+fx.offset || 0)));
   }
@@ -1217,7 +1279,8 @@ function renderFinish() {
   </div>
   <div class="card"><h3 style="margin-top:0">4 · Trial reels</h3>
     <div class="muted">Repackage this reel into three more versions — each with a different opening line, length and hook, all in your same look.</div>
-    <div class="row" style="margin-top:8px"><button class="primary" id="mkTrials" ${done ? "" : "disabled title='Lock in your reel first'"}>Make trial reels</button></div>${jobBar("trials")}
+    <div class="row" style="margin-top:8px"><button class="primary" id="mkTrials" ${done ? "" : "disabled"}>Make trial reels</button>
+      ${done ? "" : `<small class="muted">🔒 ${S.jobs.render?.status === "running" ? "Unlocks when your reel finishes rendering (see the % above)." : "Unlocks once your reel is rendered: press <b>Lock in my looks</b> (bottom right). Trial reels are re-cuts of the finished video."}</small>`}</div>${jobBar("trials")}
     ${ex.trials ? `<div class="files">${ex.trials.map(t => `<div><video controls src="${media(t.file)}?v=${p.rev}"></video><br><b>${esc(t.name)}</b><br><small>${esc(t.hook)}</small><br><a download href="${media(t.file)}">Download</a></div>`).join("")}</div>` : ""}
   </div>`;
   $("#panel").innerHTML = h;
@@ -1253,14 +1316,15 @@ async function drawEdgeCard() {
     $("#edgeList").querySelectorAll("[data-jump]").forEach(b => b.onclick = () => seek(+b.dataset.jump));
   };
 }
-function renderJobsOnly() { if (S.tab === "finish" || (S.tab === "visuals" && S.faceCard)) renderPanel(); }
+function renderJobsOnly() { updateNextBtn(); if (S.tab === "finish" || (S.tab === "visuals" && S.faceCard)) renderPanel(); }
 
 async function lockIn() {
   if (S.dirty) await save();
   setTab("finish");
   S.jobs.render = await api(`/api/project/${S.name}/render`, {});
-  renderPanel();
-  toast("Locking in your looks — Claude is building the video now.");
+  renderPanel(); updateNextBtn();
+  $("#panel").scrollTop = 0;  // show "1 · Your reel" with the progress bar
+  toast("Rendering your reel: watch the % on the button (bottom right) or at the top of Finish.");
 }
 async function runExport(kind) { if (S.dirty) await save(); S.jobs[kind] = await api(`/api/project/${S.name}/export`, { kind }); renderPanel(); }
 async function claudeOr(kind, label) {
@@ -1310,7 +1374,15 @@ function requestFinished(q) {
   S.lookbook && api("/api/lookbook").then(lb => S.lookbook = lb);
 }
 
+// Claude doesn't report progress, so this is an estimate from how long that kind of job usually takes
+const REQ_TYPICAL = { edit: 120, ask: 120, look: 240, carousel: 180, story: 150, trials: 300, reference: 480 };
+function reqPct(r) {
+  const el = Math.max(0, Date.now() / 1000 - (r.created || Date.now() / 1000)), typ = REQ_TYPICAL[r.kind] || 180;
+  return Math.min(95, Math.round(100 * (1 - Math.exp(-el / typ * 1.4))));
+}
 function renderTray(reqs) {
+  S.hiddenReqs ||= new Set();
+  reqs = reqs.filter(r => !r.hidden && !S.hiddenReqs.has(r.id));  // ones you closed with ×
   const active = reqs.filter(r => r.status === "running" || r.status === "waiting").length;
   const ready = reqs.filter(r => r.status === "done" && r.options?.length && !r.picked).length;
   $("#claudeBadge").hidden = !(active + ready); $("#claudeBadge").textContent = active + ready;
@@ -1339,10 +1411,16 @@ function drawTray() {
   }
   const reqs = (S.requests || []).slice().reverse();
   tray.querySelector("#reqList").innerHTML = (S.claude ? "" : `<div class="muted" style="font-size:12px;margin:6px 0">Claude isn't connected to the studio right now, so requests wait until you tell Claude in the Terminal: “check my studio requests”.</div>`) +
-    (reqs.length ? `<b style="display:block;margin-top:8px">Earlier requests</b>` + reqs.map(r => `<div class="req"><span class="st ${r.status}">${r.status === "running" ? "working…" : r.status}</span> ${esc((r.text || r.kind).slice(0, 90))}
+    (reqs.length ? `<b style="display:block;margin-top:8px">Earlier requests</b>` + reqs.map(r => `<div class="req"><button class="reqx" data-reqx="${r.id}" title="Close this">×</button><span class="st ${r.status}">${r.status === "running" ? `working… ${reqPct(r)}%` : r.status}</span> ${esc((r.text || r.kind).slice(0, 90))}
       ${r.note ? `<div class="muted">${esc(r.note)}</div>` : ""}
       ${r.status === "done" && r.options?.length ? `<button data-rev="${r.id}" style="margin-top:6px">${r.picked ? "Options" : "Review options"}</button>` : ""}</div>`).join("") : "");
   tray.querySelectorAll("[data-rev]").forEach(b => b.onclick = () => optionsModal(b.dataset.rev));
+  tray.querySelectorAll("[data-reqx]").forEach(b => b.onclick = () => {  // close a notification (Claude keeps working if it's still running)
+    const id = b.dataset.reqx;
+    (S.hiddenReqs ||= new Set()).add(id);
+    mutate(p => { const r = (p.requests || []).find(r => r.id === id); if (r) r.hidden = true; }, { render: false });
+    renderTray(S.requests || []); drawTray();
+  });
 }
 $("#claudeBtn").onclick = () => { $("#claudeTray").hidden = !$("#claudeTray").hidden; drawTray(); if (!$("#claudeTray").hidden) $("#askAny").focus(); };
 
@@ -1398,14 +1476,18 @@ function bindMic(root) {
 }
 
 // ------------------------------------------------------------------ sprites (look previews)
-function spriteKey(look, params, dur) { return JSON.stringify([look, params, Math.round(Math.min(dur, 6) * 4) / 4]); }
-function getSprite(look, params, dur) {
+// w0: the look's first word. Steps timed to words ({"w": i} in params) are worked out on the server from it.
+const hasCues = params => JSON.stringify(params || {}).includes('"w":');
+function spriteKey(look, params, dur, w0) {
+  return JSON.stringify([look, params, Math.round(Math.min(dur, 6) * 4) / 4, hasCues(params) ? [w0, S.p?.edit_rev || 0] : 0]);
+}
+function getSprite(look, params, dur, w0) {
   dur = Math.max(0.5, Math.round(Math.min(dur, 6) * 4) / 4);
-  const k = spriteKey(look, params, dur);
+  const k = spriteKey(look, params, dur, w0);
   if (S.sprites[k]) return S.sprites[k];
   if (!S.spriteLoading[k]) {
     S.spriteLoading[k] = true;
-    api(`/api/project/${S.name}/sprite`, { look, params, dur }).then(m => {
+    api(`/api/project/${S.name}/sprite`, { look, params, dur, w0: hasCues(params) ? w0 : undefined }).then(m => {
       const img = new Image(); img.src = m.url + "?k=" + encodeURIComponent(k).slice(0, 40);
       img.onload = () => { S.sprites[k] = m; };
     }).catch(e => console.warn("sprite", look, e)).finally(() => setTimeout(() => delete S.spriteLoading[k], 3000));
@@ -1576,11 +1658,11 @@ function drawBroll(t) {
     bimg.style.display = bpanel.style.display = "none";
     S.inBroll = S.inSplit = false; return;
   }
-  const [b, sp] = hit, split = b.layout === "split";
+  const [b, sp] = hit, split = b.layout === "split" || b.layout === "class";  // class page: previewed as a split
   const isImg = b.src && /\.(png|jpe?g|webp|gif)$/i.test(b.src);
   const box = split ? { top: "0", height: "50%" } : { top: "0", height: "100%" };
   let el;
-  if (!b.src) { el = bpanel; bpanel.style.background = b.color || "#FFFFFF"; }
+  if (!b.src) { el = bpanel; bpanel.style.background = b.layout === "class" ? "#8E0C0E" : (b.color || "#FFFFFF"); }
   else if (isImg) { el = bimg; if (bimg.dataset.src !== b.src) { bimg.src = media(b.src); bimg.dataset.src = b.src; } }
   else {
     el = bv;
@@ -1599,15 +1681,41 @@ function drawBroll(t) {
   S.inBroll = !split; S.inSplit = split;
 }
 
+const FX_KINDS = { flash: [0.30, 1], whip: [0.30, 1], zoom: [0.35, 1], shake: [0.40, 0], glitch: [0.25, 1], light_leak: [1.0, 0], drip: [0.7, 1] };
+function fxNow(t) {  // mirror of engine/fx.py (approximate: the render is exact)
+  const out = { dx: 0, scale: 1, rot: 0, filter: "", flash: 0, wash: "#fff" };
+  for (const f of S.p.fx || []) {
+    const d = FX_KINDS[f.kind]; if (!d || f.w == null) continue;
+    const o = wordOut(S.p.words, S.segs, f.w); if (!o) continue;
+    const dur = +(f.dur || d[0]), a = d[1] ? o[0] - dur / 2 : o[0];
+    if (t < a || t >= a + dur) continue;
+    const k = (t - a) / dur, b = Math.sin(Math.PI * k), s = +(f.strength || 1);
+    const W = $("#phone").clientWidth;
+    if (f.kind === "whip") { out.dx = -(k - 0.5) * W * 0.5 * s; out.filter = `blur(${(6 * b * s).toFixed(1)}px)`; }
+    if (f.kind === "zoom") { out.scale = 1 + 0.3 * b * s; out.filter = `blur(${(2 * b).toFixed(1)}px)`; }
+    if (f.kind === "shake") { const amp = 10 * s * Math.pow(1 - k, 1.5); out.dx = Math.sin(t * 90) * amp; out.rot = Math.sin(t * 70) * 0.8 * (1 - k); out.scale = 1.05; }
+    if (f.kind === "glitch") { out.filter = `saturate(${1 + 2 * b}) hue-rotate(${Math.round(40 * b * Math.sin(t * 60))}deg)`; out.dx = Math.sin(t * 120) * 8 * b; }
+    if (f.kind === "flash") { out.flash = Math.pow(b, 1.5); out.wash = "#fff"; }
+    if (f.kind === "drip") { out.flash = 1; out.wash = k < 0.5 ? `linear-gradient(#8E0C0E ${k * 200}%, transparent ${k * 200 + 8}%)` : `linear-gradient(transparent ${(k - 0.5) * 230}%, #8E0C0E ${(k - 0.5) * 230 + 4}%)`; }
+    if (f.kind === "light_leak") { out.flash = 0.45 * b * s; out.wash = `radial-gradient(circle at ${-20 + 140 * k}% 30%, rgba(255,140,60,.9), rgba(255,80,120,.25) 45%, transparent 70%)`; }
+  }
+  return out;
+}
+
 function drawCamera(t) {
   // speaker zoom (hook push-in, punch-ins) + split-screen shift; mirrored in engine/render.py speaker()
   const z = cameraZoom(S.p, S.p.words, S.segs, t), [fx, fy] = focusOf(S.p);
   const half = Math.floor(H / 2), y0 = Math.min(Math.max(0, fy * H - 0.4 * half), H - (H - half));
   const shift = S.inSplit ? half - Math.floor(y0) : 0;
-  const tr = `translateY(${shift}px) scale(${z})`, org = `${fx * 100}% ${fy * 100}%`;
+  const e = fxNow(t);  // transitions on a word (engine/fx.py), approximated with CSS
+  const tr = `translate(${e.dx}px, ${shift}px) scale(${z * e.scale}) rotate(${e.rot}deg)`, org = `${fx * 100}% ${fy * 100}%`;
   if (v.style.transform !== tr || v.style.transformOrigin !== org) {
     v.style.transform = fc.style.transform = tr; v.style.transformOrigin = fc.style.transformOrigin = org;
   }
+  if (v.style.filter !== e.filter) v.style.filter = e.filter;
+  let fl = $("#fxflash");
+  if (!fl) { fl = document.createElement("div"); fl.id = "fxflash"; fl.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:50;opacity:0"; $("#phone").appendChild(fl); }
+  fl.style.background = e.wash; fl.style.opacity = e.flash;
   const dim = Math.max(0, ...S.spans.filter(([ov, [a, b]]) => a <= t && t < b).map(([ov]) => +(ov.dim || 0)));
   $("#dim").style.opacity = Math.min(0.8, dim);
 }
@@ -1674,7 +1782,7 @@ function drawOverlays(t) {
     const local = t - a, st = overlayState(ov, t, a, b);
     let w, hgt;
     if (ov.kind === "look") {
-      const m = getSprite(ov.look, ov.params || {}, b - a);
+      const m = getSprite(ov.look, ov.params || {}, b - a, ov.w0);
       if (!m) continue;
       if (!el || el.tagName !== "DIV") { el?.remove(); el = document.createElement("div"); el.className = "ov"; el.dataset.id = ov.id; root.appendChild(el); bindOvDrag(el); }
       const sc = ov.scale ?? 1; w = m.w * sc; hgt = m.h * sc;
@@ -1721,104 +1829,245 @@ function drawCaptions(t) {
   for (const i of g.w) { const o = wordOut(S.p.words, S.segs, i); if (o && o[0] <= t) active = i; }
   const st = S.style, tin = t - g.start;
   const popF = st.pop ? Math.min(5, Math.floor(tin * 30)) : 0;
-  const key = `${S.groups.indexOf(g)}:${active}:${popF}:${st.id}:${S.inSplit ? 1 : 0}`;
+  let chars = st.type_cps ? Math.floor(tin * st.type_cps) : null;  // typewriter captions (Look F)
+  if (chars != null && chars >= g.w.reduce((a, i) => a + S.p.words[i].t.length + 1, 0)) chars = null;
+  const key = `${S.groups.indexOf(g)}:${active}:${popF}:${st.id}:${S.inSplit ? 1 : 0}:${chars}`;
   if (key === S.lastCapKey) return;
   S.lastCapKey = key;
   const { lines, space } = captionLayout(S.p.words, g.w, st, W);
   const lh = st.size * 1.18;
   let h = "";
+  let left = chars == null ? 1e9 : chars;
   for (const [items] of lines) {
+    if (chars != null) items.forEach(it => { const full = it.text; it.text = left <= 0 ? "" : left < full.length ? full.slice(0, left) + "_" : full; left -= full.length + 1; });
     const box = st.box ? `background:${st.box.length === 9 ? hexA(st.box) : st.box};border-radius:${st.size * .22}px;padding:0 ${st.size * .25}px;` : "";
     h += `<div class="cl" style="height:${lh}px;line-height:${lh}px;${box}">` +
       items.map((it, k) => wordSpan(S.p.words[it.i], it.i === active, st, it.text).replace('class="cw" style="', `class="cw" style="margin-right:${k < items.length - 1 ? space : 0}px;`)).join("") + `</div>`;
   }
   const sc = st.pop && tin < 0.15 ? 0.75 + 0.25 * easeOutBack(tin / 0.15) : 1;
-  const cy = S.inSplit ? 0.5 : (st.y ?? .7);  // split screen: caption sits on the seam
+  const cy = S.inSplit ? 0.52 : (st.y ?? .7);  // split screen: caption sits on the seam
   root.innerHTML = `<div class="cg" style="left:${(st.x ?? .5) * W}px;top:${cy * H}px;transform:translate(-50%,-50%) scale(${sc})">${h}</div>`;
 }
 const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24) & 255},${(n >>> 16) & 255},${(n >>> 8) & 255},${((n & 255) / 255).toFixed(2)})`; };
 
 // ------------------------------------------------------------------ timeline (bottom)
-const tl = $("#tl"), tctx = tl.getContext("2d");
-function tlScale() { return (tl.width / devicePixelRatio - 20) / Math.max(1, S.T); }
+// ------------------------------------------------------------------ timeline: CapCut-style
+// The film strip slides under a fixed playhead in the middle. Tap a clip to select it (white frame + handles),
+// drag a handle to trim, Split / Delete in the toolbar. Cuts are in seconds of footage (p.time_cuts, p.splits),
+// so silent moments like fixing the camera can be cut too. Mirrors engine/timeline.py apply_time_edits.
+const tl = $("#tl"), tctx = tl.getContext("2d"), tlBox = $("#tlScroll");
+S.pps = 60;  // pixels per second
+const TL_H = 112, STRIP_Y = 20, STRIP_H = 56, OV_Y = STRIP_Y + STRIP_H + 6, BR_Y = OV_Y + 11, BAR_H = 8;
+const tlPad = () => tlBox.clientWidth / 2;
+const timeToX = t => tlPad() + t * S.pps;
+const thumbImgs = {};
+function stripThumb(srcT) {
+  const k = (Math.round(srcT * 2) / 2).toFixed(1);
+  if (!thumbImgs[k]) { const im = new Image(); im.onload = () => drawTimelineSoon(); im.src = `/api/project/${S.name}/thumb?t=${k}&src=1&w=96`; thumbImgs[k] = im; }
+  return thumbImgs[k];
+}
+let tlTimer = 0;
+function drawTimelineSoon() { clearTimeout(tlTimer); tlTimer = setTimeout(drawTimeline, 60); }
+const TDPR = Math.min(devicePixelRatio || 1, 1.5);  // a lighter canvas on high-res screens; still sharp
 function drawTimeline() {
   if (!S.p) return;
-  const box = $("#tlScroll").getBoundingClientRect();
-  const cssW = Math.max(200, box.width * S.zoom), cssH = 76;
-  if (tl.width !== Math.round(cssW * devicePixelRatio)) { tl.width = Math.round(cssW * devicePixelRatio); tl.height = Math.round(cssH * devicePixelRatio); tl.style.width = cssW + "px"; tl.style.height = cssH + "px"; }
-  const c = tctx; c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  S.pps = Math.min(S.pps, (14000 - tlPad() * 2) / Math.max(1, S.T));  // keep the canvas within what Chrome draws quickly
+  const cssW = Math.ceil(tlPad() * 2 + S.T * S.pps), cssH = TL_H;
+  if (tl.width !== Math.round(cssW * TDPR) || tl.height !== Math.round(cssH * TDPR)) {
+    tl.width = Math.round(cssW * TDPR); tl.height = Math.round(cssH * TDPR); tl.style.width = cssW + "px"; tl.style.height = cssH + "px";
+  }
+  placeTrackButtons();
+  const c = tctx; c.setTransform(TDPR, 0, 0, TDPR, 0, 0);
   c.clearRect(0, 0, cssW, cssH);
-  const k = tlScale(), x0 = 10, css = getComputedStyle(document.documentElement);
-  const accent = css.getPropertyValue("--accent").trim(), ink2 = css.getPropertyValue("--ink2").trim(), line = css.getPropertyValue("--line").trim();
+  const css = getComputedStyle(document.documentElement), ink2 = css.getPropertyValue("--ink2").trim(), accent = css.getPropertyValue("--accent").trim();
   c.font = "10px Montserrat_600SemiBold, sans-serif"; c.fillStyle = ink2;
-  const step = S.T / (cssW / 70) > 5 ? 10 : S.T / (cssW / 70) > 2 ? 5 : S.T / (cssW / 70) > 1 ? 2 : 1;
-  for (let t = 0; t <= S.T; t += step) { c.fillText(fmt(t), x0 + t * k + 2, 10); c.fillRect(x0 + t * k, 12, 1, 4); }
+  const step = S.pps > 120 ? 0.5 : S.pps > 40 ? 1 : S.pps > 15 ? 2 : 5;
+  for (let t = 0; t <= S.T + 1e-6; t += step) {
+    const x = timeToX(t), major = Math.abs(t / (step * 2) - Math.round(t / (step * 2))) < 1e-6;
+    if (major) c.fillText(fmt(t), x + 3, 11);
+    c.fillRect(x, major ? 12 : 15, 1, major ? 6 : 3);
+  }
+  const tileW = Math.round(STRIP_H * 0.75);
   S.segs.forEach((sg, i) => {
-    const x = x0 + sg.o * k, w = Math.max(1, (sg.e - sg.s) * k - 1);
-    c.fillStyle = i % 2 ? "#3d3a52" : "#4a4664"; c.beginPath(); c.roundRect(x, 18, w, 34, 5); c.fill();
-    c.save(); c.beginPath(); c.rect(x + 3, 18, w - 6, 34); c.clip(); c.fillStyle = "#fff";
-    c.fillText(S.p.words.slice(sg.w0, sg.w1 + 1).map(w => w.t).join(" "), x + 5, 39); c.restore();
+    const x = timeToX(sg.o), w = Math.max(2, (sg.e - sg.s) * S.pps - 2);
+    c.save(); c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.clip();
+    c.fillStyle = "#2a2838"; c.fillRect(x, STRIP_Y, w, STRIP_H);
+    for (let tx = x; tx < x + w; tx += tileW) {  // the film strip: one still per tile
+      const im = stripThumb(sg.s + (tx - x + tileW / 2) / S.pps);
+      if (im.complete && im.naturalWidth) {
+        const sh = im.naturalWidth * STRIP_H / tileW;  // centre-crop the tall still into the tile
+        c.drawImage(im, 0, (im.naturalHeight - sh) / 2, im.naturalWidth, sh, tx, STRIP_Y, tileW, STRIP_H);
+      }
+    }
+    c.restore();
   });
-  for (const [ov, [a, b]] of S.spans) { c.fillStyle = accent; c.globalAlpha = .8; c.beginPath(); c.roundRect(x0 + a * k, 56, Math.max(3, (b - a) * k), 7, 3); c.fill(); }
-  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(x0 + t * k, 16, 2.5, 0, 7); c.fill(); }
-  for (const [bb, [a, b]] of S.bspans || []) { c.fillStyle = "#1F9D6B"; c.beginPath(); c.roundRect(x0 + a * k, 65, Math.max(3, (b - a) * k), 7, 3); c.fill(); }
+  const sel = S.selClip != null ? S.segs[S.selClip] : null;
+  if (sel) {  // selected clip: white frame and two handles, like CapCut; while you drag a handle the clip resizes live
+    let x = timeToX(sel.o), w = Math.max(2, (sel.e - sel.s) * S.pps - 2), len = sel.e - sel.s;
+    if (S.trim) {
+      const d = S.trim.x - S.trim.x0;
+      if (S.trim.side === "r") { w = Math.max(8, w + d); len = Math.max(0.1, len + d / S.pps); }
+      else { x += d; w = Math.max(8, w - d); len = Math.max(0.1, len - d / S.pps); }
+      const ox = timeToX(sel.o), ow = (sel.e - sel.s) * S.pps;
+      c.fillStyle = "rgba(0,0,0,.55)";  // the part you're trimming off goes dark
+      if (S.trim.side === "r" && d < 0) c.fillRect(ox + ow + d, STRIP_Y, -d, STRIP_H);
+      if (S.trim.side === "l" && d > 0) c.fillRect(ox, STRIP_Y, d, STRIP_H);
+      if (d > 0 && S.trim.side === "r" || d < 0 && S.trim.side === "l") {  // extending: show the new footage area
+        c.fillStyle = "rgba(255,255,255,.25)";
+        c.fillRect(S.trim.side === "r" ? ox + ow : x, STRIP_Y, Math.abs(d), STRIP_H);
+      }
+    }
+    c.strokeStyle = "#333"; c.lineWidth = 5; c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.stroke();
+    c.strokeStyle = "#fff"; c.lineWidth = 3; c.stroke();
+    for (const hx of [x - 12, x + w]) {
+      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 12, STRIP_H, 4); c.fill();
+      c.strokeStyle = "#333"; c.lineWidth = 1.5; c.stroke();  // outlined so it shows on the light background
+      c.fillStyle = "#888"; c.fillRect(hx + 5, STRIP_Y + STRIP_H / 2 - 9, 2, 18);
+    }
+    c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 40, 15, 4); c.fill();
+    c.fillStyle = "#fff"; c.fillText(`${len.toFixed(1)}s`, x + 8, STRIP_Y + 15);
+  }
+  // tappable bars like CapCut: blue = your graphics (looks, text, stickers), green = cut-away clips (B-roll)
+  const bar = (x, w, y, col, label, on) => {
+    c.globalAlpha = .85; c.fillStyle = col; c.beginPath(); c.roundRect(x, y, w, BAR_H, 3); c.fill(); c.globalAlpha = 1;
+    if (on) { c.strokeStyle = "#fff"; c.lineWidth = 2; c.stroke(); }
+    if (BAR_H >= 14 && w > 24) { c.save(); c.beginPath(); c.rect(x + 4, y, w - 8, BAR_H); c.clip(); c.fillStyle = "#fff"; c.font = "11px Montserrat_600SemiBold, sans-serif"; c.fillText(label, x + 6, y + 13); c.restore(); }
+  };
+  for (const [ov, [a, b]] of S.spans) bar(timeToX(a), Math.max(4, (b - a) * S.pps - 2), OV_Y, accent, ovLabel(ov), ov.id === S.selOv);
+  for (const [bb, [a, b]] of S.bspans || []) bar(timeToX(a), Math.max(4, (b - a) * S.pps - 2), BR_Y, "#1F9D6B", bb.src ? bb.src.split("/").pop() : "panel", false);
+  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(timeToX(t), 16, 2.5, 0, 7); c.fill(); }
   c.globalAlpha = 1;
-  if (S.drag) { c.fillStyle = "#FFE14D"; c.fillRect(S.drag.x - 1, 16, 3, 40); }
-  S.tlBase = c.getImageData(0, 0, tl.width, tl.height);
+
+  drawPlayhead();
 }
-function drawPlayhead() {
-  if (!S.tlBase) return;
-  tctx.putImageData(S.tlBase, 0, 0);
-  const x = 10 + S.outT * tlScale();
-  tctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-  tctx.fillStyle = "#E5484D"; tctx.fillRect(x - 1, 12, 2, 64);
+let lastFollow = 0;
+function ovLabel(ov) {
+  if (ov.kind === "look") { const m = lookMeta(ov.look); return (ov.role === "hook" ? "Hook · " : "") + (m?.name || ov.look); }
+  return ov.kind === "emoji" ? "Emoji" : (ov.src || ov.kind || "").split("/").pop();
 }
+function drawPlayhead() {  // the playhead stays in the middle; the strip scrolls under it
+  if (!S.p || S.trim) return;
+  const now = performance.now();
+  if (S.playing && now - lastFollow < 80) return;  // ~12 moves a second while playing: smooth and much lighter
+  lastFollow = now;
+  const want = Math.round(S.outT * S.pps);
+  if (Math.abs(tlBox.scrollLeft - want) > 1) { S.tlAuto = true; tlBox.scrollLeft = want; }
+}
+tlBox.addEventListener("scroll", () => {
+  if (S.tlAuto) { S.tlAuto = false; return; }
+  if (S.playing) pause();
+  seek(Math.max(0, Math.min(S.T, tlBox.scrollLeft / S.pps)));
+});
+tlBox.addEventListener("wheel", e => {  // ctrl/pinch = zoom, wheel = scroll through time
+  if (e.ctrlKey) { e.preventDefault(); setZoom(S.pps * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }
+  else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); tlBox.scrollLeft += e.deltaY; }
+}, { passive: false });
+function setZoom(pps) { S.pps = Math.max(8, Math.min(400, pps)); $("#zoom").value = Math.log2(S.pps / 8); drawTimeline(); }
+function clipAtX(x) { return S.segs.findIndex(sg => x >= timeToX(sg.o) && x <= timeToX(sg.o) + (sg.e - sg.s) * S.pps); }
 function tlX(e) { const r = tl.getBoundingClientRect(); return e.clientX - r.left; }
 tl.onpointerdown = e => {
-  const x = tlX(e), k = tlScale();
-  const edge = S.segs.map((sg, i) => ({ i, l: 10 + sg.o * k, r: 10 + (sg.o + sg.e - sg.s) * k })).find(s => Math.abs(x - s.l) < 6 || Math.abs(x - s.r) < 6);
-  const y = e.clientY - tl.getBoundingClientRect().top;
-  if (edge && y > 16 && y < 54) {
-    S.drag = { seg: S.segs[edge.i], side: Math.abs(x - edge.l) < 6 ? "l" : "r", x0: x, x };
-    const mv = ev => { S.drag.x = tlX(ev); drawTimeline(); };
-    const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); finishTrim(); };
-    window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+  const x = tlX(e), y = e.clientY - tl.getBoundingClientRect().top;
+  const sel = S.selClip != null ? S.segs[S.selClip] : null;
+  if (sel && y > STRIP_Y - 4 && y < STRIP_Y + STRIP_H + 4) {  // grab a handle to trim
+    const l = timeToX(sel.o), r = l + (sel.e - sel.s) * S.pps;
+    const side = x >= l - 22 && x <= l + 6 ? "l" : x >= r - 6 && x <= r + 22 ? "r" : null;
+    if (side) {
+      e.preventDefault(); e.stopPropagation();
+      S.trim = { side, x0: x, x, clip: S.selClip };
+      const mv = ev => { S.trim.x = Math.max(l - (side === "l" ? sel.s * S.pps : 0), tlX(ev)); drawTimeline(); };
+      const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); finishTrim(); };
+      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+      return;
+    }
+  }
+  S.tapStart = { x: e.clientX, y };
+  // grab and slide the strip: drag right = rewind, drag left = forward (like CapCut)
+  const startX = e.clientX, startScroll = tlBox.scrollLeft;
+  tl.style.cursor = "grabbing";
+  const mv = ev => { if (Math.abs(ev.clientX - startX) > 3) tlBox.scrollLeft = startScroll - (ev.clientX - startX); };
+  const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); tl.style.cursor = "grab"; };
+  window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+};
+tl.onpointerup = e => {  // a tap (not a drag-scroll) selects / deselects a clip
+  const st = S.tapStart; S.tapStart = null;
+  if (st && Math.abs(e.clientX - st.x) <= 6 && st.y >= OV_Y - 2) {  // tapped a blue / green bar: open it to edit
+    const t = (tlX(e) - tlPad()) / S.pps;
+    if (st.y < BR_Y - 2) {
+      const hits = S.spans.filter(([ov, [a, b]]) => a <= t && t < b);
+      if (hits.length) { const [ov, [a]] = hits[hits.length - 1]; seek(a + 0.05); return overlayEditor(ov.id); }
+    } else {
+      const hit = (S.bspans || []).find(([bb, [a, b]]) => a <= t && t < b);
+      if (hit) { seek(hit[1][0] + 0.05); return brollEditor(hit[0].id); }
+    }
     return;
   }
-  const scrub = ev => seek((tlX(ev) - 10) / k);
-  scrub(e);
-  const up = () => { window.removeEventListener("pointermove", scrub); window.removeEventListener("pointerup", up); };
-  window.addEventListener("pointermove", scrub); window.addEventListener("pointerup", up);
-};
-tl.onpointermove = e => {
-  if (S.drag) return;
-  const x = tlX(e), k = tlScale();
-  tl.style.cursor = S.segs.some(sg => Math.abs(x - 10 - sg.o * k) < 6 || Math.abs(x - 10 - (sg.o + sg.e - sg.s) * k) < 6) ? "ew-resize" : "pointer";
+  if (!st || Math.abs(e.clientX - st.x) > 6 || st.y < STRIP_Y || st.y > STRIP_Y + STRIP_H) return;
+  const i = clipAtX(tlX(e));
+  S.selClip = i < 0 || i === S.selClip ? null : i;
+  updateTlTools(); drawTimeline();
 };
 function finishTrim() {
-  const { seg, side, x0, x } = S.drag; S.drag = null;
-  const dt = (x - x0) / tlScale(), w = S.p.words;
-  if (Math.abs(dt) < 0.05) return drawTimeline();
+  const { side, x0, x, clip } = S.trim; S.trim = null;
+  const sg = S.segs[clip], dt = (x - x0) / S.pps;
+  if (!sg || Math.abs(dt) < 0.03) return drawTimeline();
   mutate(p => {
-    const W_ = p.words;
-    if (side === "l" && dt > 0) { for (let i = seg.w0; i <= seg.w1; i++) if (W_[i].s - seg.s < dt) { W_[i].cut = true; W_[i].why = "you"; } }
-    if (side === "r" && dt < 0) { const len = seg.e - seg.s; for (let i = seg.w0; i <= seg.w1; i++) if (W_[i].e - seg.s > len + dt) { W_[i].cut = true; W_[i].why = "you"; } }
-    if (side === "l" && dt < 0) { let need = -dt; for (let i = seg.w0 - 1; i >= 0 && need > 0 && W_[i].cut; i--) { need -= W_[i + 1].s - W_[i].s; W_[i].cut = false; } }
-    if (side === "r" && dt > 0) { let need = dt; for (let i = seg.w1 + 1; i < W_.length && need > 0 && W_[i].cut; i++) { need -= W_[i].e - W_[i - 1].e; W_[i].cut = false; } }
+    p.time_cuts = p.time_cuts || [];
+    if (side === "l" && dt > 0) p.time_cuts.push([sg.s, Math.min(sg.e - 0.1, sg.s + dt)]);
+    if (side === "r" && dt < 0) p.time_cuts.push([Math.max(sg.s + 0.1, sg.e + dt), sg.e]);
+    // pulled out: bring footage back, including pauses One Take had trimmed automatically
+    if (side === "l" && dt < 0) { const a = Math.max(0, sg.s + dt); unCut(p, a, sg.s); (p.time_keeps = p.time_keeps || []).push([a, sg.s]); }
+    if (side === "r" && dt > 0) { const b = Math.min(p.duration, sg.e + dt); unCut(p, sg.e, b); (p.time_keeps = p.time_keeps || []).push([sg.e, b]); }
   });
 }
-$("#zoom").oninput = e => { S.zoom = +e.target.value; drawTimeline(); };
+function unCut(p, a, b) {  // give back [a, b]: shrink time cuts, and bring back words cut there
+  p.time_cuts = (p.time_cuts || []).flatMap(([s, e]) => e <= a || s >= b ? [[s, e]] : [s < a ? [s, a] : null, e > b ? [b, e] : null].filter(Boolean));
+  p.words.forEach(w => { if (w.cut && w.s >= a - 0.05 && w.e <= b + 0.05) { w.cut = false; delete w.why; } });
+}
+function srcAtPlayhead() { const sg = S.segs.find(s => s.o <= S.outT && S.outT < s.o + s.e - s.s) || S.segs[S.segs.length - 1]; return sg ? [sg, sg.s + (S.outT - sg.o)] : [null, 0]; }
+function updateTlTools() {
+  const on = S.selClip != null;
+  document.querySelectorAll('.tltools [data-op="delete"]').forEach(b => b.classList.toggle("on", on));
+}
+$("#zoom").min = 0; $("#zoom").max = 5.6; $("#zoom").step = 0.1;
+$("#zoom").oninput = e => setZoom(8 * Math.pow(2, +e.target.value));
 document.querySelectorAll(".tltools [data-op]").forEach(b => b.onclick = () => tlOp(b.dataset.op));
 function tlOp(op) {
-  const i = S.curWord, p = S.p;
-  if (op === "zoomIn" || op === "zoomOut") { S.zoom = Math.max(1, Math.min(12, S.zoom * (op === "zoomIn" ? 1.5 : 1 / 1.5))); $("#zoom").value = S.zoom; return drawTimeline(); }
-  if (op === "delete") { if (S.sel) return selAction("cut"); if (i >= 0) return mutate(p => { p.words[i].cut = true; p.words[i].why = "you"; }); return; }
-  if (i < 0) return toast("Move the playhead onto a word first.");
-  const l = linesOf(p).find(l => l.w0 <= i && i <= l.w1);
-  if (op === "split") { if (i === l.w0) return; return mutate(p => { const L = l.id; p.words.forEach((w, j) => { if (w.l > L) w.l += 1; else if (w.l === L && j >= i) w.l = L + 1; }); }); }
-  if (op === "cutBefore") return mutate(p => { for (let j = l.w0; j < i; j++) { p.words[j].cut = true; p.words[j].why = "you"; } });
-  if (op === "cutAfter") return mutate(p => { for (let j = i + 1; j <= l.w1; j++) { p.words[j].cut = true; p.words[j].why = "you"; } });
+  if (op === "zoomIn" || op === "zoomOut") return setZoom(S.pps * (op === "zoomIn" ? 1.5 : 1 / 1.5));
+  const [sg, ts] = srcAtPlayhead();
+  if (op === "delete") {
+    if (S.selClip != null && S.segs[S.selClip]) { const c = S.segs[S.selClip]; S.selClip = null; updateTlTools(); return mutate(p => { (p.time_cuts = p.time_cuts || []).push([c.s, c.e]); }); }
+    if (S.sel) return selAction("cut");
+    return toast("Tap a clip on the timeline to select it, then Delete.");
+  }
+  if (!sg) return;
+  if (op === "split") { S.selClip = null; return mutate(p => { (p.splits = p.splits || []).push(+ts.toFixed(3)); }); }
+  if (op === "cutBefore") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([sg.s, ts]); });
+  if (op === "cutAfter") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([ts, sg.e]); });
 }
+new ResizeObserver(() => drawTimeline()).observe(tlBox);
+
+// CapCut's track buttons: they sit just left of 0:00 inside the scrolling strip, so the clip starts right at the
+// playhead and the buttons scroll away as you move along
+function placeTrackButtons() {
+  const tr = $("#tlTrack"); if (!tr) return;
+  tr.style.left = Math.max(4, tlPad() - tr.offsetWidth - 10) + "px";
+  const mute = +(S.p.voice_volume ?? 1) === 0;
+  $("#tlMute").classList.toggle("on", mute);
+  $("#tlMute b").textContent = mute ? "🔇" : "🔊";
+  $("#tlMute span").textContent = mute ? "Muted" : "Mute clip";
+}
+$("#tlMute").onclick = () => {  // silences your voice track (music and sound effects stay)
+  const mute = +(S.p.voice_volume ?? 1) !== 0;
+  mutate(p => { p.voice_volume = mute ? 0 : 1; });
+  v.muted = mute; toast(mute ? "Clip audio muted. Music and sound effects still play." : "Clip audio back on.");
+};
+$("#tlCover").onclick = async () => {  // the frame under the playhead becomes the reel's cover
+  await api(`/api/project/${S.name}/frame`, { t: S.outT });
+  await reload();
+  const k = (S.p.frames || []).length - 1;
+  if (k >= 0) mutate(p => { p.frames.forEach((f, j) => f.star = j === k); });
+  toast("This frame is your cover now (Finish → Frames).");
+};
 
 // ------------------------------------------------------------------ keys, help, theme
 document.addEventListener("keydown", e => {

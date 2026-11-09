@@ -22,6 +22,9 @@ from . import config, draw
 LOOK_DIRS = [config.LOOKBOOK / "looks", config.LOOKBOOK / "looks" / "custom"]
 
 
+_card_cache = {}
+
+
 class Ctx:
     Image = Image
     ImageDraw = ImageDraw
@@ -44,6 +47,188 @@ class Ctx:
     SANS = "Inter_700Bold"                # cinematic finance look
     SANS_X = "Inter_800ExtraBold"
     WHITE, HIGHLIGHT, CTA, RED, BLUE, GREEN = "#FFFFFF", "#FCFC04", "#FCF46C", "#FC1404", "#0444A4", "#044C34"
+
+    # ---- notebook style (look D): cream paper cards, handwriting typed on, yellow accents
+    NB = {"cream": "#F1EDE3", "rule": "#DFDACF", "ink": "#1D1912", "gray": "#908B86", "faint": "#C9C4BA",
+          "yellow": "#F2E07F", "sticky": "#EBD56E", "gold": "#EED98A", "white": "#FBFAF7", "navy": "#0C1522"}
+    NB_LABEL = "Poppins_500Medium"
+    NB_BOLD = "Poppins_700Bold"
+    NB_SEMI = "Poppins_600SemiBold"
+    NB_SERIF = "PlayfairDisplay_400Regular_Italic"
+    NB_HAND = "ArchitectsDaughter_400Regular"
+
+    def paper(self, w, h, ruled=0, grid=0, fill=None, radius=10, shadow=True, top=0):
+        """A notebook card: cream paper with a soft shadow, optional ruled lines (every `ruled` px from `top`)
+        or a faint grid. Returns (image, pad) like card(). Cached."""
+        key = ("paper", int(w), int(h), ruled, grid, fill, radius, shadow, top)
+        if key in _card_cache:
+            img, pad = _card_cache[key]
+            return img.copy(), pad
+        img, pad = self.card(w, h, radius=radius, fill=fill or self.NB["cream"], shadow=shadow)
+        d = ImageDraw.Draw(img)
+        col = self.rgba(self.NB["rule"])
+        if ruled:
+            y = top + ruled
+            while y < h - 4:
+                d.line([(pad + 2, pad + y), (pad + w - 2, pad + y)], fill=col, width=2)
+                y += ruled
+        if grid:
+            gc = self.rgba("#E8E4DA")  # a faint grid (opaque: drawing with alpha would punch holes in the card)
+            for x in range(grid, int(w), grid):
+                d.line([(pad + x, pad + 2), (pad + x, pad + h - 2)], fill=gc, width=1)
+            for y in range(grid, int(h), grid):
+                d.line([(pad + 2, pad + y), (pad + w - 2, pad + y)], fill=gc, width=1)
+        _card_cache[key] = (img, pad)
+        return img.copy(), pad
+
+    def hand(self, d, xy, text, size, chars=None, fill=None, anchor="ls", track=0.07):
+        """Handwriting (typed on when `chars` is given), letters spaced out a little like neat print.
+        Returns the width of the full text."""
+        f = self.font(self.NB_HAND, size)
+        col = self.rgba(fill or self.NB["ink"])
+        sp = size * track
+        full = sum((f.getlength("mm") if c in "→←" else f.getlength(c)) + sp for c in text)
+        shown = text if chars is None else text[:max(0, int(chars))]
+        x, y = xy
+        if anchor[0] == "m":
+            x -= full / 2
+        for c in shown:  # drawn twice, half a pixel apart: the weight of a fine felt-tip
+            if c in "→←":  # the handwriting font has no arrows: draw one
+                w = f.getlength("mm")
+                yy = y - size * 0.3
+                x1, x2 = (x, x + w) if c == "→" else (x + w, x)
+                d.line([(x1, yy), (x2, yy)], fill=col, width=max(2, size // 14))
+                k = 1 if c == "→" else -1
+                d.line([(x2, yy), (x2 - k * size * 0.25, yy - size * 0.18)], fill=col, width=max(2, size // 14))
+                d.line([(x2, yy), (x2 - k * size * 0.25, yy + size * 0.18)], fill=col, width=max(2, size // 14))
+                x += w + sp
+                continue
+            d.text((x, y), c, font=f, fill=col, anchor="l" + anchor[1])
+            d.text((x + max(1, size // 40), y), c, font=f, fill=col, anchor="l" + anchor[1])
+            x += f.getlength(c) + sp
+        return full
+
+    def check(self, d, cx, cy, s, fill=None, width=None, progress=1.0):
+        """A hand-drawn checkmark centered at (cx, cy), size s, drawn up to `progress`."""
+        col = self.rgba(fill or self.NB["ink"])
+        w = width or max(3, int(s * 0.1))
+        p0, p1, p2 = (cx - s * 0.42, cy + s * 0.02), (cx - s * 0.12, cy + s * 0.32), (cx + s * 0.45, cy - s * 0.36)
+        a = min(1.0, progress / 0.35)
+        if a > 0:
+            d.line([p0, (p0[0] + (p1[0] - p0[0]) * a, p0[1] + (p1[1] - p0[1]) * a)], fill=col, width=w, joint="curve")
+        b = max(0.0, (progress - 0.35) / 0.65)
+        if b > 0:
+            d.line([p1, (p1[0] + (p2[0] - p1[0]) * b, p1[1] + (p2[1] - p1[1]) * b)], fill=col, width=w, joint="curve")
+
+    ICONS = ("smile", "pages", "mic", "film", "photos", "bookmark", "follow", "chat", "search", "dollar", "card",
+             "chart", "house", "calendar", "check")
+
+    def icon(self, d, name, cx, cy, s, fill=None, width=3):
+        """Simple line icons in the notebook style (no emoji): one of Ctx.ICONS, size s, centered."""
+        col = self.rgba(fill or self.NB["ink"])
+        h = s / 2
+        L = lambda pts: d.line(pts, fill=col, width=width, joint="curve")
+        box = lambda x0, y0, x1, y1, r=4: d.rounded_rectangle([cx + x0 * h, cy + y0 * h, cx + x1 * h, cy + y1 * h], radius=r, outline=col, width=width)
+        if name == "smile":
+            d.ellipse([cx - h, cy - h, cx + h, cy + h], outline=col, width=width)
+            d.ellipse([cx - h * .4 - 2, cy - h * .3 - 2, cx - h * .4 + 2, cy - h * .3 + 2], fill=col)
+            d.ellipse([cx + h * .4 - 2, cy - h * .3 - 2, cx + h * .4 + 2, cy - h * .3 + 2], fill=col)
+            d.arc([cx - h * .5, cy - h * .3, cx + h * .5, cy + h * .5], 20, 160, fill=col, width=width)
+        elif name == "pages":
+            box(-.4, -.7, .8, .7); L([(cx - h * .8, cy - h * .3), (cx - h * .8, cy + h), (cx + h * .4, cy + h)])
+        elif name == "mic":
+            box(-.3, -1, .3, .25, r=int(h * .3)); d.arc([cx - h * .6, cy - h * .5, cx + h * .6, cy + h * .55], 0, 180, fill=col, width=width)
+            L([(cx, cy + h * .55), (cx, cy + h)])
+        elif name == "film":
+            box(-.75, -.95, .75, .95)
+            for x in (-.45, .45):
+                L([(cx + x * h, cy - h * .95), (cx + x * h, cy + h * .95)])
+            L([(cx - h * .45, cy), (cx + h * .45, cy)])
+        elif name == "photos":
+            box(-.6, -.6, .9, .9); L([(cx - h * .9, cy + h * .5), (cx - h * .9, cy - h * .9), (cx + h * .5, cy - h * .9)])
+            L([(cx - h * .5, cy + h * .7), (cx, cy + h * .1), (cx + h * .3, cy + h * .4), (cx + h * .5, cy + h * .2), (cx + h * .8, cy + h * .7)])
+        elif name == "bookmark":
+            L([(cx - h * .6, cy - h), (cx + h * .6, cy - h), (cx + h * .6, cy + h), (cx, cy + h * .45), (cx - h * .6, cy + h), (cx - h * .6, cy - h)])
+        elif name == "follow":
+            d.ellipse([cx - h * .7, cy - h, cx + h * .1, cy - h * .2], outline=col, width=width)
+            d.arc([cx - h * 1.1, cy - h * .1, cx + h * .5, cy + h * 1.5], 180, 360, fill=col, width=width)
+            L([(cx + h * .7, cy - h * .5), (cx + h * .7, cy + h * .1)]); L([(cx + h * .4, cy - h * .2), (cx + h, cy - h * .2)])
+        elif name == "chat":
+            d.rounded_rectangle([cx - h, cy - h * .8, cx + h, cy + h * .5], radius=int(h * .4), outline=col, width=width)
+            L([(cx - h * .4, cy + h * .5), (cx - h * .6, cy + h), (cx, cy + h * .5)])
+        elif name == "search":
+            d.ellipse([cx - h * .9, cy - h * .9, cx + h * .4, cy + h * .4], outline=col, width=width)
+            L([(cx + h * .3, cy + h * .3), (cx + h, cy + h)])
+        elif name == "dollar":
+            d.text((cx, cy), "$", font=self.font(self.NB_BOLD, int(s * 1.1)), fill=col, anchor="mm")
+        elif name == "card":
+            box(-1, -.65, 1, .65); L([(cx - h, cy - h * .25), (cx + h, cy - h * .25)]); L([(cx - h * .7, cy + h * .3), (cx - h * .2, cy + h * .3)])
+        elif name == "chart":
+            L([(cx - h, cy - h), (cx - h, cy + h), (cx + h, cy + h)])
+            L([(cx - h * .7, cy + h * .5), (cx - h * .2, cy), (cx + h * .2, cy + h * .3), (cx + h * .9, cy - h * .6)])
+        elif name == "house":
+            L([(cx - h, cy - h * .05), (cx, cy - h), (cx + h, cy - h * .05)]); box(-.7, -.25, .7, 1)
+        elif name == "calendar":
+            box(-.9, -.75, .9, .95); L([(cx - h * .9, cy - h * .3), (cx + h * .9, cy - h * .3)])
+            L([(cx - h * .45, cy - h), (cx - h * .45, cy - h * .55)]); L([(cx + h * .45, cy - h), (cx + h * .45, cy - h * .55)])
+        elif name == "check":
+            self.check(d, cx, cy, s, fill=fill, width=width)
+
+    # ---- motion style (look E): clean white cards, bold sans, one accent; moves learned from HyperFrames' catalog
+    MO = {"card": "#FFFFFF", "ink": "#111827", "muted": "#6B7280", "line": "#E5E7EB", "up": "#16A34A",
+          "down": "#DC2626", "accent": "#2563EB", "gold": "#F5C542"}
+    MO_BOLD, MO_BLACK, MO_SEMI = "Inter_800ExtraBold", "Montserrat_900Black", "Poppins_600SemiBold"
+
+    @staticmethod
+    def p3(x):  # power3.out
+        x = max(0.0, min(1.0, x))
+        return 1 - (1 - x) ** 3
+
+    @staticmethod
+    def expo(x):  # expo.out
+        x = max(0.0, min(1.0, x))
+        return 1.0 if x >= 1 else 1 - 2 ** (-10 * x)
+
+    @staticmethod
+    def inout(x):  # power2.inOut
+        x = max(0.0, min(1.0, x))
+        return 2 * x * x if x < 0.5 else 1 - (-2 * x + 2) ** 2 / 2
+
+    def prog(self, at, dur):
+        """0 -> 1 between `at` and `at + dur` seconds."""
+        return max(0.0, min(1.0, (self.t - at) / max(0.001, dur)))
+
+    def fmt_num(self, v, decimals=0, commas=True):
+        v = round(v, decimals)
+        if decimals == 0:
+            v = int(v)
+        return f"{v:,}" if commas else str(v)
+
+    # ---- "class" style (look F), measured from Jess Inskip's reels
+    JS = {"red": "#B41A1D", "bg": "#8E0C0E", "board": "#2E4636", "frame": "#5A3A22", "chalk": "#F1EFE6",
+          "chalk_y": "#E9D86A", "chalk_p": "#E64FA8", "chalk_b": "#7FC3F0", "ink": "#1A1A1A", "check": "#2E9E4F",
+          "paper": "#FBFBF8", "purple": "#6B3FD4", "marker": "#FFF07A"}
+    JS_RED, JS_SERIF, JS_SERIF_I, JS_CHALK = "Rubik_900Black", "DMSerifDisplay_400Regular", "DMSerifDisplay_400Regular_Italic", "CabinSketch_700Bold"
+
+    def typed_text(self, text, at, cps=28.0, cursor=True):
+        """Typewriter with an underscore cursor while typing (her signature): what to draw at this moment."""
+        n = int(max(0.0, self.t - at) * cps)
+        if n <= 0:
+            return ""
+        if n >= len(text):
+            return text
+        return text[:n] + ("_" if cursor else "")
+
+    def appear(self, t0, dur=0.1):
+        """0 -> 1 as time passes t0 (quick fade, for parts of a card that come in one after another)."""
+        return max(0.0, min(1.0, (self.t - t0) / dur)) if dur > 0 else float(self.t >= t0)
+
+    def faded(self, img, a):
+        if a >= 1:
+            return img
+        img = img.copy()
+        img.putalpha(img.getchannel("A").point(lambda v: int(v * a)))
+        return img
 
     def typed(self, text, cps=30.0, delay=0.0):
         """Typewriter: how much of `text` is visible now."""
@@ -70,7 +255,27 @@ class Ctx:
         return out
 
     def card(self, w, h, radius=18, fill="#FFFFFF", shadow=True):
-        """White rounded card with a soft shadow (screenshots, badges, receipts)."""
+        """White rounded card with a soft shadow (screenshots, badges, receipts). Cached: looks redraw every frame."""
+        key = (int(w), int(h), radius, str(fill), shadow)
+        if key not in _card_cache:
+            if len(_card_cache) > 64:
+                _card_cache.clear()
+            _card_cache[key] = self._card(*key)
+        img, pad = _card_cache[key]
+        return img.copy(), pad
+
+    def shadows(self, size, rects, radius=8, blur=6, alpha=70, dy=4):
+        """One soft shadow layer for several rounded rectangles (cached)."""
+        key = (tuple(size), tuple(tuple(int(v) for v in r) for r in rects), radius, blur, alpha, dy)
+        if key not in _card_cache:
+            sh = Image.new("RGBA", tuple(size), (0, 0, 0, 0))
+            d = ImageDraw.Draw(sh)
+            for x0, y0, x1, y1 in key[1]:
+                d.rounded_rectangle([x0, y0 + dy, x1, y1 + dy], radius=radius, fill=(0, 0, 0, alpha))
+            _card_cache[key] = sh.filter(ImageFilter.GaussianBlur(blur))
+        return _card_cache[key]
+
+    def _card(self, w, h, radius, fill, shadow):
         pad = 24 if shadow else 0
         img = Image.new("RGBA", (int(w) + pad * 2, int(h) + pad * 2), (0, 0, 0, 0))
         if shadow:
@@ -218,10 +423,21 @@ def all_looks():
     return out
 
 
+def _no_cues(v):
+    """Word cues ({"w": i}) that weren't turned into seconds (no project at hand): show them right away."""
+    if isinstance(v, dict):
+        if isinstance(v.get("w"), int) and set(v) <= {"w", "dt"}:
+            return 0.0
+        return {k: _no_cues(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_no_cues(x) for x in v]
+    return v
+
+
 def params_for(look_id, params):
     m = load(look_id)
     p = dict(getattr(m, "META", {}).get("params", {}))
-    p.update(params or {})
+    p.update(_no_cues(params or {}))
     return p
 
 

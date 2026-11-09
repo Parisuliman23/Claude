@@ -59,16 +59,18 @@
   <div class="clock"><b id="clock">0:00</b><small id="clockOf">of 0:00</small></div>
   <div class="tlwrap">
     <div class="tltools">
-      <button data-op="split" title="Split line at playhead (B)">⫶ Split</button>
-      <button data-op="cutBefore" title="Cut this line before the playhead (Q)">⇤ Cut before playhead</button>
-      <button data-op="cutAfter" title="Cut this line after the playhead (W)">⇥ Cut after playhead</button>
-      <button data-op="delete" title="Cut the selected words (Delete)">🗑 Delete</button>
+      <button data-op="split" class="big" title="Split the clip at the playhead (B)"><b>✂</b>Split</button>
+      <button data-op="delete" class="big" title="Delete the selected clip (Delete)"><b>🗑</b>Delete</button>
+      <button data-op="cutBefore" class="big" title="Cut this clip before the playhead (Q)"><b>⇤</b>Cut before</button>
+      <button data-op="cutAfter" class="big" title="Cut this clip after the playhead (W)"><b>⇥</b>Cut after</button>
       <span class="spacer"></span>
       <button data-op="zoomOut" title="Zoom out">−</button>
-      <input id="zoom" type="range" min="1" max="12" step="0.5" value="1">
+      <input id="zoom" type="range" min="0" max="5.6" step="0.1" value="2.9">
       <button data-op="zoomIn" title="Zoom in">+</button>
     </div>
-    <div id="tlScroll"><canvas id="tl" height="76"></canvas></div>
+    <div class="tlframe"><div id="tlScroll"><canvas id="tl" height="112"></canvas>
+      <div id="tlTrack"><button id="tlMute" title="Mute your voice on this clip"><b>🔊</b><span>Mute clip</span></button><button id="tlCover" title="Use the frame at the playhead as the cover"><b>🖼</b><span>Cover</span></button></div></div><div id="tlHead"></div></div>
+    <div class="tlhint">Slide the strip to move · tap a clip to select it · drag its white handles to trim</div>
   </div>
   <button id="nextBtn" class="primary">Next: Visuals ›</button>
 </footer>

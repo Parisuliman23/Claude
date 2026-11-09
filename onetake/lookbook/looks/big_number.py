@@ -2,13 +2,13 @@ META = {
     "name": "Big number counter",
     "description": "A big white number that counts up with ease-out (~1.25 s, fast start, slow settle), with a handwritten label. No card.",
     "params": {"to": 50000, "from": 0, "prefix": "$", "suffix": "", "label": "paid off in 1 year", "size": 190,
-               "count_time": 1.25, "color": "#FFFFFF", "commas": True, "font": "Montserrat_900Black"},
+               "count_time": 1.25, "color": "#FFFFFF", "commas": True, "font": "Montserrat_900Black", "count_at": 0.0},
 }
 
 
 def render(ctx):
     p = ctx.p
-    k = ctx.ease(min(1.0, ctx.t / max(0.1, p["count_time"])))
+    k = ctx.ease(min(1.0, max(0.0, ctx.t - p["count_at"]) / max(0.1, p["count_time"])))  # count_at: on the number
     n = p["from"] + (p["to"] - p["from"]) * k
     n = int(round(n))
     fmt = (lambda v: f"{v:,}") if p["commas"] else str

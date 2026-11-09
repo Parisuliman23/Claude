@@ -27,6 +27,52 @@ function buildSegments(words, duration, s) {
   return segs;
 }
 
+// mirror of engine/timeline.py apply_time_edits: CapCut-style cuts/splits in source seconds
+function applyKeeps(segs, keeps) {  // mirror of engine/timeline.py _apply_keeps
+  segs = segs.map(s => Object.assign({}, s));
+  for (let [a, b] of (keeps || []).map(([a, b]) => [+a, +b]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0])) {
+    a = Math.max(0, a);
+    const hit = segs.filter(s => s.s <= b + 0.05 && s.e >= a - 0.05);
+    if (!hit.length) continue;
+    const m = { w0: Math.min(...hit.map(s => s.w0)), w1: Math.max(...hit.map(s => s.w1)),
+      s: +Math.min(a, ...hit.map(s => s.s)).toFixed(3), e: +Math.max(b, ...hit.map(s => s.e)).toFixed(3) };
+    segs = segs.filter(s => !hit.includes(s)).concat([m]).sort((x, y) => x.s - y.s);
+  }
+  return segs;
+}
+function applyTimeEdits(segs, words, cuts, splits, keeps) {
+  if (!(cuts && cuts.length) && !(splits && splits.length) && !(keeps && keeps.length)) return segs;
+  if (keeps && keeps.length) segs = applyKeeps(segs, keeps);
+  cuts = (cuts || []).map(([a, b]) => [+a, +b]).filter(([a, b]) => b > a).sort((x, y) => x[0] - y[0]);
+  const sp = (splits || []).map(Number).sort((a, b) => a - b), out = [];
+  for (const sg of segs) {
+    let pieces = [[sg.s, sg.e]];
+    for (const [a, b] of cuts) {
+      const nxt = [];
+      for (const [s, e] of pieces) {
+        if (b <= s || a >= e) { nxt.push([s, e]); continue; }
+        if (a > s) nxt.push([s, a]);
+        if (b < e) nxt.push([b, e]);
+      }
+      pieces = nxt;
+    }
+    for (const x of sp) {
+      const nxt = [];
+      for (const [s, e] of pieces) { if (s + 0.05 < x && x < e - 0.05) nxt.push([s, x], [x, e]); else nxt.push([s, e]); }
+      pieces = nxt;
+    }
+    for (const [s, e] of pieces) {
+      if (e - s < 0.04) continue;
+      const ins = [];
+      for (let i = sg.w0; i <= sg.w1; i++) { const m = (words[i].s + words[i].e) / 2; if (s <= m && m < e) ins.push(i); }
+      if (ins.length) out.push({ w0: ins[0], w1: ins[ins.length - 1], s: +s.toFixed(3), e: +e.toFixed(3) });
+    }
+  }
+  let t = 0;
+  for (const sg of out) { sg.o = +t.toFixed(3); t += sg.e - sg.s; }
+  return out;
+}
+
 const totalLen = segs => segs.reduce((a, sg) => a + sg.e - sg.s, 0);
 
 function segOfWord(segs, i) {
@@ -105,7 +151,7 @@ function overlaySpan(p, words, segs, ov) {
 
 // ---- animation (engine/draw.py anim_state)
 const ANIM_DUR = 0.3;
-const ANIM_DURS = { "snap": 0.1, "slide-up": 0.2, "slide-down": 0.2 };
+const ANIM_DURS = { "snap": 0.1, "slide-up": 0.2, "slide-down": 0.2, "rise": 0.2, "fade-quick": 0.1 };
 const animDur = k => ANIM_DURS[k] ?? ANIM_DUR;
 const easeOutCubic = x => 1 - Math.pow(1 - x, 3);
 const easeOutBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
@@ -123,6 +169,8 @@ function animState(kind, p) {
     case "slide-down": st.dy = -(1 - e) * 0.5; break;
     case "spin": st.rot = (1 - e) * 360; st.scale = e; break;
     case "snap": st.scale = 0.4 + 0.6 * e; break;
+    case "rise": st.alpha = p; st.dy = (1 - e) * 0.015; break;
+    case "fade-quick": st.alpha = p; break;
     case "zoom": st.scale = 1 + (1 - e) * 1.5; st.alpha = p; break;
   }
   return st;

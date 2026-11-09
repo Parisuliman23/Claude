@@ -11,7 +11,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import analyze, bridge, config, draw, finish, looks, project, render
+from . import analyze, bridge, config, draw, finish, looks, project, render, timeline
 
 JOBS = {}  # (name, kind) -> {status, progress, result, error}
 mimetypes.add_type("font/ttf", ".ttf")
@@ -54,8 +54,9 @@ def library():
         d = config.LIBRARY / kind
         files = sorted([f for f in d.glob("*") if f.suffix.lower() in exts], key=lambda f: f.name.lower()) if d.exists() else []
         out[kind] = [{"path": config.rel(f), "name": f.stem} for f in files]
-    from . import sfx
+    from . import sfx, reference
     out["sfx"] = sfx.library()
+    out["references"] = reference.listing()
     fav = config.LOOKBOOK / "favorites.json"
     out["favorites"] = json.loads(fav.read_text()) if fav.exists() else []
     return out
@@ -67,16 +68,17 @@ def lookbook():
             "filters": json.loads((config.LOOKBOOK / "filters.json").read_text()) if (config.LOOKBOOK / "filters.json").exists() else []}
 
 
-def thumb(name, t, w=360):
+def thumb(name, t, w=360, src=False):
+    """A still at output time t (or, with src=True, at source time t: the timeline's film strip)."""
     t = round(max(0.0, t), 1)
-    out = project.pdir(name) / "cache" / "thumbs" / f"{t:.1f}.jpg"
+    out = project.pdir(name) / "cache" / "thumbs" / (f"s{t:.1f}_{w}.jpg" if src else f"{t:.1f}.jpg")
     if not out.exists():
         import cv2
         out.parent.mkdir(parents=True, exist_ok=True)
         p = project.load(name)
         segs = project.segments(p)
         from . import timeline
-        _, ts = timeline.out_to_src(segs, t)
+        ts = t if src else timeline.out_to_src(segs, t)[1]
         reader = render.FrameReader(config.absolute(p["source"]))
         fr = None
         for back in (0, 0.5, 2, 5):  # the last frames of some phone videos can't be read: step back a little
@@ -166,7 +168,7 @@ class Handler(BaseHTTPRequestHandler):
         b = self.body()
         return json.loads(b) if b else {}
 
-    def send_file(self, path):
+    def send_file(self, path, cache=False):
         path = Path(path)
         if not path.is_file():
             return self.send_error(404)
@@ -190,7 +192,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))
-        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Cache-Control", "public, max-age=604800" if cache else "no-cache")
         self.end_headers()
         with open(path, "rb") as f:
             f.seek(start)
@@ -231,6 +233,8 @@ class Handler(BaseHTTPRequestHandler):
         st = config.settings()
         if not st.get("phone_access"):
             return not self.via_tunnel()
+        if st.get("phone_pin_off"):  # you chose no PIN: anyone with the link can use the phone page
+            return True
         c = self.headers.get("Cookie") or ""
         return f"onetake_pin={pin_token(st)}" in c.replace(" ", "").split(";")
 
@@ -334,14 +338,15 @@ class Handler(BaseHTTPRequestHandler):
                 st = config.settings()
                 from . import tunnel
                 return self.send_json({"phone_access": bool(st.get("phone_access")), "phone_pin": st.get("phone_pin"),
+                                       "phone_pin_off": bool(st.get("phone_pin_off")),
                                        "phone_link": tunnel.status(),
                                        "claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
                                        "stock": bool(os.environ.get("PIXABAY_API_KEY") or st.get("pixabay_key")),
                                        "settings": {k: st[k] for k in ("max_gap", "pad_before", "pad_after", "width", "height", "fps")}})
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)/thumb", path)
             if m:  # a still of your own video at output time t, for previews drawn "on your frame"
-                f = thumb(m.group(1), float(q.get("t", 1)))
-                return self.send_file(f) if f else self.send_error(404)
+                f = thumb(m.group(1), float(q.get("t", 1)), int(q.get("w", 360)), bool(q.get("src")))
+                return self.send_file(f, cache=bool(q.get("src"))) if f else self.send_error(404)
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)(/rev)?", path)
             if m:
                 p = project.load(m.group(1))
@@ -351,6 +356,9 @@ class Handler(BaseHTTPRequestHandler):
                 if m.group(2):
                     return self.send_json({"rev": p.get("rev", 0), "jobs": jobs_for(m.group(1)),
                                            "requests": p.get("requests", [])})
+                prox = project.pdir(m.group(1)) / "cache" / "proxy.mp4"
+                if prox.exists() and prox.stat().st_mtime >= config.absolute(p["source"]).stat().st_mtime:
+                    p = dict(p, _proxy=config.rel(prox))  # the light preview copy made at import
                 return self.send_json(p)
             return self.send_error(404)
 
@@ -407,6 +415,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json({"have": part.stat().st_size})
             part.replace(dest)
             return self.send_json({"saved": dest.name})
+        if path == "/api/phone-pin":  # ask for a PIN on the phone link, or not
+            f = config.ROOT / "settings.json"
+            st = json.loads(f.read_text()) if f.exists() else {}
+            st["phone_pin_off"] = not bool(self.jbody().get("on"))
+            f.write_text(json.dumps(st, indent=1))
+            return self.send_json({"pin_on": not st["phone_pin_off"]})
         if path == "/api/phone-access":  # turn sending from your phone on/off (creates the PIN)
             import secrets
             b = self.jbody()
@@ -447,11 +461,19 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"started": True})
         if path == "/api/upload":
             kind = q.get("kind", "images")
-            if kind not in ("gifs", "images", "broll", "sounds", "sfx"):
+            if kind not in ("gifs", "images", "broll", "sounds", "sfx", "references"):
                 return self.send_error(400)
             fname = re.sub(r"[^\w.\- ]", "_", Path(q.get("name", "upload")).name)
             dest = config.LIBRARY / kind / fname
-            dest.write_bytes(self.body())
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            left = int(self.headers.get("Content-Length") or 0)
+            with open(dest, "wb") as fh:  # stream: reference reels can be big
+                while left > 0:
+                    chunk = self.rfile.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+                    left -= len(chunk)
             return self.send_json({"path": config.rel(dest)})
         m = re.fullmatch(r"/api/project/([a-z0-9-]+)(?:/([a-z-]+))?", path)
         if not m:
@@ -478,7 +500,14 @@ class Handler(BaseHTTPRequestHandler):
                                                q.update({"edit_rev": q.get("edit_rev", 0) + 1})))
             return self.send_json({"sfx": p.get("sfx", [])})
         if action == "sprite":
-            meta = looks.sprite(b["look"], b.get("params", {}), float(b.get("dur", 3)),
+            params = b.get("params", {})
+            if b.get("w0") is not None:  # time word cues to this reel's words
+                p = project.load(name)
+                words, segs = p["words"], project.segments(p)
+                wo = timeline.word_out(words, segs, int(b["w0"]))
+                if wo:
+                    params = timeline.resolve_cues(params, words, segs, wo[0])
+            meta = looks.sprite(b["look"], params, float(b.get("dur", 3)),
                                 project.pdir(name) / "cache")
             return self.send_json(meta)
         if action == "faces":

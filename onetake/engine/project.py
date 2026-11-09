@@ -79,7 +79,9 @@ def list_projects():
 
 def segments(p, words=None, order=None):
     s = config.settings()
-    return timeline.build_segments(words or p["words"], p["duration"], s["max_gap"], s["pad_before"], s["pad_after"], order=order)
+    words = words or p["words"]
+    segs = timeline.build_segments(words, p["duration"], s["max_gap"], s["pad_before"], s["pad_after"], order=order)
+    return timeline.apply_time_edits(segs, words, p.get("time_cuts"), p.get("splits"), p.get("time_keeps"))
 
 
 def lines(p):

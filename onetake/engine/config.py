@@ -24,12 +24,18 @@ DEFAULTS = {
     "max_gap": 0.35,          # longer silences than this get cut
     "pad_before": 0.06,       # breathing room kept before a word
     "pad_after": 0.12,        # and after it
-    "default_caption_style": "warm-chest",
-    "default_hook_look": "typed_title",
+    "default_caption_style": "notebook-word",
+    "default_hook_look": "serif_hook",
     "music_volume": 0.12,
     "claude_bridge": "auto",  # auto | off  — let the studio send requests to Claude Code
     "port": 5178,
+    # fast: quicker new-reel edits (lighter caption model, quicker Claude, faster encoding); best: slower, finest
+    "edit_speed": "fast",
 }
+
+
+def fast():
+    return settings().get("edit_speed", "fast") != "best"
 
 
 def settings():

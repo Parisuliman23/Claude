@@ -70,6 +70,55 @@ def _broll_frame(b, rd, t_local, W, H):
     return cover_fit(rd.at(float(b.get("clip_start", 0)) + t_local), W, H)
 
 
+CLASS_RED = (14, 12, 142)  # BGR: the deep red behind "class" screens (Look F)
+CLASS_WIN = (0.025, 0.035, 0.975, 0.505)  # x0, y0, x1, y1 of the window on top
+CLASS_CAM = (0.03, 0.535, 0.97, 0.985)    # the speaker box underneath
+_mask_cache = {}
+
+
+def _feather(w, h, r):
+    k = (w, h, r)
+    if k not in _mask_cache:
+        m = np.zeros((h, w), np.float32)
+        m[r:h - r, r:w - r] = 1.0
+        m = cv2.GaussianBlur(m, (0, 0), r / 2)
+        _mask_cache[k] = m[..., None]
+    return _mask_cache[k]
+
+
+def class_layout(speaker, media, W, H, focus=(0.5, 0.4)):
+    """Look F 'class screen': deep red page, a window on top (screenshot, screen recording or notes) and the speaker in
+    a soft-edged box underneath. media: BGR frame for the window, or None (an empty page for a graphic on top)."""
+    out = np.empty((H, W, 3), np.uint8)
+    out[:] = CLASS_RED
+    x0, y0, x1, y1 = (int(CLASS_CAM[0] * W), int(CLASS_CAM[1] * H), int(CLASS_CAM[2] * W), int(CLASS_CAM[3] * H))
+    bw, bh = x1 - x0, y1 - y0
+    sh, sw = speaker.shape[:2]
+    sc = max(bw / sw, bh / sh) * 1.25  # a little closer than the full frame, framed on the face
+    nw, nh = int(sw * sc), int(sh * sc)
+    big = cv2.resize(speaker, (nw, nh), interpolation=cv2.INTER_AREA)
+    cx = int(min(max(0, focus[0] * nw - bw / 2), nw - bw))
+    cy = int(min(max(0, focus[1] * nh - bh * 0.42), nh - bh))
+    cam = big[cy:cy + bh, cx:cx + bw].astype(np.float32)
+    m = _feather(bw, bh, max(8, int(W * 0.035)))
+    out[y0:y1, x0:x1] = (cam * m + out[y0:y1, x0:x1].astype(np.float32) * (1 - m)).astype(np.uint8)
+    if media is not None:
+        wx0, wy0, wx1, wy1 = (int(CLASS_WIN[0] * W), int(CLASS_WIN[1] * H), int(CLASS_WIN[2] * W), int(CLASS_WIN[3] * H))
+        bar = int(H * 0.022)
+        cv2.rectangle(out, (wx0 + 6, wy0 + 10), (wx1 + 6, wy1 + 10), (8, 6, 90), -1)  # soft drop shadow
+        cv2.rectangle(out, (wx0, wy0), (wx1, wy1), (250, 250, 250), -1)
+        for k, col in enumerate(((95, 95, 255), (60, 190, 255), (80, 200, 40))):  # the mac window dots
+            cv2.circle(out, (wx0 + 24 + k * 26, wy0 + bar // 2 + 2), 8, col, -1, cv2.LINE_AA)
+        iw, ih = wx1 - wx0 - 16, wy1 - wy0 - bar - 12
+        mh, mw = media.shape[:2]
+        s2 = min(iw / mw, ih / mh)
+        rw, rh = max(1, int(mw * s2)), max(1, int(mh * s2))
+        r = cv2.resize(media, (rw, rh), interpolation=cv2.INTER_AREA)
+        ox, oy = wx0 + 8 + (iw - rw) // 2, wy0 + bar + 4 + (ih - rh) // 2
+        out[oy:oy + rh, ox:ox + rw] = r
+    return out
+
+
 def cover_fit(fr, W, H):
     h, w = fr.shape[:2]
     if (w, h) == (W, H):
@@ -128,7 +177,8 @@ def _audio(p, segs, T, out):
         fl.append(f"[0:a]atrim={sg['s']}:{sg['e']},asetpts=PTS-STARTPTS,"
                   f"afade=t=in:d=0.012,afade=t=out:st={max(0, ln - 0.012):.3f}:d=0.012[a{k}]")
         parts.append(f"[a{k}]")
-    fl.append("".join(parts) + f"concat=n={len(segs)}:v=0:a=1[voice]")
+    vv = float(p.get("voice_volume", 1.0))  # the timeline's "Mute clip" sets this to 0
+    fl.append("".join(parts) + f"concat=n={len(segs)}:v=0:a=1" + (f",volume={vv}" if vv != 1.0 else "") + "[voice]")
     cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", src]
     snd = p.get("sound") or {}
     mix = ["[voice]"]
@@ -275,8 +325,10 @@ class Composer:
         self.ovs = []
         for ov in p.get("overlays", []):
             sp = timeline.overlay_span(p, words, segs, ov)
-            if sp:
-                self.ovs.append((ov, sp))
+            if sp:  # word cues inside the look ({"w": i}) become seconds from its start
+                self.ovs.append((timeline.with_cues(ov, words, segs, sp[0]), sp))
+        from . import fx as _fx
+        self.fx = _fx.spans(p, words, segs) if layer in ("full", "base") else []
         self.brolls = []
         for b in p.get("broll", []):
             sp = timeline.range_out(words, segs, b["w0"], b["w1"])
@@ -303,7 +355,11 @@ class Composer:
             sg, ts = timeline.out_to_src(segs, t)
             br = next(((b, sp, rd) for b, sp, rd in self.brolls if sp[0] <= t < sp[1]), None)
             split = bool(br and br[0].get("layout") == "split")
-            if br and not split:
+            if br and br[0].get("layout") == "class":  # Look F: red page, window on top, speaker below
+                b, sp, rd = br
+                media = rd.at(float(b.get("clip_start", 0)) + t - sp[0]) if (b.get("src") and rd is not None) else None
+                frame = class_layout(self.speaker(ts, t), media, W, H, timeline.focus(self.p))
+            elif br and not split:
                 b, sp, rd = br
                 frame = draw.apply_filter(_broll_frame(b, rd, t - sp[0], W, H), self.filter)
                 if b.get("trans") == "fade":  # "Comes in: Fade" — cross-dissolve with the speaker
@@ -323,6 +379,11 @@ class Composer:
                     y0 = int(min(max(0, timeline.focus(self.p)[1] * H - 0.4 * (H // 2)), H - (H - H // 2)))
                     bottom = frame[y0:y0 + (H - H // 2)].copy()
                     frame = np.vstack([top, bottom])
+            if self.fx:  # transitions / camera moves on a word (whip, zoom, shake, glitch, light leak)
+                from . import fx as _fx
+                for f, a, b in self.fx:
+                    if a <= t < b and f["kind"] not in ("flash", "drip"):
+                        frame = _fx.footage(frame, f, (t - a) / (b - a), int(round(t * self.fps)))
             dim = max((float(ov.get("dim", 0)) for ov, (a, b) in self.ovs if a <= t < b), default=0.0)
             if dim > 0:  # receipt stacks: darken the background so the cards read
                 frame = (frame * (1 - min(0.8, dim))).astype(np.uint8)
@@ -350,14 +411,36 @@ class Composer:
                         active = i
                 t_in = t - g["start"]
                 pop = bool(style.get("pop"))
-                key = (gi, active, min(5, int(t_in * self.fps)) if pop else 0)
+                chars = None
+                if style.get("type_cps"):  # typewriter captions (Look F)
+                    total = sum(len(words[i]["t"]) + 1 for i in g["w"])
+                    chars = int(t_in * float(style["type_cps"]))
+                    chars = None if chars >= total else chars
+                key = (gi, active, min(5, int(t_in * self.fps)) if pop else 0, chars)
                 if key not in self.cap_cache:
                     if len(self.cap_cache) > 200:
                         self.cap_cache.clear()
-                    self.cap_cache[key] = draw.caption_image(words, g, active, style, W, t_in if pop else None)
+                    self.cap_cache[key] = draw.caption_image(words, g, active, style, W, t_in if pop else None, chars)
                 in_split = any(b.get("layout") == "split" and sp[0] <= t < sp[1] for b, sp, _ in self.brolls)
-                cy = 0.5 if in_split else style.get("y", 0.7)  # split screen: caption sits on the seam
-                put(self.cap_cache[key], float(style.get("x", 0.5)) * W, cy * H)
+                in_class = any(b.get("layout") == "class" and sp[0] <= t < sp[1] for b, sp, _ in self.brolls)
+                cy = 0.52 if in_class else 0.5 if in_split else style.get("y", 0.7)  # split screen: caption sits on the seam
+                cap = self.cap_cache[key]
+                fade = float(style.get("fade") or 0)
+                if fade and t_in < fade:  # word swap as a 2-frame cross-dissolve, like the notebook style
+                    k = t_in / fade
+                    prev = self.groups[gi - 1] if gi else None
+                    if prev and g["start"] - prev["end"] < 0.05:
+                        pkey = ("fadeout", gi - 1)
+                        if pkey not in self.cap_cache:
+                            self.cap_cache[pkey] = draw.caption_image(words, prev, prev["w"][-1], style, W, None)
+                        put(draw.transform(self.cap_cache[pkey], {"scale": 1, "rot": 0, "alpha": 1 - k, "dx": 0, "dy": 0}),
+                            float(style.get("x", 0.5)) * W, cy * H)
+                    cap = draw.transform(cap, {"scale": 1, "rot": 0, "alpha": k, "dx": 0, "dy": 0})
+                put(cap, float(style.get("x", 0.5)) * W, cy * H)
+        for f, a, b in getattr(self, "fx", []):  # a white flash covers the graphics too
+            if f["kind"] in ("flash", "drip") and a <= t < b:
+                from . import fx as _fx
+                frame = _fx.over_everything(frame, f, (t - a) / (b - a))
         return frame
 
     def speaker(self, ts, t):
@@ -414,7 +497,7 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
         _audio(c.p, c.segs, c.T, tmp_audio)
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
                "-r", str(fps), "-i", "-", "-i", str(tmp_audio), "-map", "0:v", "-map", "1:a",
-               "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-pix_fmt", "yuv420p", "-c:a", "copy",
+               "-c:v", "libx264", "-preset", "veryfast" if config.fast() else "fast", "-crf", "19", "-pix_fmt", "yuv420p", "-c:a", "copy",
                "-shortest", "-movflags", "+faststart", str(out)]
     else:
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", f"{W}x{H}",
@@ -443,7 +526,7 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
         if c.transparent:
             cmd += _prores_alpha()
         else:
-            cmd += ["-filter:a", f"atempo={speed}", "-c:v", "libx264", "-preset", "fast", "-crf", "19", "-pix_fmt", "yuv420p",
+            cmd += ["-filter:a", f"atempo={speed}", "-c:v", "libx264", "-preset", "veryfast" if config.fast() else "fast", "-crf", "19", "-pix_fmt", "yuv420p",
                     "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
         subprocess.run(cmd + [str(tmp)], check=True)
         tmp.replace(out)

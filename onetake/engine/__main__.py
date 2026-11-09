@@ -26,6 +26,13 @@
   requests [NAME]           list studio requests waiting for Claude
   request-done NAME ID --note "..." [--options a,b,c] [--failed]
   look-preview LOOK [--params JSON] [--out file.png]
+  add-fx NAME --json '{"kind": "whip", "w": 57}'   transition on a word: whip | zoom | flash | shake | glitch | light_leak
+  remove-fx NAME ID
+  style-pick NAME           which editing style fits this video best (notebook / motion / mix), and why
+  study-ref library/references/x.mp4   measure a reference reel (frame sheets, cuts, words, sound) into lookbook/references/
+  proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
+  image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  variants NAME [STYLE ...] make extra versions of an edit (default: class + the style-pick), each its own project
   list                      list projects
 """
 import argparse
@@ -47,6 +54,10 @@ def show(name):
     from . import timeline
     segs = project.segments(p)
     print(f"{p['title']}  —  {timeline.total(segs):.1f}s after cuts (raw {p['duration']:.1f}s), caption style: {p['caption_style']}")
+    for f in p.get("fx", []):
+        print(f"  fx {f.get('id')} {f.get('kind')} on word {f.get('w')}")
+    if p.get("card_y") is not None:  # notebook layout, worked out from where the face is
+        print(f"layout: captions at y {p.get('caption_y')}, notebook cards at y {p['card_y']} (keeps the face clear)")
     for l in project.lines(p):
         ws = []
         for i in range(l["w0"], l["w1"] + 1):
@@ -176,6 +187,63 @@ def main(argv=None):
             p["edit_rev"] = p.get("edit_rev", 0) + 1
         project.update(args[0], fn)
         print(f"Set {key}.")
+        return
+    if c == "variants":  # extra versions of the same cut in other styles (one is always the class style)
+        from . import variants
+        made = variants.make(args[0], args[1:] or None)
+        for v in made:
+            print(f"{'Already have' if v.get('existing') else 'Made'} {v['name']}  ({v['style']} style)")
+        if made:
+            print("Style each one like a normal edit (same words, its own looks), e.g. `show " + made[0]["name"] + "`.")
+        return
+    if c == "study-ref":  # measure a reference reel (frames, cuts, words, sound) for Claude to learn its style
+        from . import reference
+        info = reference.study(args[0])
+        print(json.dumps(info, indent=1))
+        print("Now look at each sheet image, then write lookbook/style/NN-<name>.md and a STYLE.md section (CLAUDE.md, kind reference).")
+        return
+    if c == "proxy":  # the light preview copy for the studio (normally made at import)
+        from . import ingest
+        print(ingest.make_proxy(args[0]) or "Couldn't make it.")
+        return
+    if c == "image-find":  # stickers / illustrations / photos for looks (Pixabay)
+        from . import stock
+        kind = (json.loads(a.json) if a.json else {}).get("type", "all")
+        try:
+            got = stock.image_search(" ".join(args), a.n, kind)
+        except stock.NoKey as e:
+            raise SystemExit(str(e))
+        print("\n".join(got) or "Nothing found. Try simpler words.")
+        return
+    if c == "style-pick":  # which editing style fits this video (notebook / motion / mix)
+        from . import stylepick
+        p = project.load(args[0])
+        r = stylepick.analyze(p)
+        project.update(args[0], lambda q: q.update({"style_pick": {"pick": r["pick"], "scores": r["scores"]}}))
+        print(f"Best style: {r['pick'].upper()}  (scores: {r['scores']})")
+        for line in r["reasons"]:
+            print("  -", line)
+        print(f"  captions: set {args[0]} caption_style --json '\"{stylepick.STYLE_CAPTIONS[r['pick']]}\"'")
+        for k, v in r["moments"].items():
+            if v:
+                print(f"  {k} words at: {', '.join(map(str, v[:20]))}")
+        return
+    if c in ("add-fx", "remove-fx"):  # transitions on a word: whip, zoom, flash, shake, glitch, light_leak
+        from . import fx as _fx
+
+        def fn(p):
+            if c == "add-fx":
+                f = json.loads(a.json)
+                if f.get("kind") not in _fx.KINDS:
+                    raise SystemExit(f"kind must be one of: {', '.join(_fx.KINDS)}")
+                f.setdefault("id", project.new_id("f"))
+                p.setdefault("fx", []).append(f)
+                print("Added effect", f["id"])
+            else:
+                p["fx"] = [f for f in p.get("fx", []) if f.get("id") != args[1]]
+                print("Removed", args[1])
+            p["edit_rev"] = p.get("edit_rev", 0) + 1
+        project.update(args[0], fn)
         return
     if c in ("overlay", "add-overlay", "remove-overlay"):
         def fn(p):

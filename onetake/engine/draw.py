@@ -11,7 +11,7 @@ from . import config
 
 ANIM_DUR = 0.3
 # Your style: pops are near-instant (40->100% in ~3 frames), headline cards slide up in 0.2 s.
-ANIM_DURS = {"snap": 0.1, "slide-up": 0.2, "slide-down": 0.2}
+ANIM_DURS = {"snap": 0.1, "slide-up": 0.2, "slide-down": 0.2, "rise": 0.2, "fade-quick": 0.1}
 
 
 def anim_dur(kind):
@@ -65,6 +65,11 @@ def anim_state(kind, p):
         st["scale"] = e
     elif kind == "snap":
         st["scale"] = 0.4 + 0.6 * e
+    elif kind == "rise":  # notebook cards: fade in while lifting a little (6 frames)
+        st["alpha"] = p
+        st["dy"] = (1 - e) * 0.015
+    elif kind == "fade-quick":
+        st["alpha"] = p
     elif kind == "zoom":
         st["scale"] = 1 + (1 - e) * 1.5
         st["alpha"] = p
@@ -186,7 +191,7 @@ def caption_layout(words, idxs, style, W):
     return lines, space
 
 
-def caption_image(words, group, active, style, W, t_in=None):
+def caption_image(words, group, active, style, W, t_in=None, chars=None):
     lines, space = caption_layout(words, group["w"], style, W)
     size = style["size"]
     lh = size * 1.18
@@ -205,22 +210,28 @@ def caption_image(words, group, active, style, W, t_in=None):
     if style.get("shadow"):
         sh = Image.new("RGBA", img.size, (0, 0, 0, 0))
         sd = ImageDraw.Draw(sh)
-        _draw_words(sd, lines, space, pad, tw, lh, size, style, active, shadow=True)
+        _draw_words(sd, lines, space, pad, tw, lh, size, style, active, shadow=True, chars=chars)
         sh = sh.filter(ImageFilter.GaussianBlur(size * 0.08))
         img = Image.alpha_composite(sh, img)
         d = ImageDraw.Draw(img)
-    _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=stroke, sw=sw)
+    _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=stroke, sw=sw, chars=chars)
     if style.get("pop") and t_in is not None and t_in < 0.15:
         img = transform(img, {"scale": 0.75 + 0.25 * ease_out_back(t_in / 0.15), "rot": 0, "alpha": 1, "dx": 0, "dy": 0})
     return img
 
 
-def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, sw=0, shadow=False):
+def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, sw=0, shadow=False, chars=None):
+    """chars: typewriter captions: only this many characters are drawn, then an underscore cursor."""
+    left = 10 ** 9 if chars is None else chars
     for li, (items, lw) in enumerate(lines):
         x = pad + (tw - lw) / 2
         base = pad + li * lh + size * 0.92  # baseline
         for it in items:
             f = font(it["font"], it["size"])
+            if style.get("active_box") and it["i"] == active and not shadow:
+                pad_x, h = size * 0.16, size * 1.08
+                d.rounded_rectangle([x - pad_x, base - size * 0.86, x + it["w"] + pad_x, base - size * 0.86 + h],
+                                    radius=size * 0.2, fill=rgba(style["active_box"]))
             if shadow:
                 fill = (0, 0, 0, 150)
             elif it["emph"]:
@@ -233,7 +244,13 @@ def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, 
             if sw and not shadow:
                 kw = {"stroke_width": sw, "stroke_fill": stroke}
             yoff = size * 0.06 if shadow else 0
-            d.text((x + yoff, base + yoff), it["text"], font=f, fill=fill, anchor="ls", **kw)
+            text = it["text"]
+            if left <= 0:
+                return
+            if left < len(text):
+                text = text[:left] + "_"
+            d.text((x + yoff, base + yoff), text, font=f, fill=fill, anchor="ls", **kw)
+            left -= len(it["text"]) + 1
             x += it["w"] + space
 
 
@@ -288,27 +305,36 @@ def emoji_codes():
     return sorted(p.stem for p in config.EMOJI.glob("*.png"))
 
 
+def filter_matrix(fl):
+    """The filter's steps (gray, saturation, contrast, brightness, warmth, lift) are all linear per pixel, so they
+    combine into one 3x4 color matrix: applying it once is several times faster than step by step."""
+    luma = np.array([0.114, 0.587, 0.299], np.float64)  # B, G, R
+    M, b = np.eye(3), np.zeros(3)
+
+    def then(A, c=0.0):
+        nonlocal M, b
+        M, b = A @ M, A @ b + c
+    if fl.get("gray"):
+        g = fl["gray"]
+        then((1 - g) * np.eye(3) + g * np.outer(np.ones(3), luma))
+    sat = fl.get("sat", 1.0)
+    if sat != 1.0:
+        then(sat * np.eye(3) + (1 - sat) * np.outer(np.ones(3), luma))
+    c = fl.get("contrast", 1.0)
+    if c != 1.0:
+        then(c * np.eye(3), 128.0 * (1 - c))
+    then(fl.get("bright", 1.0) * np.eye(3))
+    w = fl.get("warm", 0.0)
+    if w:
+        then(np.diag([1 - w, 1.0, 1 + w]))  # less blue, more red
+    lift = fl.get("lift", 0.0)
+    if lift:
+        then((1 - lift) * np.eye(3), lift * 255.0)
+    return np.hstack([M, b[:, None]])
+
+
 def apply_filter(frame, fl):
     """Color filter on a BGR frame. Mirrored (approximately) by CSS filters in the studio preview."""
     if not fl or fl.get("id") in (None, "none"):
         return frame
-    x = frame.astype(np.float32)
-    if fl.get("gray"):
-        g = x @ np.array([0.114, 0.587, 0.299], np.float32)
-        x = x * (1 - fl["gray"]) + g[..., None] * fl["gray"]
-    sat = fl.get("sat", 1.0)
-    if sat != 1.0:
-        g = (x @ np.array([0.114, 0.587, 0.299], np.float32))[..., None]
-        x = g + (x - g) * sat
-    c = fl.get("contrast", 1.0)
-    if c != 1.0:
-        x = (x - 128.0) * c + 128.0
-    x = x * fl.get("bright", 1.0)
-    w = fl.get("warm", 0.0)
-    if w:
-        x[..., 2] *= 1 + w  # red
-        x[..., 0] *= 1 - w  # blue
-    lift = fl.get("lift", 0.0)
-    if lift:
-        x = lift * 255.0 + x * (1 - lift)
-    return np.clip(x, 0, 255).astype(np.uint8)
+    return cv2.transform(frame, filter_matrix(fl))  # rounds and clips to 0-255
