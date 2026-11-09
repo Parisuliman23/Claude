@@ -1834,7 +1834,7 @@ const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24
 // so silent moments like fixing the camera can be cut too. Mirrors engine/timeline.py apply_time_edits.
 const tl = $("#tl"), tctx = tl.getContext("2d"), tlBox = $("#tlScroll");
 S.pps = 60;  // pixels per second
-const TL_H = 124, STRIP_Y = 20, STRIP_H = 56, OV_Y = STRIP_Y + STRIP_H + 5, BR_Y = OV_Y + 22, BAR_H = 18;
+const TL_H = 112, STRIP_Y = 20, STRIP_H = 56, OV_Y = STRIP_Y + STRIP_H + 6, BR_Y = OV_Y + 11, BAR_H = 8;
 const tlPad = () => tlBox.clientWidth / 2;
 const timeToX = t => tlPad() + t * S.pps;
 const thumbImgs = {};
@@ -1891,9 +1891,9 @@ function drawTimeline() {
   }
   // tappable bars like CapCut: blue = your graphics (looks, text, stickers), green = cut-away clips (B-roll)
   const bar = (x, w, y, col, label, on) => {
-    c.globalAlpha = 1; c.fillStyle = col; c.beginPath(); c.roundRect(x, y, w, BAR_H, 4); c.fill();
+    c.globalAlpha = .85; c.fillStyle = col; c.beginPath(); c.roundRect(x, y, w, BAR_H, 3); c.fill(); c.globalAlpha = 1;
     if (on) { c.strokeStyle = "#fff"; c.lineWidth = 2; c.stroke(); }
-    if (w > 24) { c.save(); c.beginPath(); c.rect(x + 4, y, w - 8, BAR_H); c.clip(); c.fillStyle = "#fff"; c.font = "11px Montserrat_600SemiBold, sans-serif"; c.fillText(label, x + 6, y + 13); c.restore(); }
+    if (BAR_H >= 14 && w > 24) { c.save(); c.beginPath(); c.rect(x + 4, y, w - 8, BAR_H); c.clip(); c.fillStyle = "#fff"; c.font = "11px Montserrat_600SemiBold, sans-serif"; c.fillText(label, x + 6, y + 13); c.restore(); }
   };
   for (const [ov, [a, b]] of S.spans) bar(timeToX(a), Math.max(4, (b - a) * S.pps - 2), OV_Y, accent, ovLabel(ov), ov.id === S.selOv);
   for (const [bb, [a, b]] of S.bspans || []) bar(timeToX(a), Math.max(4, (b - a) * S.pps - 2), BR_Y, "#1F9D6B", bb.src ? bb.src.split("/").pop() : "panel", false);
