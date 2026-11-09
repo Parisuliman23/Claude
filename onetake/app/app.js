@@ -1366,6 +1366,8 @@ function requestFinished(q) {
 }
 
 function renderTray(reqs) {
+  S.hiddenReqs ||= new Set();
+  reqs = reqs.filter(r => !r.hidden && !S.hiddenReqs.has(r.id));  // ones you closed with ×
   const active = reqs.filter(r => r.status === "running" || r.status === "waiting").length;
   const ready = reqs.filter(r => r.status === "done" && r.options?.length && !r.picked).length;
   $("#claudeBadge").hidden = !(active + ready); $("#claudeBadge").textContent = active + ready;
@@ -1394,10 +1396,16 @@ function drawTray() {
   }
   const reqs = (S.requests || []).slice().reverse();
   tray.querySelector("#reqList").innerHTML = (S.claude ? "" : `<div class="muted" style="font-size:12px;margin:6px 0">Claude isn't connected to the studio right now, so requests wait until you tell Claude in the Terminal: “check my studio requests”.</div>`) +
-    (reqs.length ? `<b style="display:block;margin-top:8px">Earlier requests</b>` + reqs.map(r => `<div class="req"><span class="st ${r.status}">${r.status === "running" ? "working…" : r.status}</span> ${esc((r.text || r.kind).slice(0, 90))}
+    (reqs.length ? `<b style="display:block;margin-top:8px">Earlier requests</b>` + reqs.map(r => `<div class="req"><button class="reqx" data-reqx="${r.id}" title="Close this">×</button><span class="st ${r.status}">${r.status === "running" ? "working…" : r.status}</span> ${esc((r.text || r.kind).slice(0, 90))}
       ${r.note ? `<div class="muted">${esc(r.note)}</div>` : ""}
       ${r.status === "done" && r.options?.length ? `<button data-rev="${r.id}" style="margin-top:6px">${r.picked ? "Options" : "Review options"}</button>` : ""}</div>`).join("") : "");
   tray.querySelectorAll("[data-rev]").forEach(b => b.onclick = () => optionsModal(b.dataset.rev));
+  tray.querySelectorAll("[data-reqx]").forEach(b => b.onclick = () => {  // close a notification (Claude keeps working if it's still running)
+    const id = b.dataset.reqx;
+    (S.hiddenReqs ||= new Set()).add(id);
+    mutate(p => { const r = (p.requests || []).find(r => r.id === id); if (r) r.hidden = true; }, { render: false });
+    renderTray(S.requests || []); drawTray();
+  });
 }
 $("#claudeBtn").onclick = () => { $("#claudeTray").hidden = !$("#claudeTray").hidden; drawTray(); if (!$("#claudeTray").hidden) $("#askAny").focus(); };
 

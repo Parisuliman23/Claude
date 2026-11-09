@@ -251,3 +251,8 @@ small { color: var(--ink2); }
 #tlTrack button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 #tl { cursor: grab; }
+
+.req { position: relative; padding-right: 26px; }
+.reqx { position: absolute; top: 4px; right: 0; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 0;
+  background: transparent; color: var(--ink2); font-size: 16px; line-height: 22px; cursor: pointer; }
+.reqx:hover { background: var(--line); color: var(--ink); }
