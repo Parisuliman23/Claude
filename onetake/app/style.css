@@ -241,3 +241,13 @@ small { color: var(--ink2); }
 
 .tlwrap { min-width: 0; }
 #tlScroll { width: 100%; max-width: 100%; }
+
+/* windowed timeline: the spacer gives the scroll length, the canvas stays in view */
+#tlScroll { position: relative; }
+#tlSpacer { height: 112px; }
+#tl { position: absolute; top: 0; left: 0; }
+#tlTrack { position: absolute; top: 20px; display: flex; gap: 8px; height: 56px; align-items: stretch; }
+#tlTrack button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; width: 74px;
+  border-radius: 8px; font-size: 11px; line-height: 1.15; padding: 4px; background: var(--panel); border: 1px solid var(--line); }
+#tlTrack button b { font-size: 18px; }
+#tlTrack button.on { background: var(--accent); color: #fff; border-color: var(--accent); }

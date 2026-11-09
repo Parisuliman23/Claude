@@ -256,7 +256,8 @@ async function loadProject(name) {
   const [p, lb, lib] = await Promise.all([api(`/api/project/${name}`), api("/api/lookbook"), api("/api/library")]);
   S.lookbook = lb; S.library = lib;
   setProject(p);
-  v.src = media(p.source);
+  v.src = media(p._proxy || p.source);  // the light preview copy when it's ready (renders always use the full video)
+  v.muted = +(p.voice_volume ?? 1) === 0;
   $("#ptitle").textContent = p.title;
   $("#homeBtn").hidden = false;
   document.title = `${p.title} · One Take Studio`;
@@ -652,7 +653,12 @@ function lookbookModal() {
     <h3>Caption styles</h3><div class="grid">${capTiles}</div>
     <h3>Hooks</h3><div class="grid frames">${hooks.map(l => `<div class="tile" data-hook="${l.id}">${onFrame(l.id, { text: hookText }, 0.8)}${esc(l.name)}</div>`).join("")}
       ${saved.filter(s => s.group === "hook").map(s => `<div class="tile" data-hooksaved="${s.id}">${onFrame(s.look, Object.assign({}, s.params, { text: hookText }), 0.8)}${esc(s.name)}</div>`).join("")}</div>
-    <h3>Saved looks</h3><div class="grid frames">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}">${onFrame(s.look, s.params, timeOfWord(Math.max(0, S.curWord)))}${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>`,
+    <h3>Saved looks</h3><div class="grid frames">${saved.filter(s => s.group !== "hook").map(s => `<div class="tile" data-saved="${s.id}">${onFrame(s.look, s.params, timeOfWord(Math.max(0, S.curWord)))}${esc(s.name)}</div>`).join("") || `<small class="muted">Nothing saved yet — open any look on your reel and press “Save to lookbook”.</small>`}</div>
+    <h3>Reference reels</h3>
+    <div class="muted">Reels you love. Claude studies each one frame by frame (cuts, captions, graphics, sound, pace) and adds its style to your rulebook, so it guides your edits.</div>
+    <label class="dropzone" id="refDrop" style="margin:8px 0;padding:14px"><b>＋ Add a reference reel</b> <small class="muted">(drop a video here or click)</small>
+      <input type="file" id="refFile" accept="video/*" multiple hidden></label>
+    <div id="refList">${refListHTML()}</div>`,
     root => {
       root.querySelectorAll("[data-cap]").forEach(t => t.onclick = () => { mutate(p => p.caption_style = t.dataset.cap); closeModal(); });
       const setHook = (look, params) => mutate(p => {
@@ -665,7 +671,43 @@ function lookbookModal() {
       root.querySelectorAll("[data-hooksaved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.hooksaved); setHook(s.look, s.params); closeModal(); });
       root.querySelectorAll("[data-saved]").forEach(t => t.onclick = () => { const s = saved.find(x => x.id === t.dataset.saved); addOverlay({ kind: "look", look: s.look, params: Object.assign({}, s.params, lookParams(s.look, target().text)), scale: s.scale ?? 1, y: s.y ?? .4, anim_in: s.anim_in ?? "pop", anim_out: s.anim_out ?? "fade" }); });
       mountSprites(root, true);
+      bindRefs(root);
     });
+}
+
+// ---------- reference reels (Lookbook): videos that guide the edits
+function refListHTML() {
+  const refs = S.library.references || [];
+  if (!refs.length) return `<small class="muted">No reference reels yet.</small>`;
+  return refs.map((r, k) => {
+    const job = (S.p.requests || []).find(q => q.kind === "reference" && q.src === r.path && q.status === "running");
+    const st = r.guide ? "✓ learned: it's in your style guide" : job ? "Claude is studying it…" : r.studied ? "measured, not written up yet" : "not studied yet";
+    return `<div class="card row" style="gap:10px;align-items:center">${r.sheet ? `<img src="${media(r.sheet)}" style="height:54px;border-radius:6px">` : `<span style="font-size:28px">🎬</span>`}
+      <div style="flex:1"><b>${esc(r.name)}</b><br><small class="muted">${st}</small></div>
+      <input placeholder="What do you like about it? (optional)" data-refnote="${k}" style="flex:1.3">
+      <button class="primary" data-refstudy="${k}" ${job ? "disabled" : ""}>${r.guide ? "Study again" : "Study it"}</button></div>`;
+  }).join("");
+}
+function bindRefs(root) {
+  const inp = root.querySelector("#refFile"), dz = root.querySelector("#refDrop");
+  if (!inp) return;
+  const up = async files => {
+    for (const f of files) {
+      if (!f.type.startsWith("video/")) continue;
+      toast(`Uploading ${f.name}…`);
+      await fetch(`/api/upload?kind=references&name=${encodeURIComponent(f.name)}`, { method: "POST", body: f });
+    }
+    S.library = await api("/api/library");
+    root.querySelector("#refList").innerHTML = refListHTML(); bindRefs(root);
+  };
+  inp.onchange = () => up([...inp.files]);
+  dz.ondragover = e => { e.preventDefault(); dz.classList.add("over"); };
+  dz.ondragleave = () => dz.classList.remove("over");
+  dz.ondrop = e => { e.preventDefault(); dz.classList.remove("over"); up([...e.dataTransfer.files]); };
+  root.querySelectorAll("[data-refstudy]").forEach(b => b.onclick = () => {
+    const r = S.library.references[+b.dataset.refstudy], note = root.querySelector(`[data-refnote="${b.dataset.refstudy}"]`).value;
+    sendRequest({ kind: "reference", src: r.path, text: note || "" }, "Claude is studying your reference reel. It'll ping you when it's learned the style.");
+  });
 }
 
 function captionTile(c) {  // the caption style on your frame, with your words
@@ -962,7 +1004,7 @@ function faceCardHTML() {
   const cur = S.faceSel || f.detected[0].id;
   const cov = f.covers.find(c => c.face === cur);
   h += `<div class="muted">Which face should be covered?</div><div class="facepick" style="margin:10px 0">${f.detected.map(d => `<div class="face ${d.id === cur ? "on" : ""}" data-face="${d.id}"><img src="${media(d.thumb)}">${esc(d.name)}${f.covers.some(c => c.face === d.id) ? " ✓" : ""}</div>`).join("")}</div>
-    <div class="muted">Cover with</div><div class="row" style="margin:6px 0">
+    <div class="muted">Cover with: <b>Blur</b>, <b>Pixelate</b>, <b>your own image</b>, or tap <b>any emoji</b> below</div><div class="row" style="margin:6px 0">
       <button class="chip ${cov?.style === "blur" ? "on" : ""}" data-cs="blur">Blur</button>
       <button class="chip ${cov?.style === "pixelate" ? "on" : ""}" data-cs="pixelate">Pixelate</button>
       <button class="chip ${cov?.style === "image" ? "on" : ""}" data-cs="image">Your image</button>
@@ -1230,7 +1272,8 @@ function renderFinish() {
   </div>
   <div class="card"><h3 style="margin-top:0">4 · Trial reels</h3>
     <div class="muted">Repackage this reel into three more versions — each with a different opening line, length and hook, all in your same look.</div>
-    <div class="row" style="margin-top:8px"><button class="primary" id="mkTrials" ${done ? "" : "disabled title='Lock in your reel first'"}>Make trial reels</button></div>${jobBar("trials")}
+    <div class="row" style="margin-top:8px"><button class="primary" id="mkTrials" ${done ? "" : "disabled"}>Make trial reels</button>
+      ${done ? "" : `<small class="muted">🔒 Unlocks once your reel is rendered: press <b>Lock in my looks</b> in step 1 above. Trial reels are re-cuts of the finished edit.</small>`}</div>${jobBar("trials")}
     ${ex.trials ? `<div class="files">${ex.trials.map(t => `<div><video controls src="${media(t.file)}?v=${p.rev}"></video><br><b>${esc(t.name)}</b><br><small>${esc(t.hook)}</small><br><a download href="${media(t.file)}">Download</a></div>`).join("")}</div>` : ""}
   </div>`;
   $("#panel").innerHTML = h;
@@ -1787,55 +1830,63 @@ const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24
 
 // ------------------------------------------------------------------ timeline (bottom)
 // ------------------------------------------------------------------ timeline: CapCut-style
-// The film strip slides under a fixed playhead in the middle. Tap a clip to select it (white frame + handles),
-// drag a handle to trim, Split / Delete in the toolbar. Cuts are in seconds of footage (p.time_cuts, p.splits),
-// so silent moments like fixing the camera can be cut too. Mirrors engine/timeline.py apply_time_edits.
-const tl = $("#tl"), tctx = tl.getContext("2d"), tlBox = $("#tlScroll");
+// The strip slides under a fixed white playhead in the middle; at 0:00 the first clip starts right at it, and the
+// space to its left holds the track buttons (mute clip audio, cover), like CapCut. Tap a clip to select it, drag its
+// white handles to trim, Split / Delete in the toolbar. Cuts are in seconds of footage (p.time_cuts, p.splits).
+// Only the visible part is drawn (fast on long videos), and during playback the strip moves ~12 times a second.
+const tl = $("#tl"), tctx = tl.getContext("2d"), tlBox = $("#tlScroll"), tlSpacer = $("#tlSpacer"), tlTrack = $("#tlTrack");
 S.pps = 60;  // pixels per second
 const TL_H = 112, STRIP_Y = 20, STRIP_H = 56;
 const tlPad = () => tlBox.clientWidth / 2;
-const timeToX = t => tlPad() + t * S.pps;
+const timeToX = t => tlPad() + t * S.pps;       // position in the scrolling content
 const thumbImgs = {};
 function stripThumb(srcT) {
   const k = (Math.round(srcT * 2) / 2).toFixed(1);
   if (!thumbImgs[k]) { const im = new Image(); im.onload = () => drawTimelineSoon(); im.src = `/api/project/${S.name}/thumb?t=${k}&src=1&w=96`; thumbImgs[k] = im; }
   return thumbImgs[k];
 }
-let tlTimer = 0;
-function drawTimelineSoon() { clearTimeout(tlTimer); tlTimer = setTimeout(drawTimeline, 60); }
+let tlRaf = 0;
+function drawTimelineSoon() { if (!tlRaf) tlRaf = requestAnimationFrame(() => { tlRaf = 0; drawTimeline(); }); }
 function drawTimeline() {
   if (!S.p) return;
-  const cssW = Math.ceil(tlPad() * 2 + S.T * S.pps), cssH = TL_H;
-  if (tl.width !== Math.round(cssW * devicePixelRatio) || tl.height !== Math.round(cssH * devicePixelRatio)) {
-    tl.width = Math.round(cssW * devicePixelRatio); tl.height = Math.round(cssH * devicePixelRatio); tl.style.width = cssW + "px"; tl.style.height = cssH + "px";
+  const vw = tlBox.clientWidth, cssH = TL_H, total = Math.ceil(tlPad() * 2 + S.T * S.pps);
+  tlSpacer.style.width = total + "px";
+  if (tl.width !== Math.round(vw * devicePixelRatio) || tl.height !== Math.round(cssH * devicePixelRatio)) {
+    tl.width = Math.round(vw * devicePixelRatio); tl.height = Math.round(cssH * devicePixelRatio); tl.style.width = vw + "px"; tl.style.height = cssH + "px";
   }
+  const off = tlBox.scrollLeft;
+  tl.style.transform = `translateX(${off}px)`;  // the canvas stays in view; we draw the visible window of the timeline
+  const X = t => timeToX(t) - off, visible = (a, b) => b >= -20 && a <= vw + 20;
   const c = tctx; c.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-  c.clearRect(0, 0, cssW, cssH);
+  c.clearRect(0, 0, vw, cssH);
   const css = getComputedStyle(document.documentElement), ink2 = css.getPropertyValue("--ink2").trim(), accent = css.getPropertyValue("--accent").trim();
   c.font = "10px Montserrat_600SemiBold, sans-serif"; c.fillStyle = ink2;
   const step = S.pps > 120 ? 0.5 : S.pps > 40 ? 1 : S.pps > 15 ? 2 : 5;
-  for (let t = 0; t <= S.T + 1e-6; t += step) {
-    const x = timeToX(t), major = Math.abs(t / (step * 2) - Math.round(t / (step * 2))) < 1e-6;
+  const t0 = Math.max(0, Math.floor((off - tlPad()) / S.pps / step) * step), t1 = Math.min(S.T, (off + vw) / S.pps);
+  for (let t = t0; t <= t1 + 1e-6; t += step) {
+    const x = X(t), major = Math.abs(t / (step * 2) - Math.round(t / (step * 2))) < 1e-6;
     if (major) c.fillText(fmt(t), x + 3, 11);
     c.fillRect(x, major ? 12 : 15, 1, major ? 6 : 3);
   }
   const tileW = Math.round(STRIP_H * 0.75);
-  S.segs.forEach((sg, i) => {
-    const x = timeToX(sg.o), w = Math.max(2, (sg.e - sg.s) * S.pps - 2);
+  S.segs.forEach(sg => {
+    const x = X(sg.o), w = Math.max(2, (sg.e - sg.s) * S.pps - 2);
+    if (!visible(x, x + w)) return;
     c.save(); c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.clip();
     c.fillStyle = "#2a2838"; c.fillRect(x, STRIP_Y, w, STRIP_H);
-    for (let tx = x; tx < x + w; tx += tileW) {  // the film strip: one still per tile
+    const first = Math.max(0, Math.floor((-x) / tileW));  // only the tiles you can see
+    for (let tx = x + first * tileW; tx < Math.min(x + w, vw + tileW); tx += tileW) {
       const im = stripThumb(sg.s + (tx - x + tileW / 2) / S.pps);
       if (im.complete && im.naturalWidth) {
-        const sh = im.naturalWidth * STRIP_H / tileW;  // centre-crop the tall still into the tile
+        const sh = im.naturalWidth * STRIP_H / tileW;
         c.drawImage(im, 0, (im.naturalHeight - sh) / 2, im.naturalWidth, sh, tx, STRIP_Y, tileW, STRIP_H);
       }
     }
     c.restore();
   });
   const sel = S.selClip != null ? S.segs[S.selClip] : null;
-  if (sel) {  // selected clip: white frame and two handles, like CapCut
-    const x = timeToX(sel.o), w = Math.max(2, (sel.e - sel.s) * S.pps - 2);
+  if (sel) {
+    const x = X(sel.o), w = Math.max(2, (sel.e - sel.s) * S.pps - 2);
     c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.stroke();
     for (const hx of [x - 12, x + w]) {
       c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 12, STRIP_H, 4); c.fill();
@@ -1844,40 +1895,55 @@ function drawTimeline() {
     c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 38, 15, 4); c.fill();
     c.fillStyle = "#fff"; c.fillText(`${(sel.e - sel.s).toFixed(1)}s`, x + 8, STRIP_Y + 15);
   }
-  for (const [ov, [a, b]] of S.spans) { c.fillStyle = accent; c.globalAlpha = .85; c.beginPath(); c.roundRect(timeToX(a), STRIP_Y + STRIP_H + 6, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
-  for (const [bb, [a, b]] of S.bspans || []) { c.fillStyle = "#1F9D6B"; c.beginPath(); c.roundRect(timeToX(a), STRIP_Y + STRIP_H + 17, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
-  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(timeToX(t), STRIP_Y + STRIP_H + 31, 3, 0, 7); c.fill(); }
+  c.globalAlpha = .85;
+  for (const [ov, [a, b]] of S.spans) if (visible(X(a), X(b))) { c.fillStyle = accent; c.beginPath(); c.roundRect(X(a), STRIP_Y + STRIP_H + 6, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
+  for (const [bb, [a, b]] of S.bspans || []) if (visible(X(a), X(b))) { c.fillStyle = "#1F9D6B"; c.beginPath(); c.roundRect(X(a), STRIP_Y + STRIP_H + 17, Math.max(3, (b - a) * S.pps), 8, 3); c.fill(); }
+  if (S.p.sfx_on !== false) for (const [id, t] of sfxTimes()) if (visible(X(t), X(t))) { c.fillStyle = "#C2410C"; c.beginPath(); c.arc(X(t), STRIP_Y + STRIP_H + 31, 3, 0, 7); c.fill(); }
   c.globalAlpha = 1;
-  if (S.trim) { c.fillStyle = "#FFE14D"; c.fillRect(S.trim.x - 1, STRIP_Y - 4, 3, STRIP_H + 8); }
-  drawPlayhead();
+  if (S.trim) { c.fillStyle = "#FFE14D"; c.fillRect(S.trim.x - off - 1, STRIP_Y - 4, 3, STRIP_H + 8); }
+  // the track buttons sit just left of 0:00 and scroll with the strip
+  tlTrack.style.left = (tlPad() - off - tlTrack.offsetWidth - 12) + "px";
+  tlTrack.style.visibility = tlPad() - off > 40 ? "visible" : "hidden";
+  const mute = +(S.p.voice_volume ?? 1) === 0;
+  $("#tlMute").classList.toggle("on", mute); $("#tlMute b").textContent = mute ? "🔇" : "🔊";
+  $("#tlMute span").textContent = mute ? "Clip muted" : "Mute clip audio";
 }
+let lastFollow = 0;
 function drawPlayhead() {  // the playhead stays in the middle; the strip scrolls under it
   if (!S.p || S.trim) return;
+  const now = performance.now();
+  if (S.playing && now - lastFollow < 80) return;  // ~12 updates a second while playing is plenty, and much lighter
+  lastFollow = now;
   const want = Math.round(S.outT * S.pps);
   if (Math.abs(tlBox.scrollLeft - want) > 1) { S.tlAuto = true; tlBox.scrollLeft = want; }
 }
 tlBox.addEventListener("scroll", () => {
+  drawTimelineSoon();
   if (S.tlAuto) { S.tlAuto = false; return; }
   if (S.playing) pause();
   seek(Math.max(0, Math.min(S.T, tlBox.scrollLeft / S.pps)));
-});
-tlBox.addEventListener("wheel", e => {  // ctrl/pinch = zoom, wheel = scroll through time
+}, { passive: true });
+tlBox.addEventListener("wheel", e => {  // ctrl/pinch = zoom, wheel = move through time
   if (e.ctrlKey) { e.preventDefault(); setZoom(S.pps * (e.deltaY < 0 ? 1.15 : 1 / 1.15)); }
   else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { e.preventDefault(); tlBox.scrollLeft += e.deltaY; }
 }, { passive: false });
-function setZoom(pps) { S.pps = Math.max(8, Math.min(400, pps)); $("#zoom").value = Math.log2(S.pps / 8); drawTimeline(); }
+function setZoom(pps) {
+  const t = S.outT;
+  S.pps = Math.max(8, Math.min(400, pps)); $("#zoom").value = Math.log2(S.pps / 8);
+  drawTimeline(); S.tlAuto = true; tlBox.scrollLeft = Math.round(t * S.pps);
+}
 function clipAtX(x) { return S.segs.findIndex(sg => x >= timeToX(sg.o) && x <= timeToX(sg.o) + (sg.e - sg.s) * S.pps); }
-function tlX(e) { const r = tl.getBoundingClientRect(); return e.clientX - r.left; }
+function tlX(e) { const r = tlBox.getBoundingClientRect(); return e.clientX - r.left + tlBox.scrollLeft; }  // x in the content
 tl.onpointerdown = e => {
   const x = tlX(e), y = e.clientY - tl.getBoundingClientRect().top;
   const sel = S.selClip != null ? S.segs[S.selClip] : null;
-  if (sel && y > STRIP_Y - 4 && y < STRIP_Y + STRIP_H + 4) {  // grab a handle to trim
+  if (sel && y > STRIP_Y - 4 && y < STRIP_Y + STRIP_H + 4) {
     const l = timeToX(sel.o), r = l + (sel.e - sel.s) * S.pps;
     const side = x >= l - 16 && x <= l + 4 ? "l" : x >= r - 4 && x <= r + 16 ? "r" : null;
     if (side) {
       e.preventDefault(); e.stopPropagation();
       S.trim = { side, x0: x, x, clip: S.selClip };
-      const mv = ev => { S.trim.x = Math.max(l - (side === "l" ? sel.s * S.pps : 0), tlX(ev)); drawTimeline(); };
+      const mv = ev => { S.trim.x = Math.max(l - (side === "l" ? sel.s * S.pps : 0), tlX(ev)); drawTimelineSoon(); };
       const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); finishTrim(); };
       window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
       return;
@@ -1885,7 +1951,7 @@ tl.onpointerdown = e => {
   }
   S.tapStart = { x: e.clientX, y };
 };
-tl.onpointerup = e => {  // a tap (not a drag-scroll) selects / deselects a clip
+tl.onpointerup = e => {
   const st = S.tapStart; S.tapStart = null;
   if (!st || Math.abs(e.clientX - st.x) > 6 || st.y < STRIP_Y || st.y > STRIP_Y + STRIP_H) return;
   const i = clipAtX(tlX(e));
@@ -1900,11 +1966,11 @@ function finishTrim() {
     p.time_cuts = p.time_cuts || [];
     if (side === "l" && dt > 0) p.time_cuts.push([sg.s, Math.min(sg.e - 0.1, sg.s + dt)]);
     if (side === "r" && dt < 0) p.time_cuts.push([Math.max(sg.s + 0.1, sg.e + dt), sg.e]);
-    if (side === "l" && dt < 0) unCut(p, sg.s + dt, sg.s);   // pulled out: bring footage back
+    if (side === "l" && dt < 0) unCut(p, sg.s + dt, sg.s);
     if (side === "r" && dt > 0) unCut(p, sg.e, sg.e + dt);
   });
 }
-function unCut(p, a, b) {  // give back [a, b]: shrink time cuts, and bring back words cut there
+function unCut(p, a, b) {
   p.time_cuts = (p.time_cuts || []).flatMap(([s, e]) => e <= a || s >= b ? [[s, e]] : [s < a ? [s, a] : null, e > b ? [b, e] : null].filter(Boolean));
   p.words.forEach(w => { if (w.cut && w.s >= a - 0.05 && w.e <= b + 0.05) { w.cut = false; delete w.why; } });
 }
@@ -1913,7 +1979,6 @@ function updateTlTools() {
   const on = S.selClip != null;
   document.querySelectorAll('.tltools [data-op="delete"]').forEach(b => b.classList.toggle("on", on));
 }
-$("#zoom").min = 0; $("#zoom").max = 5.6; $("#zoom").step = 0.1;
 $("#zoom").oninput = e => setZoom(8 * Math.pow(2, +e.target.value));
 document.querySelectorAll(".tltools [data-op]").forEach(b => b.onclick = () => tlOp(b.dataset.op));
 function tlOp(op) {
@@ -1929,7 +1994,19 @@ function tlOp(op) {
   if (op === "cutBefore") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([sg.s, ts]); });
   if (op === "cutAfter") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([ts, sg.e]); });
 }
-new ResizeObserver(() => drawTimeline()).observe(tlBox);
+$("#tlMute").onclick = () => {  // CapCut's "Mute clip audio": silences your voice track (music and sounds stay)
+  const mute = +(S.p.voice_volume ?? 1) !== 0;
+  mutate(p => { p.voice_volume = mute ? 0 : 1; });
+  v.muted = mute; toast(mute ? "Clip audio muted. Music and sound effects still play." : "Clip audio back on.");
+};
+$("#tlCover").onclick = async () => {  // "Cover": the frame under the playhead becomes your reel's cover
+  const r = await api(`/api/project/${S.name}/frame`, { t: S.outT });
+  await reload();
+  const k = (S.p.frames || []).length - 1;
+  if (k >= 0) mutate(p => { p.frames.forEach((f, j) => f.star = j === k); });
+  toast("This frame is your cover now. Find it under Finish → Frames.");
+};
+new ResizeObserver(() => drawTimelineSoon()).observe(tlBox);
 
 // ------------------------------------------------------------------ keys, help, theme
 document.addEventListener("keydown", e => {

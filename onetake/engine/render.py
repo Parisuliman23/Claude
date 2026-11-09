@@ -177,7 +177,8 @@ def _audio(p, segs, T, out):
         fl.append(f"[0:a]atrim={sg['s']}:{sg['e']},asetpts=PTS-STARTPTS,"
                   f"afade=t=in:d=0.012,afade=t=out:st={max(0, ln - 0.012):.3f}:d=0.012[a{k}]")
         parts.append(f"[a{k}]")
-    fl.append("".join(parts) + f"concat=n={len(segs)}:v=0:a=1[voice]")
+    vv = float(p.get("voice_volume", 1.0))  # "Mute clip audio" on the timeline sets this to 0
+    fl.append("".join(parts) + f"concat=n={len(segs)}:v=0:a=1" + (f",volume={vv}" if vv != 1.0 else "") + "[voice]")
     cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", src]
     snd = p.get("sound") or {}
     mix = ["[voice]"]
