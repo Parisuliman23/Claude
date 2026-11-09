@@ -256,12 +256,13 @@ class Handler(BaseHTTPRequestHandler):
         if self.via_tunnel():
             if not config.settings().get("phone_access"):
                 return self.send_error(403)
-            if path in ("/", "/index.html"):
+            full = config.settings().get("phone_studio", True)  # the whole studio on your phone, not only uploads
+            if path in ("/", "/index.html") and not full:
                 self.send_response(303)
                 self.send_header("Location", "/phone")
                 self.end_headers()
                 return
-            if not TUNNEL_PATHS.fullmatch(path) or (
+            if not full and not TUNNEL_PATHS.fullmatch(path) or not full and (
                     method != "GET" and path not in ("/login", "/api/new-reel-file", "/api/new-reel-start")):
                 return self.send_error(404)
         if path == "/login" and method == "POST":
