@@ -326,6 +326,7 @@ async function poll() {
     if (was === "running" && j.status === "done") jobDone(k, j);
     if (was === "running" && j.status === "error") toast(`${k} failed: ${j.error}`);
   }
+  updateNextBtn();
   for (const q of r.requests) {
     if (S.reqStatus[q.id] && S.reqStatus[q.id] !== q.status && (q.status === "done" || q.status === "failed")) requestFinished(q);
     S.reqStatus[q.id] = q.status;
@@ -347,8 +348,14 @@ function setTab(t) {
   S.tab = t; localStorage.setItem("cc_tab_" + S.name, t);
   document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
   const i = TABS.indexOf(t);
-  $("#nextBtn").textContent = i < 3 ? `Next: ${TABS[i + 1][0].toUpperCase() + TABS[i + 1].slice(1)} ›` : "Lock in my looks";
+  updateNextBtn();
   renderPanel();
+}
+function updateNextBtn() {  // while the reel renders, the button shows how far along it is
+  const i = TABS.indexOf(S.tab), j = S.jobs?.render, b = $("#nextBtn");
+  if (j?.status === "running") { b.textContent = `Rendering… ${Math.round((j.progress || 0) * 100)}%`; b.disabled = true; return; }
+  b.disabled = false;
+  b.textContent = i < 3 ? `Next: ${TABS[i + 1][0].toUpperCase() + TABS[i + 1].slice(1)} ›` : "Lock in my looks";
 }
 document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
 $("#nextBtn").onclick = () => { const i = TABS.indexOf(S.tab); if (i < 3) setTab(TABS[i + 1]); else lockIn(); };
@@ -1272,7 +1279,8 @@ function renderFinish() {
   </div>
   <div class="card"><h3 style="margin-top:0">4 · Trial reels</h3>
     <div class="muted">Repackage this reel into three more versions — each with a different opening line, length and hook, all in your same look.</div>
-    <div class="row" style="margin-top:8px"><button class="primary" id="mkTrials" ${done ? "" : "disabled title='Lock in your reel first'"}>Make trial reels</button></div>${jobBar("trials")}
+    <div class="row" style="margin-top:8px"><button class="primary" id="mkTrials" ${done ? "" : "disabled"}>Make trial reels</button>
+      ${done ? "" : `<small class="muted">🔒 ${S.jobs.render?.status === "running" ? "Unlocks when your reel finishes rendering (see the % above)." : "Unlocks once your reel is rendered: press <b>Lock in my looks</b> (bottom right). Trial reels are re-cuts of the finished video."}</small>`}</div>${jobBar("trials")}
     ${ex.trials ? `<div class="files">${ex.trials.map(t => `<div><video controls src="${media(t.file)}?v=${p.rev}"></video><br><b>${esc(t.name)}</b><br><small>${esc(t.hook)}</small><br><a download href="${media(t.file)}">Download</a></div>`).join("")}</div>` : ""}
   </div>`;
   $("#panel").innerHTML = h;
@@ -1308,14 +1316,15 @@ async function drawEdgeCard() {
     $("#edgeList").querySelectorAll("[data-jump]").forEach(b => b.onclick = () => seek(+b.dataset.jump));
   };
 }
-function renderJobsOnly() { if (S.tab === "finish" || (S.tab === "visuals" && S.faceCard)) renderPanel(); }
+function renderJobsOnly() { updateNextBtn(); if (S.tab === "finish" || (S.tab === "visuals" && S.faceCard)) renderPanel(); }
 
 async function lockIn() {
   if (S.dirty) await save();
   setTab("finish");
   S.jobs.render = await api(`/api/project/${S.name}/render`, {});
-  renderPanel();
-  toast("Locking in your looks — Claude is building the video now.");
+  renderPanel(); updateNextBtn();
+  $("#panel").scrollTop = 0;  // show "1 · Your reel" with the progress bar
+  toast("Rendering your reel: watch the % on the button (bottom right) or at the top of Finish.");
 }
 async function runExport(kind) { if (S.dirty) await save(); S.jobs[kind] = await api(`/api/project/${S.name}/export`, { kind }); renderPanel(); }
 async function claudeOr(kind, label) {
@@ -1365,6 +1374,12 @@ function requestFinished(q) {
   S.lookbook && api("/api/lookbook").then(lb => S.lookbook = lb);
 }
 
+// Claude doesn't report progress, so this is an estimate from how long that kind of job usually takes
+const REQ_TYPICAL = { edit: 120, ask: 120, look: 240, carousel: 180, story: 150, trials: 300, reference: 480 };
+function reqPct(r) {
+  const el = Math.max(0, Date.now() / 1000 - (r.created || Date.now() / 1000)), typ = REQ_TYPICAL[r.kind] || 180;
+  return Math.min(95, Math.round(100 * (1 - Math.exp(-el / typ * 1.4))));
+}
 function renderTray(reqs) {
   S.hiddenReqs ||= new Set();
   reqs = reqs.filter(r => !r.hidden && !S.hiddenReqs.has(r.id));  // ones you closed with ×
@@ -1396,7 +1411,7 @@ function drawTray() {
   }
   const reqs = (S.requests || []).slice().reverse();
   tray.querySelector("#reqList").innerHTML = (S.claude ? "" : `<div class="muted" style="font-size:12px;margin:6px 0">Claude isn't connected to the studio right now, so requests wait until you tell Claude in the Terminal: “check my studio requests”.</div>`) +
-    (reqs.length ? `<b style="display:block;margin-top:8px">Earlier requests</b>` + reqs.map(r => `<div class="req"><button class="reqx" data-reqx="${r.id}" title="Close this">×</button><span class="st ${r.status}">${r.status === "running" ? "working…" : r.status}</span> ${esc((r.text || r.kind).slice(0, 90))}
+    (reqs.length ? `<b style="display:block;margin-top:8px">Earlier requests</b>` + reqs.map(r => `<div class="req"><button class="reqx" data-reqx="${r.id}" title="Close this">×</button><span class="st ${r.status}">${r.status === "running" ? `working… ${reqPct(r)}%` : r.status}</span> ${esc((r.text || r.kind).slice(0, 90))}
       ${r.note ? `<div class="muted">${esc(r.note)}</div>` : ""}
       ${r.status === "done" && r.options?.length ? `<button data-rev="${r.id}" style="margin-top:6px">${r.picked ? "Options" : "Review options"}</button>` : ""}</div>`).join("") : "");
   tray.querySelectorAll("[data-rev]").forEach(b => b.onclick = () => optionsModal(b.dataset.rev));
