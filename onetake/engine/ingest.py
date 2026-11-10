@@ -149,7 +149,7 @@ def make_proxy(name):
     tmp = out.with_name("proxy.part.mp4")
     try:
         subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-vf", "scale=540:960",
-                        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-g", "15", "-pix_fmt", "yuv420p",
+                        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-g", "15", "-pix_fmt", "yuv420p", *config.BT709_TAGS,
                         "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(tmp)], check=True)
         tmp.replace(out)
         return config.rel(out)
