@@ -30,6 +30,7 @@
   remove-fx NAME ID
   style-pick NAME           which editing style fits this video best (notebook / motion / mix), and why
   study-ref library/references/x.mp4   measure a reference reel (frame sheets, cuts, words, sound) into lookbook/references/
+  remaster NAME             rebuild a reel's footage from its original clips with the current colour fix
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
   variants NAME [STYLE ...] make extra versions of an edit (default: class + the style-pick), each its own project
@@ -195,6 +196,10 @@ def main(argv=None):
             print(f"{'Already have' if v.get('existing') else 'Made'} {v['name']}  ({v['style']} style)")
         if made:
             print("Style each one like a normal edit (same words, its own looks), e.g. `show " + made[0]["name"] + "`.")
+        return
+    if c == "remaster":  # rebuild a reel's footage from its original clips (e.g. after the HDR colour fix)
+        from . import ingest
+        print("Rebuilt:", ", ".join(ingest.remaster(args[0])))
         return
     if c == "study-ref":  # measure a reference reel (frames, cuts, words, sound) for Claude to learn its style
         from . import reference

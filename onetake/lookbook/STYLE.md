@@ -217,4 +217,5 @@ No full-sentence titles. Captions never become the main graphic (looks A/B). No 
 specific keyword in quotes.
 
 ## Things I've told Claude
+- Colour: keep my footage looking like it does on my phone. No colour filter unless I ask (no faded/lifted looks).
 - (Claude adds preferences here as it learns them.)
