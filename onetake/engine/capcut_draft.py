@@ -76,8 +76,8 @@ def _clean_footage(p, out, progress=None):
     N = int(p["duration"] * fps)
     tmpv = out.with_suffix(".video.mp4")
     enc = subprocess.Popen(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24",
-                            "-s", f"{W}x{H}", "-r", str(fps), "-i", "-", "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-                            "-pix_fmt", "yuv420p", str(tmpv)], stdin=subprocess.PIPE)
+                            "-s", f"{W}x{H}", "-r", str(fps), "-i", "-", "-vf", config.RGB_TO_BT709, "-c:v", "libx264",
+                            "-preset", "fast", "-crf", "18", "-pix_fmt", "yuv420p", *config.BT709_TAGS, str(tmpv)], stdin=subprocess.PIPE)
     try:
         for n in range(N):
             t = n / fps

@@ -93,3 +93,9 @@ def studio_host():
 
 def studio_url(port=None):
     return f"http://{studio_host()[1]}:{port or settings()['port']}/"
+
+
+# Every video One Take writes is standard HD colour (BT.709, TV range) and says so in the file. Without these tags,
+# phones and browsers guess, and some show the reel washed out next to the original clips.
+BT709_TAGS = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"]
+RGB_TO_BT709 = "scale=out_color_matrix=bt709:out_range=tv"  # for raw frames piped in from the renderer
