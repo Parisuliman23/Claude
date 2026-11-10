@@ -17,6 +17,39 @@ from . import analyze, config, draw, project, render, timeline
 def save_frame(name, t_out):
     """Grab a clean still (no captions) at output time t_out."""
     p = project.load(name)
+    fr = _grab(p, t_out)
+    d = project.pdir(name) / "frames"
+    d.mkdir(exist_ok=True)
+    k = len(list(d.glob("frame_*.jpg"))) + 1
+    f = d / f"frame_{k:02d}.jpg"
+    import cv2
+    cv2.imwrite(str(f), fr, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    project.update(name, lambda q: q.setdefault("frames", []).append({"file": config.rel(f), "t": round(t_out, 2)}))
+    return config.rel(f)
+
+
+def refresh_frames(name):
+    """Re-grab saved frames that are older than the footage (e.g. after `remaster` fixed the colours), so the
+    carousel, story and cover use the same colours as the reel. Same files, same moments."""
+    import cv2
+    p = project.load(name)
+    src = config.absolute(p["source"])
+    if not src.exists():
+        return 0
+    n = 0
+    for fm in p.get("frames", []):
+        f = config.absolute(fm["file"])
+        if fm.get("t") is None or (f.exists() and f.stat().st_mtime >= src.stat().st_mtime):
+            continue
+        try:
+            cv2.imwrite(str(f), _grab(p, float(fm["t"])), [cv2.IMWRITE_JPEG_QUALITY, 92])
+            n += 1
+        except Exception:  # noqa: BLE001  (a moment that's no longer in the edit: keep the old still)
+            pass
+    return n
+
+
+def _grab(p, t_out):
     segs = project.segments(p)
     _, ts = timeline.out_to_src(segs, t_out)
     fr = render.FrameReader(config.absolute(p["source"])).at(ts)
@@ -31,14 +64,7 @@ def save_frame(name, t_out):
             pos = analyze.face_at(tracks[c["face"]], ts)
             if pos:
                 render._cover(fr, pos, c, s["width"], s["height"])
-    d = project.pdir(name) / "frames"
-    d.mkdir(exist_ok=True)
-    k = len(list(d.glob("frame_*.jpg"))) + 1
-    f = d / f"frame_{k:02d}.jpg"
-    import cv2
-    cv2.imwrite(str(f), fr, [cv2.IMWRITE_JPEG_QUALITY, 92])
-    project.update(name, lambda q: q.setdefault("frames", []).append({"file": config.rel(f), "t": round(t_out, 2)}))
-    return config.rel(f)
+    return fr
 
 
 def auto_frames(name, n=4):
@@ -149,6 +175,8 @@ THEME = {"accent": "#5B4BDB", "highlight": "#FFE14D", "highlight_text": "#111111
 
 
 def _images(name, p, n):
+    if refresh_frames(name):
+        p = project.load(name)
     frs = sorted(p.get("frames", []), key=lambda f: 0 if f.get("star") else 1)  # starred cover first
     imgs = [config.absolute(f["file"]) for f in frs]
     imgs += [config.absolute(x) for x in p.get("finish_images", [])]
@@ -466,6 +494,7 @@ def phone_copy(src, out):
 
 def cover(name):
     """Copy the starred frame (or the first saved one) to exports/cover.jpg."""
+    refresh_frames(name)
     p = project.load(name)
     fr = [f for f in p.get("frames", []) if f.get("star")] or p.get("frames", [])
     if not fr:
