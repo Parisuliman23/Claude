@@ -139,7 +139,9 @@ def remaster(name, log=print):
         for f in [vd / "cache" / "proxy.mp4"] + list((vd / "cache" / "thumbs").glob("*.jpg")) if (vd / "cache").exists() else []:
             f.unlink(missing_ok=True)
     make_proxy(name)
-    log("  done. Render again (Lock in my looks) to get the corrected video.")
+    for n in [name] + [v["name"] for v in fam]:  # trial reels / carousel / story made from the old footage: hide
+        _p.update(n, lambda q: [(q.get("exports") or {}).pop(k, None) for k in ("trials", "carousel", "story")])
+    log("  done. Render again (Lock in my looks), and remake trial reels / carousel / story, to get the corrected colours.")
     return [name] + [v["name"] for v in fam]
 
 
