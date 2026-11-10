@@ -28,14 +28,15 @@ def has_audio(path):
 
 def is_hdr(path):
     out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=color_transfer",
-                          "-of", "csv=p=0", str(path)], capture_output=True, text=True).stdout.strip()
-    return out in ("arib-std-b67", "smpte2084")
+                          "-of", "csv=p=0", str(path)], capture_output=True, text=True).stdout
+    # phone clips carry a rotation tag that adds extra fields ("arib-std-b67,"): look at the first one only
+    return out.strip().split(",")[0].strip() in ("arib-std-b67", "smpte2084")
 
 
 # iPhone HDR (HLG/PQ) -> normal colors. Needs ffmpeg built with zimg (Homebrew's is).
-# mobius keeps mid-tones (faces, walls) where the phone shows them and only rolls off the brightest highlights;
-# hable made phone HDR footage ~35% darker than it looks in the gallery.
-TONEMAP = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv,"
+# hable, checked on the user's own Samsung HLG clip: natural skin, full colour, real blacks, no clipped highlights.
+# (mobius/reinhard made the same clip ~35% brighter and faded: the "washed out, overexposed" look.)
+TONEMAP = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p,"
 
 
 def drop_clips(folder=None):
@@ -70,6 +71,9 @@ def make_master(clips, out, log=print):
                 # this file is only the editing master: on a slow computer, encode fast and keep quality with crf
                 "-c:v", "libx264", "-preset", "ultrafast" if config.is_chromebook() else "veryfast",
                 "-crf", "17", "-pix_fmt", "yuv420p",
+                # label the master as normal HD colour: otherwise an HDR clip's "HLG/BT.2020" label is copied over and
+                # players brighten it again (washed out) while OpenCV reads it with the wrong colour formula (grey)
+                *config.BT709_TAGS,
                 # a keyframe every 0.5s keeps scrubbing in the browser snappy
                 "-g", str(fps // 2), "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "1",
                 "-progress", "pipe:1", "-nostats", str(part)]
