@@ -3,6 +3,7 @@ one vertical master video, transcribe it and make the automatic rough cut."""
 import json
 import re
 import shutil
+import os
 import subprocess
 import time
 from pathlib import Path
@@ -32,7 +33,9 @@ def is_hdr(path):
 
 
 # iPhone HDR (HLG/PQ) -> normal colors. Needs ffmpeg built with zimg (Homebrew's is).
-TONEMAP = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,"
+# mobius keeps mid-tones (faces, walls) where the phone shows them and only rolls off the brightest highlights;
+# hable made phone HDR footage ~35% darker than it looks in the gallery.
+TONEMAP = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=mobius:desat=0,zscale=t=bt709:m=bt709:r=tv,"
 
 
 def drop_clips(folder=None):
@@ -90,7 +93,9 @@ def make_master(clips, out, log=print):
                 parts.append(part)
                 continue
             except subprocess.CalledProcessError:
-                log("  (couldn't convert HDR colors with this ffmpeg — colors may look flat)")
+                log("  ⚠ This is HDR video but this computer's ffmpeg can't convert HDR colours (it needs zscale/zimg),"
+                    " so the colours will look washed out. Fix: sudo apt install ffmpeg (a full build), or turn off"
+                    " HDR video in your phone's camera settings.")
         run(vf)
         parts.append(part)
     lst = tmp / "list.txt"
@@ -98,6 +103,40 @@ def make_master(clips, out, log=print):
     subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
                     "-c", "copy", "-movflags", "+faststart", str(out)], check=True)
     shutil.rmtree(tmp)
+
+
+def remaster(name, log=print):
+    """Rebuild a reel's footage from its original clips (projects/NAME/raw) with the current colour handling, e.g.
+    after the HDR fix. The edit (cuts, looks, timing) is kept; its versions get the new footage too."""
+    from . import project as _p
+    d = _p.pdir(name)
+    clips = sorted([c for c in (d / "raw").iterdir() if c.suffix.lower() in config.VIDEO_EXT], key=lambda c: c.name.lower())
+    if not clips:
+        raise SystemExit("This reel has no original clips saved (raw/ is empty), so it can't be rebuilt. Re-import the video instead.")
+    log(f"  {len(clips)} clip(s); HDR: {', '.join('yes' if is_hdr(c) else 'no' for c in clips)}")
+    tmp = d / "source.new.mp4"
+    make_master(clips, tmp, log)
+    old_dur, new_dur = _p.load(name).get("duration"), duration(tmp)
+    if old_dur and abs(new_dur - old_dur) > 0.25:
+        tmp.unlink()
+        raise SystemExit(f"The rebuilt video is a different length ({new_dur:.1f}s vs {old_dur:.1f}s), so I left it alone.")
+    src = d / "source.mp4"
+    tmp.replace(src)
+    for f in [d / "cache" / "proxy.mp4"] + list((d / "cache" / "thumbs").glob("*.jpg")) if (d / "cache").exists() else []:
+        f.unlink(missing_ok=True)
+    fam = [n for n in _p.list_projects() if _p.load(n["name"]).get("variant_of") == name]
+    for v in fam:  # versions share the footage
+        vd = _p.pdir(v["name"])
+        (vd / "source.mp4").unlink(missing_ok=True)
+        try:
+            os.link(src, vd / "source.mp4")
+        except OSError:
+            shutil.copy2(src, vd / "source.mp4")
+        for f in [vd / "cache" / "proxy.mp4"] + list((vd / "cache" / "thumbs").glob("*.jpg")) if (vd / "cache").exists() else []:
+            f.unlink(missing_ok=True)
+    make_proxy(name)
+    log("  done. Render again (Lock in my looks) to get the corrected video.")
+    return [name] + [v["name"] for v in fam]
 
 
 def make_proxy(name):

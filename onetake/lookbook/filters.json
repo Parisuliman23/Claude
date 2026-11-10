@@ -13,10 +13,10 @@
  {
   "id": "moody-finance",
   "name": "Moody finance",
-  "sat": 0.8,
-  "contrast": 0.92,
-  "lift": 0.06,
-  "bright": 0.97
+  "sat": 0.9,
+  "contrast": 0.98,
+  "lift": 0.02,
+  "bright": 0.98
  },
  {
   "id": "bright-clean",

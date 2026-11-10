@@ -97,7 +97,7 @@ Run `python3 -m engine` with no arguments for the full list.
    - **Rhythm check**: a new visual every 2–4 s (A/B) or 1.5–2 s (C), a meme/emoji every 15–20 s, an audience
      call-out, a specific CTA keyword, and the **last 3–5 s clean**. Use `show NAME` to check coverage.
    - Color: `set NAME filter --json '"moody-finance"'` (ids in `lookbook/filters.json`: warm, moody-finance,
-     bright-clean, punchy, cool, bw). Look C usually suits `moody-finance`.
+     bright-clean, punchy, cool, bw). **Default: no filter (`none`)**: the user wants their footage to look like it does on their phone. Only add one if they ask.
    - Caption breaks: put `"cbreak": true` on a word to start a new caption there (e.g. to land a punchline alone).
    - Captions: must not cover the mouth/chin (side/chest styles avoid this). If needed: `set NAME caption_y --json 0.62`.
    - **Captions already in the video** (e.g. a CapCut export): the import detects them and paints them out
