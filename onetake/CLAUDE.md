@@ -73,7 +73,7 @@ Run `python3 -m engine` with no arguments for the full list.
      `chapter_header`, `cta_keyword` ("comment KEYWORD"), `red_x` (wrong), `highlight_card` (receipt with
      highlighter), `big_number` / `count_up` (counters), `emoji_row`, `equation` (IF → THEN), `name_badge`
      (person/brand/profile), `arrow`, `logo_row` (company logos popping in on each name: first
-     `python3 -m engine logo-find NVIDIA AMD Intel` (names or tickers; `logo-pack` downloads all ~2,000 NYSE/NASDAQ logos), then `"params": {"companies": [...], "at": [{"w": 40}, ...]}`).
+     `python3 -m engine logo-find NVIDIA AMD Intel` (names or tickers; `logo-pack` downloads all ~2,000 NYSE/NASDAQ name logos, `logo-import` ~5,100 ticker icons; `"kind": "icon"` shows just the symbol), then `"params": {"companies": [...], "at": [{"w": 40}, ...]}`).
      Cut-away layouts: `full`, `split` (clip on top, user below), `card` (screenshot on a card over the user, blurred). Run `python3 -m engine` for every command; params are listed in each
      look's file in `lookbook/looks/`.
      Example: `add-overlay NAME --json '{"kind":"look","look":"keyword_def","w0":120,"w1":140,"y":0.13,"params":{"keyword":"BE CLEAR","definition":"i need to understand what you are saying"}}'`.
