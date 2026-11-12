@@ -216,6 +216,19 @@ No covering the face. No slow fade-outs. No more than one accent color. No more 
 No full-sentence titles. Captions never become the main graphic (looks A/B). No generic CTAs: always a
 specific keyword in quotes.
 
+## ★ Reference · Split-screen finance explainer (the user's favourite STRUCTURE; use it in every style)
+Full breakdown: `lookbook/style/05-split-screen-reference.md`. Whatever look you pick (D, E, F), edit with this rhythm:
+- **Split screen is the main beat**: B-roll that literally shows the words in the top half, the user below. Change the
+  top clip every 1.5–3 s (several `add-broll … "layout": "split"` back to back, one per phrase).
+- **Captions**: small 2–3-word boxed captions on the seam (`cinematic-pill`), unless the style has its own.
+- **Screenshots, tables, articles**: in the top half with the key line highlighted, or on a card over the user
+  blurred (`"layout": "card"`). Charts on a white panel in the top half.
+- **Lists / rings / small charts above the head** on the wall (`checklist` with `"tease": true`, `progress_ring`), y 0.12–0.25.
+- **Company names → logos pop in** on each name (`logo_row`; run `logo-find` for each company first).
+- **People named → their photo full screen + a big name label** (only photos the user gives you).
+- Hook: a held two-line title (+ small bracketed line) over 1-second B-roll cuts or proof images; end: "Comment
+  'WORD'" then "+follow". Speaker alone never longer than ~4 s.
+
 ## Things I've told Claude
 - Colour: keep my footage looking like it does on my phone. No colour filter unless I ask (no faded/lifted looks).
 - Split screen over covering my face: any big graphic (chalkboard, definition, list, chart, notes, screenshot) or B-roll
@@ -223,4 +236,5 @@ specific keyword in quotes.
   panel = `add-broll NAME --json '{"w0":A,"w1":B,"src":null,"color":"#FFFFFF","layout":"split"}'` + the look at y ~0.25;
   footage = `"src": "library/broll/x.mp4", "layout": "split"`. Never lay a large card or chalkboard over my face.
   Small things (captions, a word, an emoji off to the side) can stay on top.
+- Company names (NVIDIA, AMD, Intel…): their logos pop up on screen as I say each one (`logo_row`).
 - (Claude adds preferences here as it learns them.)

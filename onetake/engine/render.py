@@ -49,7 +49,12 @@ class StillReader:
     """A photo/screenshot used as a cut-away (same interface as FrameReader)."""
 
     def __init__(self, path):
-        im = cv2.imread(str(path), cv2.IMREAD_COLOR)
+        im = cv2.imread(str(path), cv2.IMREAD_UNCHANGED)
+        if im is not None and im.ndim == 2:
+            im = cv2.cvtColor(im, cv2.COLOR_GRAY2BGR)
+        elif im is not None and im.shape[2] == 4:  # see-through PNG (logo, sticker): on white, not black
+            a = im[..., 3:4].astype(np.float32) / 255
+            im = (im[..., :3] * a + 255 * (1 - a)).astype(np.uint8)
         self.frame = im if im is not None else np.zeros((16, 16, 3), np.uint8)
 
     def at(self, t):
@@ -84,6 +89,36 @@ def _feather(w, h, r):
         m = cv2.GaussianBlur(m, (0, 0), r / 2)
         _mask_cache[k] = m[..., None]
     return _mask_cache[k]
+
+
+def blur_card_layout(speaker, media, W, H):
+    """'Card' cut-away: the speaker blurred and dimmed full-screen, with the screenshot / chart / clip on a rounded card
+    in the middle (media: BGR frame, or None for just the blurred backdrop under a graphic)."""
+    small = cv2.resize(speaker, (W // 8, H // 8), interpolation=cv2.INTER_AREA)  # blur cheaply at 1/8 size
+    out = cv2.resize(cv2.GaussianBlur(small, (0, 0), 3), (W, H), interpolation=cv2.INTER_LINEAR)
+    out = cv2.convertScaleAbs(out, alpha=0.78, beta=0)
+    if media is None:
+        return out
+    mh, mw = media.shape[:2]
+    maxw, maxh = int(W * 0.88), int(H * 0.52)
+    sc = min(maxw / mw, maxh / mh)
+    cw, ch = max(1, int(mw * sc)), max(1, int(mh * sc))
+    card = cv2.resize(media, (cw, ch), interpolation=cv2.INTER_AREA)
+    x, y = (W - cw) // 2, int(H * 0.42 - ch / 2)
+    sh = np.zeros((H, W), np.float32)  # soft shadow
+    sh[y + 14:y + ch + 14, x:x + cw] = 0.55
+    sh = cv2.GaussianBlur(sh, (0, 0), 18)[..., None]
+    out = (out * (1 - sh)).astype(np.uint8)
+    r = max(8, min(cw, ch) // 28)  # rounded corners
+    m = np.zeros((ch, cw), np.uint8)
+    cv2.rectangle(m, (r, 0), (cw - r, ch), 255, -1)
+    cv2.rectangle(m, (0, r), (cw, ch - r), 255, -1)
+    for cx_, cy_ in ((r, r), (cw - r - 1, r), (r, ch - r - 1), (cw - r - 1, ch - r - 1)):
+        cv2.circle(m, (cx_, cy_), r, 255, -1, cv2.LINE_AA)
+    a = (m.astype(np.float32) / 255)[..., None]
+    roi = out[y:y + ch, x:x + cw]
+    out[y:y + ch, x:x + cw] = (card * a + roi * (1 - a)).astype(np.uint8)
+    return out
 
 
 def class_layout(speaker, media, W, H, focus=(0.5, 0.4)):
@@ -359,6 +394,10 @@ class Composer:
                 b, sp, rd = br
                 media = rd.at(float(b.get("clip_start", 0)) + t - sp[0]) if (b.get("src") and rd is not None) else None
                 frame = class_layout(self.speaker(ts, t), media, W, H, timeline.focus(self.p))
+            elif br and br[0].get("layout") == "card":  # screenshot/chart/clip on a card over you, blurred
+                b, sp, rd = br
+                media = rd.at(float(b.get("clip_start", 0)) + t - sp[0]) if (b.get("src") and rd is not None) else None
+                frame = blur_card_layout(self.speaker(ts, t), media, W, H)
             elif br and not split:
                 b, sp, rd = br
                 frame = draw.apply_filter(_broll_frame(b, rd, t - sp[0], W, H), self.filter)

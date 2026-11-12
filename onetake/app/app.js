@@ -915,7 +915,7 @@ function brollEditor(id) {
         <label>Ends</label><div class="row"><button data-mv="e-">A word earlier</button><button data-mv="e+">A word later</button></div>
         ${isVid ? `<label>Its sound</label><div class="row"><button class="chip" data-au="muted">Muted</button><button class="chip" data-au="under">On, under my voice</button></div>` : ""}
         <label>Comes in</label><div class="row"><button class="chip" data-tr="cut">Cut</button><button class="chip" data-tr="fade">Fade</button></div>
-        <label>Layout</label><div class="row"><button class="chip" data-lay="full">Full screen</button><button class="chip" data-lay="split">Split: clip on top, you below</button></div>
+        <label>Layout</label><div class="row"><button class="chip" data-lay="full">Full screen</button><button class="chip" data-lay="split">Split: clip on top, you below</button><button class="chip" data-lay="card">Card over you (blurred)</button></div>
       </div></div>
     <div class="row" style="margin-top:16px"><button id="bdel">Remove</button><span style="flex:1"></span><button id="bcancel">Cancel</button><button class="primary" id="bok">Apply</button></div>`,
     root => {
@@ -1693,9 +1693,10 @@ function drawBroll(t) {
   if (!hit) {
     if (bv.style.visibility === "visible") { bv.style.visibility = "hidden"; bv.pause(); }
     bimg.style.display = bpanel.style.display = "none";
-    S.inBroll = S.inSplit = false; return;
+    S.inBroll = S.inSplit = S.inCard = false; return;
   }
   const [b, sp] = hit, split = b.layout === "split" || b.layout === "class";  // class page: previewed as a split
+  const card = b.layout === "card";  // screenshot/chart on a card over the speaker, blurred (mirrors render.py)
   const isImg = b.src && /\.(png|jpe?g|webp|gif)$/i.test(b.src);
   const box = split ? { top: "0", height: "50%" } : { top: "0", height: "100%" };
   let el;
@@ -1711,11 +1712,14 @@ function drawBroll(t) {
     if (!S.playing && !bv.paused) bv.pause();
   }
   for (const o of [bv, bimg, bpanel]) if (o !== el) { if (o === bv) { o.style.visibility = "hidden"; } else o.style.display = "none"; }
-  if (el === bv) bv.style.visibility = "visible"; else el.style.display = "block";
-  el.style.top = box.top; el.style.height = box.height;
+  if (card && !b.src) { for (const o of [bv, bimg, bpanel]) { if (o === bv) o.style.visibility = "hidden"; else o.style.display = "none"; } }
+  else if (el === bv) bv.style.visibility = "visible"; else el.style.display = "block";
+  el.style.top = card ? "16%" : box.top; el.style.height = card ? "52%" : box.height;
+  el.style.left = card ? "6%" : "0"; el.style.width = card ? "88%" : "100%";
+  el.style.objectFit = card ? "contain" : ""; el.style.borderRadius = card ? "14px" : "";
   const FADE = 0.25;  // "Comes in: Fade" (mirrors render.py)
   el.style.opacity = b.trans === "fade" ? Math.min(1, (t - sp[0]) / FADE, (sp[1] - t) / FADE) : 1;
-  S.inBroll = !split; S.inSplit = split;
+  S.inBroll = !split && !card; S.inSplit = split; S.inCard = card;
 }
 
 const FX_KINDS = { flash: [0.30, 1], whip: [0.30, 1], zoom: [0.35, 1], shake: [0.40, 0], glitch: [0.25, 1], light_leak: [1.0, 0], drip: [0.7, 1] };
@@ -1749,7 +1753,8 @@ function drawCamera(t) {
   if (v.style.transform !== tr || v.style.transformOrigin !== org) {
     v.style.transform = fc.style.transform = tr; v.style.transformOrigin = fc.style.transformOrigin = org;
   }
-  const vf = [S.filterCss, e.filter].filter(x => x && x !== "none").join(" ") || "none";  // colour filter + word effects
+  const vf = [S.filterCss, e.filter, S.inCard ? "blur(18px) brightness(0.78)" : ""]
+    .filter(x => x && x !== "none").join(" ") || "none";  // colour filter + word effects (+ the card layout's blur)
   if (v.style.filter !== vf) v.style.filter = vf;
   let fl = $("#fxflash");
   if (!fl) { fl = document.createElement("div"); fl.id = "fxflash"; fl.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:50;opacity:0"; $("#phone").appendChild(fl); }

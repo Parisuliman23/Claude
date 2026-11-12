@@ -36,6 +36,7 @@
   autostart on|off          start the studio (and phone link) whenever Linux starts
   restore NAME FILE...      bring back a cleared reel's footage from its clips (in order) or a copy of its
                             old footage; the edit is kept
+  logo-find NAME...         download company logos (Wikidata) into library/logos for the logo_row look
   free-space [NAME]         how much each reel takes; with NAME, delete that finished reel's big files
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
@@ -247,6 +248,15 @@ WantedBy=default.target
     if c == "restore":  # footage cleared/lost: rebuild it from the clips or an old footage copy
         from . import ingest
         ingest.restore(args[0], args[1:])
+        return
+    if c == "logo-find":  # company logos for the logo_row look
+        from . import logos
+        for n in args:
+            try:
+                f = logos.find(n)
+                print(f"{n}: {config.rel(f) if f else 'no logo found (the look shows the name instead; or drop a PNG in library/logos/)'}")
+            except Exception as e:  # noqa: BLE001
+                print(f"{n}: couldn't download ({e}); try again in a minute")
         return
     if c == "free-space":  # a finished reel saved on the phone: give its disk space back
         from . import space
