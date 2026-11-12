@@ -145,6 +145,30 @@ def remaster(name, log=print):
     return [name] + [v["name"] for v in fam]
 
 
+def restore(name, files, log=print):
+    """Bring back a reel whose footage was cleared (free-space) or lost: rebuild source.mp4 from the given clips, in
+    order, or from a copy of its old footage (HDR copies get the colour fix). The edit is kept, so the length must match."""
+    from . import project as _p
+    d = _p.pdir(name)
+    files = [Path(f).expanduser() for f in files]
+    missing = [str(f) for f in files if not f.is_file()]
+    if missing:
+        raise SystemExit("Can't find: " + ", ".join(missing))
+    log(f"  {len(files)} file(s); HDR: {', '.join('yes' if is_hdr(f) else 'no' for f in files)}")
+    tmp = d / "source.new.mp4"
+    make_master(files, tmp, log)
+    old_dur, new_dur = _p.load(name).get("duration"), duration(tmp)
+    if old_dur and abs(new_dur - old_dur) > 0.25:
+        tmp.unlink()
+        raise SystemExit(f"That footage is a different length ({new_dur:.1f}s vs {old_dur:.1f}s), so it isn't this reel's. "
+                         "Nothing was changed.")
+    tmp.replace(d / "source.mp4")
+    _p.update(name, lambda q: (q.pop("archived", None), q.update(source=config.rel(d / "source.mp4"))))
+    make_proxy(name)
+    log("  restored. Open it in the studio and press Lock in my looks to render it.")
+    return name
+
+
 def make_proxy(name):
     """A light 540p copy of the footage for the studio's preview (renders still use the full video).
     Made at import, while the computer is busy anyway, so it never slows down editing."""
