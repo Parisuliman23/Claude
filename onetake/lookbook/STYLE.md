@@ -237,4 +237,5 @@ Full breakdown: `lookbook/style/05-split-screen-reference.md`. Whatever look you
   footage = `"src": "library/broll/x.mp4", "layout": "split"`. Never lay a large card or chalkboard over my face.
   Small things (captions, a word, an emoji off to the side) can stay on top.
 - Company names (NVIDIA, AMD, Intel…): their logos pop up on screen as I say each one (`logo_row`).
+- Video quality comes from filming, not filters: no filter by default. After every import, tell me the footage-check tips (daylight on my face, background with depth, back camera, HDR off). Guide: `lookbook/style/06-clear-footage.md`.
 - (Claude adds preferences here as it learns them.)

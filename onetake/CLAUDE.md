@@ -122,6 +122,9 @@ Run `python3 -m engine` with no arguments for the full list.
      area or right-side buttons, or running off the frame; `--fix` moves them in. Run it before opening the studio.
    - **Check your work**: `still NAME <seconds>` → look at `projects/NAME/cache/still.png` for the hook, a busy
      moment and the CTA. Face clear? One accent color? Text readable? Fix before opening the studio.
+   - **Footage check**: the import measures each clip (`footage_check` in project.json; `footage-check NAME` again any
+     time). Put its tips in your summary in plain words (e.g. "next time: HDR off, face a window, back camera").
+     Never fix flat footage with a filter unless the user asks.
 5. **Open the studio** in the background: `python3 -m engine open NAME` and tell the user it's at
    http://localhost:5178 (on a Chromebook it prints a number address like http://100.115.92.2:5178; use that). Give a 3–5 bullet summary of what you cut and styled, and remind them:
    they can bring back anything you cut, swap any look, and nothing renders until **Lock in my looks**.
