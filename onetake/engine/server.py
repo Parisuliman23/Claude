@@ -513,7 +513,10 @@ class Handler(BaseHTTPRequestHandler):
             from . import space
             if any(j.get("status") == "running" for j in jobs_for(name).values()):
                 return self.send_json({"error": "This reel is still rendering. Try again when it's finished."}, 400)
-            freed = space.free(name)
+            try:
+                freed = space.free(name)
+            except SystemExit as e:
+                return self.send_json({"error": str(e)}, 400)
             return self.send_json({"freed_mb": round(freed / 1e6), "disk_free_mb": round(space.disk_free() / 1e6)})
         if action == "sfx-auto":
             from . import sfx

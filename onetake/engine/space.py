@@ -49,8 +49,30 @@ def disk_free():
     return shutil.disk_usage(config.PROJECTS if config.PROJECTS.exists() else config.ROOT).free
 
 
-def free(name):
-    """Delete the big files of a finished reel (and its versions). Returns bytes freed."""
+def finished_file(name):
+    """The rendered reel, if it's really there and complete (not a render that stopped partway)."""
+    p = project.load(name)
+    r = p.get("render") or {}
+    f = config.absolute(r["file"]) if r.get("file") else None
+    if r.get("status") != "done" or not f or not f.is_file() or f.stat().st_size < 1_000_000:
+        return None
+    try:
+        import subprocess
+        out = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1",
+                              str(f)], capture_output=True, text=True, timeout=30).stdout.strip()
+        if float(out) < 0.9 * project.timeline.total(project.segments(p)):
+            return None
+    except Exception:  # noqa: BLE001
+        return None
+    return f
+
+
+def free(name, force=False):
+    """Delete the big files of a finished reel (and its versions). Returns bytes freed.
+    Refuses unless the reel has a complete render (the video the user saved to their phone)."""
+    if not force and not finished_file(name):
+        raise SystemExit("This reel doesn't have a complete rendered video yet, so its footage wasn't deleted. "
+                         "Render it (Lock in my looks), save it to your phone, then free up the space.")
     before = disk_free()
     names = family(name)
     for n in names:
