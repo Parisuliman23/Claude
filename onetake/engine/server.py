@@ -224,17 +224,20 @@ class Handler(BaseHTTPRequestHandler):
 
     do_PUT = do_POST
 
+    remote = False  # RemoteHandler: the port the permanent phone link forwards to
+
     def via_tunnel(self):
-        """True for requests that came in through the phone link (Cloudflare adds these headers)."""
-        return bool(self.headers.get("Cf-Connecting-Ip") or self.headers.get("Cf-Ray"))
+        """True for requests that came in through the phone link (Cloudflare adds these headers; everything on the
+        permanent link's port counts)."""
+        return self.remote or bool(self.headers.get("Cf-Connecting-Ip") or self.headers.get("Cf-Ray"))
 
     def authorized(self):
         """With phone access on, every request needs the PIN cookie (set once per device)."""
         st = config.settings()
         if not st.get("phone_access"):
             return not self.via_tunnel()
-        if st.get("phone_pin_off"):  # you chose no PIN: anyone with the link can use the phone page
-            return True
+        if st.get("phone_pin_off") and not (self.via_tunnel() and st.get("phone_link") == "permanent"):
+            return True  # you chose no PIN on the changing link (a permanent link always asks, once per phone)
         c = self.headers.get("Cookie") or ""
         return f"onetake_pin={pin_token(st)}" in c.replace(" ", "").split(";")
 
@@ -349,7 +352,7 @@ class Handler(BaseHTTPRequestHandler):
                 st = config.settings()
                 from . import space, tunnel
                 return self.send_json({"phone_access": bool(st.get("phone_access")), "phone_pin": st.get("phone_pin"),
-                                       "phone_pin_off": bool(st.get("phone_pin_off")),
+                                       "phone_pin_off": bool(st.get("phone_pin_off")) and st.get("phone_link") != "permanent",
                                        "phone_link": tunnel.status(),
                                        "disk_free_mb": round(space.disk_free() / 1e6),
                                        "claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
@@ -443,7 +446,7 @@ class Handler(BaseHTTPRequestHandler):
                 st["phone_pin"] = f"{secrets.randbelow(900000) + 100000}"
             f.write_text(json.dumps(st, indent=1))
             from . import tunnel
-            tunnel.start() if st["phone_access"] else tunnel.stop()
+            tunnel.start() if st["phone_access"] else tunnel.stop(close_permanent=True)
             resp = {"on": st["phone_access"], "pin": st.get("phone_pin")}
             body = json.dumps(resp).encode()
             self.send_response(200)
@@ -567,6 +570,20 @@ class Handler(BaseHTTPRequestHandler):
         return self.send_error(404)
 
 
+class RemoteHandler(Handler):
+    remote = True
+
+
+def _serve_remote(port):
+    """The local-only port the permanent phone link (Tailscale Funnel) forwards to."""
+    from . import tunnel
+    try:
+        h = ThreadingHTTPServer(("127.0.0.1", tunnel.remote_port(port)), RemoteHandler)
+    except OSError:
+        return
+    threading.Thread(target=h.serve_forever, daemon=True).start()
+
+
 def open_url(url):
     """Open a link in the normal browser (works on Chromebook Linux too)."""
     import subprocess
@@ -588,6 +605,7 @@ def serve(name=None, open_browser=True, port=None):
             open_url(url)
         return
     print(f"Studio running at {url}  (Ctrl+C to stop)")
+    _serve_remote(port)
     from . import inbox
     inbox.watch()  # phone uploads: Google Drive "One Take/Inbox" -> edited reel in "One Take/Ready"
     if inbox.status()["connected"]:
