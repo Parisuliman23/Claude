@@ -182,7 +182,8 @@ async function drawPhoneCard() {
         <b style="word-break:break-all;user-select:all">${esc(link.url)}/phone</b> (upload a video)<br>
         Full studio on your phone (edit, Finish, your reels): <b style="word-break:break-all;user-select:all">${esc(link.url)}</b><br>
         ${ps.phone_pin_off ? `No PIN needed: anyone with the link can open your phone page.` : `Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone).`} Works on Wi-Fi or mobile data.
-        <br><small>The link changes when the studio restarts, so scan the new code then.</small></div></div>`
+        <br><small>${link.permanent ? "<b>This link never changes.</b> Open it on your phone, then browser menu → <b>Add to Home screen</b>: One Take becomes an app icon. It works whenever this Chromebook is on."
+          : "The link changes when the studio restarts, so scan the new code then. Want one that never changes (an app icon on your phone)? Ask Claude: <b>set up my permanent phone link</b>."}</small></div></div>`
     : link.state === "error"
       ? `<div class="muted" style="margin-top:6px">⚠ ${esc(link.error)}<br>Check this Chromebook is online, then turn this off and on again.</div>`
       : `<div class="muted" style="margin-top:6px">✳ Making your private phone link… (the first time takes a minute)</div>`;

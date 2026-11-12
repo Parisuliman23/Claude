@@ -31,6 +31,9 @@
   style-pick NAME           which editing style fits this video best (notebook / motion / mix), and why
   study-ref library/references/x.mp4   measure a reference reel (frame sheets, cuts, words, sound) into lookbook/references/
   remaster NAME             rebuild a reel's footage from its original clips with the current colour fix
+  phone-link [permanent|changing]   the phone link: a fixed address (Tailscale Funnel, set up with
+                            bash setup-phone-link.sh) or the free link that changes on every restart
+  autostart on|off          start the studio (and phone link) whenever Linux starts
   free-space [NAME]         how much each reel takes; with NAME, delete that finished reel's big files
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
@@ -43,6 +46,7 @@ import json
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 from . import config, project
 
@@ -198,6 +202,45 @@ def main(argv=None):
             print(f"{'Already have' if v.get('existing') else 'Made'} {v['name']}  ({v['style']} style)")
         if made:
             print("Style each one like a normal edit (same words, its own looks), e.g. `show " + made[0]["name"] + "`.")
+        return
+    if c == "phone-link":  # permanent (Tailscale Funnel) or changing (Cloudflare quick tunnel) phone link
+        import secrets
+        f = config.ROOT / "settings.json"
+        st = json.loads(f.read_text()) if f.exists() else {}
+        if args:
+            st["phone_link"] = "permanent" if args[0].startswith("perm") else "changing"
+            st["phone_access"] = True
+            st.setdefault("phone_pin", f"{secrets.randbelow(900000) + 100000}")
+            f.write_text(json.dumps(st, indent=1))
+        mode = st.get("phone_link", "changing")
+        print(f"Phone link: {mode}" + (f"  (PIN {st.get('phone_pin')}, asked once per phone)" if mode == "permanent" else ""))
+        if args:
+            print("Restart the studio to use it: pkill -f 'engine open'; bash studio.sh")
+        return
+    if c == "autostart":  # Linux starts -> the studio starts (Chromebook: when you open any Linux app or Terminal)
+        unit = Path.home() / ".config" / "systemd" / "user" / "onetake-studio.service"
+        if args and args[0] == "off":
+            subprocess.run(["systemctl", "--user", "disable", "--now", "onetake-studio.service"], check=False)
+            unit.unlink(missing_ok=True)
+            print("The studio won't start by itself any more.")
+            return
+        unit.parent.mkdir(parents=True, exist_ok=True)
+        unit.write_text(f"""[Unit]
+Description=One Take Studio
+After=network-online.target
+
+[Service]
+WorkingDirectory={config.ROOT}
+ExecStart={sys.executable} -m engine open --no-browser
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+""")
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        r = subprocess.run(["systemctl", "--user", "enable", "--now", "onetake-studio.service"], capture_output=True, text=True)
+        print("The studio now starts whenever Linux starts." if r.returncode == 0 else f"Couldn't turn it on: {r.stderr.strip()}")
         return
     if c == "free-space":  # a finished reel saved on the phone: give its disk space back
         from . import space

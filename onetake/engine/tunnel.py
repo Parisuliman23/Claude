@@ -7,6 +7,11 @@ routes are reachable through it (see server.TUNNEL_PATHS).
 
 The link changes each time the studio restarts. The studio shows the new one (with a QR code), and
 writes it to Google Drive "One Take/Open One Take.html" when Drive is shared with Linux.
+
+Permanent link (setting "phone_link": "permanent", set up with `python3 -m engine phone-link permanent`): Tailscale
+Funnel gives this computer a fixed https://<name>.<tailnet>.ts.net address, free and with no upload cap, so the phone
+can keep it on its home screen. Funnel forwards to a second, local-only port (REMOTE_PORT) whose requests are always
+treated as coming from outside: they need the PIN, which can't be switched off for a permanent link.
 """
 import atexit
 import json
@@ -23,7 +28,7 @@ from . import config
 
 BIN = config.ROOT / "bin" / "cloudflared"
 PIDFILE = config.PROJECTS / ".tunnel.pid"
-STATE = {"state": "off", "url": None, "error": None}
+STATE = {"state": "off", "url": None, "error": None, "permanent": False}
 _proc = None
 _gen = 0  # bumped by stop(): an old reconnect loop sees it and quits
 _lock = threading.Lock()
@@ -85,8 +90,58 @@ def _kill_leftover():
     PIDFILE.unlink(missing_ok=True)
 
 
+def remote_port(port=None):
+    """The local-only port the permanent link forwards to (every request on it counts as from the phone)."""
+    return (port or config.settings()["port"]) + 1
+
+
+def permanent():
+    return config.settings().get("phone_link") == "permanent"
+
+
+def _ts(*args, timeout=30):
+    import shutil
+    exe = shutil.which("tailscale")
+    if not exe:
+        raise RuntimeError("Tailscale isn't installed. Ask Claude: \"set up my permanent phone link\".")
+    try:
+        r = subprocess.run([exe, *args], capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:  # e.g. Funnel waiting for you to allow it in the browser
+        out, code = ((e.stdout or b"").decode(errors="ignore") if isinstance(e.stdout, bytes) else (e.stdout or "")), 1
+    else:
+        out, code = (r.stdout or "") + (r.stderr or ""), r.returncode
+    if code:
+        m = re.search(r"https://login\.tailscale\.com/\S+", out)
+        if m:  # Funnel isn't allowed yet for this account: one click in the browser
+            raise RuntimeError(f"Allow it once here, then turn the phone link off and on: {m.group(0)}")
+        raise RuntimeError(out.strip().splitlines()[-1] if out.strip() else "tailscale failed")
+    return r.stdout
+
+
+def _run_permanent(port, gen):
+    """Tailscale Funnel: same https address every time. tailscaled keeps it up by itself (also across restarts)."""
+    try:
+        me = json.loads(_ts("status", "--json"))
+        if me.get("BackendState") != "Running":
+            raise RuntimeError("Tailscale isn't signed in. Ask Claude: \"set up my permanent phone link\".")
+        host = (me.get("Self") or {}).get("DNSName", "").rstrip(".")
+        if not host:
+            raise RuntimeError("Tailscale has no address for this computer yet.")
+        _ts("funnel", "--bg", f"http://127.0.0.1:{remote_port(port)}", timeout=60)
+        if gen == _gen:
+            url = f"https://{host}"
+            STATE.update(state="on", url=url, error=None, permanent=True)
+            print(f"Phone link (permanent): {url}/phone")
+            _publish(url)
+    except Exception as e:  # noqa: BLE001
+        if gen == _gen:
+            STATE.update(state="error", url=None, error=f"Couldn't open your permanent phone link: {e}", permanent=True)
+
+
 def _run(port, gen):
     global _proc
+    if permanent():
+        return _run_permanent(port, gen)
     try:
         exe = ensure_binary()
         _kill_leftover()
@@ -124,12 +179,19 @@ def start(port=None):
     threading.Thread(target=_run, args=(port, _gen), daemon=True).start()
 
 
-def stop():
+def stop(close_permanent=False):
+    """Close the link. The permanent one stays open when the studio just quits (its port is closed anyway, and it
+    comes back with the same address); it's closed when you turn phone access off."""
     global _gen
     with _lock:
         _gen += 1
         if _proc and _proc.poll() is None:
             _proc.terminate()
+    if close_permanent and permanent():
+        try:
+            _ts("funnel", "reset")
+        except Exception:  # noqa: BLE001
+            pass
     STATE.update(state="off", url=None, error=None)
 
 
