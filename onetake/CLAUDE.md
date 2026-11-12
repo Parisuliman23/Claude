@@ -136,7 +136,7 @@ Run `python3 -m engine` with no arguments for the full list.
    reel uses. Once a finished reel is saved on the user's phone, `free-space NAME` (or the studio's 🧹 Free up button,
    also on the phone page) deletes its clips, footage and renders and keeps the edit. Never do it without the user's OK.
    It refuses unless the reel has a complete render. A cleared reel can be brought back with
-   `restore NAME FILE...` (its clips in order, or a copy of its old footage, e.g. from Drive "One Take/Originals").
+   `restore-footage NAME FILE...` (its clips in order, or a copy of its old footage, e.g. from Drive "One Take/Originals").
 9. Don't render the final reel yourself unless asked — that's the user's "lock in" moment.
    (If they ask: `python3 -m engine render NAME`.)
 

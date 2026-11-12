@@ -34,7 +34,7 @@
   phone-link [permanent|changing]   the phone link: a fixed address (Tailscale Funnel, set up with
                             bash setup-phone-link.sh) or the free link that changes on every restart
   autostart on|off          start the studio (and phone link) whenever Linux starts
-  restore NAME FILE...      bring back a cleared reel's footage from its clips (in order) or a copy of its
+  restore-footage NAME FILE...  bring back a cleared reel's footage from its clips (in order) or a copy of its
                             old footage; the edit is kept
   logo-find NAME...         download company logos (Wikidata) into library/logos for the logo_row look
   logo-pack [--top N]       download the logos of every NYSE/NASDAQ company (or the N best-known) at once
@@ -247,7 +247,7 @@ WantedBy=default.target
         r = subprocess.run(["systemctl", "--user", "enable", "--now", "onetake-studio.service"], capture_output=True, text=True)
         print("The studio now starts whenever Linux starts." if r.returncode == 0 else f"Couldn't turn it on: {r.stderr.strip()}")
         return
-    if c == "restore":  # footage cleared/lost: rebuild it from the clips or an old footage copy
+    if c == "restore-footage":  # footage cleared/lost: rebuild it from the clips or an old footage copy
         from . import ingest
         ingest.restore(args[0], args[1:])
         return
