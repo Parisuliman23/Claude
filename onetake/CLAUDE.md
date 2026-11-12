@@ -89,9 +89,16 @@ Run `python3 -m engine` with no arguments for the full list.
      (word indexes where a new thought starts).
    - **B-roll**: when a moment needs footage (a metaphor like "casino", an emotion like "panic selling", or
      look C's 1.5–4 s shot rhythm), check `library/broll/` first; if nothing fits, download free stock clips:
-     `python3 -m engine broll-find "slot machine casino" --n 3` (Pixabay, free to use). If it says the
-     key is missing, tell the user to add their free Pixabay key (studio: Add media → Videos) and carry on with
-     white panels/graphics instead. Name searches by what's literally on screen ("red stock ticker falling").
+     `python3 -m engine broll-find "slot machine casino" --n 3` (Pixabay, plus Pexels when its key is saved:
+     `broll-key --pexels KEY`). If no key is saved, tell the user to add a free Pixabay key (studio: Add media →
+     Videos) and carry on with white panels/graphics instead. Name searches by what's literally on screen ("red stock
+     ticker falling"). **Real archival footage** (old trading floors, newsreels, a crash): `archive-find "stock
+     exchange"` → `archive-preview ID` (look at it) → `archive-clip ID --start 95 --dur 6` (public domain only).
+   - **Check every clip before you place it**: `python3 -m engine broll-check library/broll/a.mp4 …` makes one contact
+     sheet; Read it and use only clips that clearly show what's being said (drop vague, off-topic or watermarked ones).
+   - **Real stock charts**: when a stock's price, a crash or a run-up is mentioned, `price-fetch NVDA 1y` then the
+     `stock_chart` look (`"params": {"ticker": "NVDA", "range": "1y"}`, draws itself on, logo + price + % change), in the
+     top half of a split screen or above the head. Prices are saved, so the reel always shows the same numbers.
    - **Split screens are the user's default** for big graphics and B-roll (STYLE.md: never cover their face). Look C cut-aways / split screens: `add-broll NAME --json '{"w0":50,"w1":61,"src":"library/broll/x.mp4","layout":"split"}'`
      (`"src": null, "color": "#FFFFFF"` = white panel; put an `equation`/`highlight_card` look at y ~0.25 on it).
      Optional: `"trans": "fade"` (cross-dissolve in/out; default is a hard cut, which suits this style) and
