@@ -218,4 +218,9 @@ specific keyword in quotes.
 
 ## Things I've told Claude
 - Colour: keep my footage looking like it does on my phone. No colour filter unless I ask (no faded/lifted looks).
+- Split screen over covering my face: any big graphic (chalkboard, definition, list, chart, notes, screenshot) or B-roll
+  goes in a SPLIT SCREEN: graphic/clip in the top half, me in the bottom half with my whole face in view. Graphic on a
+  panel = `add-broll NAME --json '{"w0":A,"w1":B,"src":null,"color":"#FFFFFF","layout":"split"}'` + the look at y ~0.25;
+  footage = `"src": "library/broll/x.mp4", "layout": "split"`. Never lay a large card or chalkboard over my face.
+  Small things (captions, a word, an emoji off to the side) can stay on top.
 - (Claude adds preferences here as it learns them.)
