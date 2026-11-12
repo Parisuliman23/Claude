@@ -43,6 +43,7 @@
   broll-key [PIXABAY_KEY] [--pexels PEXELS_KEY]               save free stock-footage keys
   broll-check FILE...       a contact sheet of clips to look at before using them
   archive-find "words"      public-domain archival films (archive.org); archive-preview ID; archive-clip ID --start S --dur 8
+  footage-check FILE…|NAME  how clear the footage is (contrast, detail, HDR) + filming tips, no filters
   price-fetch TICKER [RANGE]   real share prices for the stock_chart look (RANGE: 5d 1mo 3mo 6mo ytd 1y 2y 5y 10y max)
   free-space [NAME]         how much each reel takes; with NAME, delete that finished reel's big files
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
@@ -425,6 +426,17 @@ WantedBy=default.target
     if c == "archive-clip":
         from . import footage
         print(footage.archive_clip(args[0], a.start, a.dur))
+        return
+    if c == "footage-check":  # how clear a clip is + filming tips (files, or a project's original clips)
+        from pathlib import Path as _P
+        from . import quality
+        files = [_P(x) for x in args if _P(x).is_file()]
+        if not files and args:
+            raw = project.pdir(args[0]) / "raw"
+            files = sorted(raw.iterdir())[:4] if raw.exists() else []
+        if not files:
+            raise SystemExit("Give video files or a reel name (it checks the reel's original clips).")
+        print(quality.report(quality.check(files)))
         return
     if c == "price-fetch":  # real share prices for the stock_chart look
         from . import prices

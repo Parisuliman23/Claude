@@ -255,6 +255,12 @@ def new(name=None, clips=None, log=print, move=True):
         "render": {"status": "none"},
         "rev": 0,
     }
+    try:  # how clear the footage is, with filming tips (shown in the studio and the import summary)
+        from . import quality
+        p["footage_check"] = quality.check(clips[:4])
+        log("  footage check:\n" + "\n".join("  " + x for x in quality.report(p["footage_check"]).splitlines()))
+    except Exception as e:  # noqa: BLE001
+        log(f"  (footage check skipped: {e})")
     from . import analyze as _an
     p["focus"] = _an.face_focus(d / "source.mp4")  # where the eyes are: punch-ins and split screens aim here
     if s["default_caption_style"] == "notebook-word":
