@@ -90,7 +90,7 @@ Run `python3 -m engine` with no arguments for the full list.
      `python3 -m engine broll-find "slot machine casino" --n 3` (Pixabay, free to use). If it says the
      key is missing, tell the user to add their free Pixabay key (studio: Add media → Videos) and carry on with
      white panels/graphics instead. Name searches by what's literally on screen ("red stock ticker falling").
-   - **Look C** cut-aways / split screens: `add-broll NAME --json '{"w0":50,"w1":61,"src":"library/broll/x.mp4","layout":"split"}'`
+   - **Split screens are the user's default** for big graphics and B-roll (STYLE.md: never cover their face). Look C cut-aways / split screens: `add-broll NAME --json '{"w0":50,"w1":61,"src":"library/broll/x.mp4","layout":"split"}'`
      (`"src": null, "color": "#FFFFFF"` = white panel; put an `equation`/`highlight_card` look at y ~0.25 on it).
      Optional: `"trans": "fade"` (cross-dissolve in/out; default is a hard cut, which suits this style) and
      `"audio": "under"` (the clip's own sound plays quietly under the voice; default muted).
