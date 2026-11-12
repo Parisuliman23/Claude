@@ -632,7 +632,7 @@ function renderVisuals() {
   $("#capY").oninput = e => { S.style.y = +e.target.value; S.lastCapKey = null; };
   $("#capY").onchange = e => mutate(p => p.caption_y = +e.target.value, { render: false });
   $("#lookbookBtn").onclick = lookbookModal;
-  $("#filterSel").onchange = e => { mutate(p => p.filter = e.target.value, { render: false }); applyFilter(); };
+  $("#filterSel").onchange = e => { S.noFilter = false; mutate(p => p.filter = e.target.value, { render: false }); applyFilter(); };
   $("#addLookBtn").onclick = addLookModal;
   $("#addMediaBtn").onclick = () => addMediaModal("gifs");
   $("#brollBtn").onclick = () => addMediaModal("broll");
@@ -1592,8 +1592,16 @@ function seekWord(i, toZero) {
   const o = j < w.length ? wordOut(w, S.segs, j) : null;
   if (o) seek(o[0] + 0.001);
 }
+$("#cmpBtn").onclick = () => { S.noFilter = !S.noFilter; applyFilter(); };
 function applyFilter() {  // CSS approximation of engine/draw.py apply_filter
-  const fl = (S.lookbook?.filters || []).find(x => x.id === (S.p.filter || "none")) || {};
+  const id = S.p.filter || "none", btn = $("#cmpBtn");
+  if (btn) {  // "See original": compare the footage with and without the filter (preview only, nothing is saved)
+    btn.hidden = id === "none";
+    if (id === "none") S.noFilter = false;
+    btn.classList.toggle("on", !!S.noFilter);
+    btn.textContent = S.noFilter ? "◐ Showing original · tap for filter" : "◐ See original";
+  }
+  const fl = S.noFilter ? {} : (S.lookbook?.filters || []).find(x => x.id === id) || {};
   const parts = [];
   if (fl.gray) parts.push(`grayscale(${fl.gray})`);
   if (fl.sat && fl.sat !== 1) parts.push(`saturate(${fl.sat})`);
@@ -1604,6 +1612,7 @@ function applyFilter() {  // CSS approximation of engine/draw.py apply_filter
   if (fl.warm > 0) parts.push(`sepia(${(fl.warm * 2.2).toFixed(2)})`);
   if (fl.warm < 0) parts.push(`hue-rotate(${Math.round(fl.warm * 120)}deg) saturate(1.05)`);
   const css = parts.join(" ") || "none";
+  S.filterCss = css === "none" ? "" : css;  // drawCamera adds word-effect blurs on top of this every frame
   for (const el of [v, bv, $("#bimg")]) el.style.filter = css;
 }
 function applySpeed() {  // talk faster without chipmunk voices; the export does the same
@@ -1740,7 +1749,8 @@ function drawCamera(t) {
   if (v.style.transform !== tr || v.style.transformOrigin !== org) {
     v.style.transform = fc.style.transform = tr; v.style.transformOrigin = fc.style.transformOrigin = org;
   }
-  if (v.style.filter !== e.filter) v.style.filter = e.filter;
+  const vf = [S.filterCss, e.filter].filter(x => x && x !== "none").join(" ") || "none";  // colour filter + word effects
+  if (v.style.filter !== vf) v.style.filter = vf;
   let fl = $("#fxflash");
   if (!fl) { fl = document.createElement("div"); fl.id = "fxflash"; fl.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:50;opacity:0"; $("#phone").appendChild(fl); }
   fl.style.background = e.wash; fl.style.opacity = e.flash;
