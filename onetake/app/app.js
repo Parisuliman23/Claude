@@ -1599,7 +1599,7 @@ function applyFilter() {  // CSS approximation of engine/draw.py apply_filter
     btn.hidden = id === "none";
     if (id === "none") S.noFilter = false;
     btn.classList.toggle("on", !!S.noFilter);
-    btn.textContent = S.noFilter ? "◐ Showing original · tap for filter" : "◐ See original";
+    btn.textContent = S.noFilter ? "◐ Filter off · tap to turn on" : "◐ Filter on · tap to compare";
   }
   const fl = S.noFilter ? {} : (S.lookbook?.filters || []).find(x => x.id === id) || {};
   const parts = [];
