@@ -102,6 +102,10 @@ def make_master(clips, out, log=print):
                     " HDR video in your phone's camera settings.")
         run(vf)
         parts.append(part)
+    if len(parts) == 1:  # one clip (or an old footage copy): it IS the master, no second copy needed (saves disk)
+        parts[0].replace(out)
+        shutil.rmtree(tmp)
+        return
     lst = tmp / "list.txt"
     lst.write_text("".join(f"file '{p.name}'\n" for p in parts))
     subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst),
