@@ -111,7 +111,7 @@ button{margin-top:14px;width:100%;padding:12px;font-size:17px;border:0;border-ra
 
 
 # Through the phone link (a Cloudflare tunnel) only the phone page and what it needs are reachable.
-TUNNEL_PATHS = re.compile(r"/phone/?|/login|/api/projects|/api/project/[a-z0-9-]+|/api/newreel|/api/new-reel-file"
+TUNNEL_PATHS = re.compile(r"/phone/?|/login|/api/projects|/api/project/[a-z0-9-]+(/free-space)?|/api/newreel|/api/new-reel-file"
                           r"|/api/new-reel-start|/media/projects/.+")
 _wrong_pins = []  # times of wrong PIN tries: after 5 in 15 minutes, PIN entry pauses for 15 minutes
 
@@ -263,7 +263,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             if not full and not TUNNEL_PATHS.fullmatch(path) or not full and (
-                    method != "GET" and path not in ("/login", "/api/new-reel-file", "/api/new-reel-start")):
+                    method != "GET" and path not in ("/login", "/api/new-reel-file", "/api/new-reel-start")
+                    and not path.endswith("/free-space")):
                 return self.send_error(404)
         if path == "/login" and method == "POST":
             form = dict(urllib.parse.parse_qsl(self.body().decode()))
@@ -299,7 +300,16 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_error(403)
                 return self.send_file(f)
             if path == "/api/projects":
-                return self.send_json(project.list_projects())
+                from . import space
+                out = project.list_projects()
+                for p in out:  # how much each reel takes on this computer, and whether it was already cleared
+                    try:
+                        q = project.load(p["name"])
+                        p["archived"] = bool(q.get("archived"))
+                        p["mb"] = 0 if q.get("variant_of") else round(space.freeable(p["name"]) / 1e6)
+                    except Exception:  # noqa: BLE001
+                        p["archived"], p["mb"] = False, 0
+                return self.send_json(out)
             if path == "/api/phone-qr.png":  # QR code of the phone link, to scan with the phone's camera
                 from . import tunnel
                 url = tunnel.status().get("url")
@@ -337,10 +347,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(info)
             if path == "/api/status":
                 st = config.settings()
-                from . import tunnel
+                from . import space, tunnel
                 return self.send_json({"phone_access": bool(st.get("phone_access")), "phone_pin": st.get("phone_pin"),
                                        "phone_pin_off": bool(st.get("phone_pin_off")),
                                        "phone_link": tunnel.status(),
+                                       "disk_free_mb": round(space.disk_free() / 1e6),
                                        "claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
                                        "stock": bool(os.environ.get("PIXABAY_API_KEY") or st.get("pixabay_key")),
                                        "settings": {k: st[k] for k in ("max_gap", "pad_before", "pad_after", "width", "height", "fps")}})
@@ -351,7 +362,7 @@ class Handler(BaseHTTPRequestHandler):
             m = re.fullmatch(r"/api/project/([a-z0-9-]+)(/rev)?", path)
             if m:
                 p = project.load(m.group(1))
-                if "focus" not in p and not m.group(2):  # projects from before face focus existed
+                if "focus" not in p and not m.group(2) and not p.get("archived"):  # projects from before face focus existed
                     foc = analyze.face_focus(config.absolute(p["source"]))
                     p = project.update(m.group(1), lambda q: q.update({"focus": foc}))
                 if m.group(2):
@@ -495,6 +506,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_error(400)
             shutil.rmtree(d)
             return self.send_json({"deleted": name})
+        if action == "free-space":  # the reel is saved on the phone: delete its big files here
+            from . import space
+            if any(j.get("status") == "running" for j in jobs_for(name).values()):
+                return self.send_json({"error": "This reel is still rendering. Try again when it's finished."}, 400)
+            freed = space.free(name)
+            return self.send_json({"freed_mb": round(freed / 1e6), "disk_free_mb": round(space.disk_free() / 1e6)})
         if action == "sfx-auto":
             from . import sfx
             p = project.update(name, lambda q: (sfx.auto(q, replace=bool(b.get("replace", True))),

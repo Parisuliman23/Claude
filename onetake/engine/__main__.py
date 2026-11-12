@@ -31,6 +31,8 @@
   style-pick NAME           which editing style fits this video best (notebook / motion / mix), and why
   study-ref library/references/x.mp4   measure a reference reel (frame sheets, cuts, words, sound) into lookbook/references/
   remaster NAME             rebuild a reel's footage from its original clips with the current colour fix
+  free-space [NAME]         how much each reel takes; with NAME, delete that finished reel's big files
+                            (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
   variants NAME [STYLE ...] make extra versions of an edit (default: class + the style-pick), each its own project
@@ -196,6 +198,17 @@ def main(argv=None):
             print(f"{'Already have' if v.get('existing') else 'Made'} {v['name']}  ({v['style']} style)")
         if made:
             print("Style each one like a normal edit (same words, its own looks), e.g. `show " + made[0]["name"] + "`.")
+        return
+    if c == "free-space":  # a finished reel saved on the phone: give its disk space back
+        from . import space
+        if not args:
+            print(f"Free on this computer: {space.disk_free() / 1e9:.1f} GB")
+            for p in project.list_projects():
+                q = project.load(p["name"])
+                tag = "  (already cleared)" if q.get("archived") else "" if q.get("variant_of") else f"  {space.freeable(p['name']) / 1e9:.2f} GB"
+                print(f"  {p['name']}  {p['title']}{tag}")
+            return
+        print(f"Freed {space.free(args[0]) / 1e9:.2f} GB. Now free: {space.disk_free() / 1e9:.1f} GB")
         return
     if c == "remaster":  # rebuild a reel's footage from its original clips (e.g. after the HDR colour fix)
         from . import ingest
