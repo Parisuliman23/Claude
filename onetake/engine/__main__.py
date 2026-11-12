@@ -39,6 +39,11 @@
   logo-find NAME...         download company logos (Wikidata) into library/logos for the logo_row look
   logo-pack [--top N]       download the logos of every NYSE/NASDAQ company (or the N best-known) at once
   logo-import               add ~5,100 ticker icon marks (github.com/davidepalazzo/ticker-logos, ~105 MB)
+  broll-find "words" [--n 3] [--source pixabay|pexels|all]   stock B-roll (Pixabay + Pexels with keys)
+  broll-key [PIXABAY_KEY] [--pexels PEXELS_KEY]               save free stock-footage keys
+  broll-check FILE...       a contact sheet of clips to look at before using them
+  archive-find "words"      public-domain archival films (archive.org); archive-preview ID; archive-clip ID --start S --dur 8
+  price-fetch TICKER [RANGE]   real share prices for the stock_chart look (RANGE: 5d 1mo 3mo 6mo ytd 1y 2y 5y 10y max)
   free-space [NAME]         how much each reel takes; with NAME, delete that finished reel's big files
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
@@ -144,6 +149,10 @@ def main(argv=None):
     ap.add_argument("--fix", action="store_true")
     ap.add_argument("--out", default=None)
     ap.add_argument("--no-browser", action="store_true")
+    ap.add_argument("--source", default="all", help="broll-find: pixabay, pexels or all")
+    ap.add_argument("--start", type=float, default=0.0)
+    ap.add_argument("--dur", type=float, default=8.0)
+    ap.add_argument("--pexels", default=None, help="broll-key: save a Pexels key")
     ap.add_argument("--keep-drop", action="store_true", help="don't empty drop-in-order/ after importing")
     a = ap.parse_args(argv)
     c, args = a.cmd, a.args
@@ -363,17 +372,66 @@ WantedBy=default.target
         project.update(args[0], fn)
         return show(args[0])
     if c in ("broll-find", "broll-starter", "broll-key"):
-        from . import stock
-        try:
-            if c == "broll-key":
+        from . import footage, stock
+        if c == "broll-key":
+            if a.pexels:
+                footage.save_pexels_key(a.pexels)
+            if args:
                 stock.save_key(args[0])
-                print("Saved. (It stays on this computer, in settings.json.)")
-                return
-            got = stock.search(" ".join(args), a.n) if c == "broll-find" else \
-                stock.starter_pack(progress=lambda x: print(f"\r  {x * 100:.0f}%", end="", flush=True))
-        except stock.NoKey as e:
-            raise SystemExit(str(e) + "  Or: python3 -m engine broll-key YOUR_KEY")
-        print("\n".join(got) or "Nothing found. Try other words.")
+            print("Saved. (It stays on this computer, in settings.json.)")
+            return
+        if c == "broll-starter":
+            try:
+                got = stock.starter_pack(progress=lambda x: print(f"\r  {x * 100:.0f}%", end="", flush=True))
+            except stock.NoKey as e:
+                raise SystemExit(str(e) + "  Or: python3 -m engine broll-key YOUR_KEY")
+            print("\n".join(got))
+            return
+        q, got, notes = " ".join(args), [], []
+        if a.source in ("all", "pixabay"):
+            try:
+                got += stock.search(q, a.n)
+            except (stock.NoKey, RuntimeError) as e:
+                notes.append(f"Pixabay: {e}")
+        if a.source in ("all", "pexels") and (a.source == "pexels" or footage.pexels_key()):
+            try:
+                got += footage.pexels(q, a.n)
+            except Exception as e:  # noqa: BLE001
+                notes.append(f"Pexels: {e}")
+        print("\n".join(got) or "Nothing found. Try other words (say what's literally on screen).")
+        for x in notes:
+            print("  (" + x + ")")
+        if got:
+            print("Check them before using: python3 -m engine broll-check " + " ".join(got))
+        return
+    if c == "broll-check":  # one contact sheet of clips, to look at before placing them
+        from . import footage
+        out = a.out or str(config.ROOT / "projects" / "_broll_check.png")
+        footage.check(args, out)
+        print("Look at this image (Read it) and keep only clips that clearly show what's being said:", out)
+        return
+    if c == "archive-find":  # public-domain archival films (old trading floors, newsreels) on archive.org
+        from . import footage
+        for x in footage.archive_search(" ".join(args), a.n):
+            print(f"{x['id']}  |  {x['title']}  ({x['year']})")
+        print("Preview one: archive-preview ID   then cut: archive-clip ID --start SECONDS --dur 8")
+        return
+    if c == "archive-preview":
+        from . import footage
+        out = a.out or str(config.ROOT / "projects" / "_archive_preview.png")
+        footage.archive_preview(args[0], out, every=float(args[1]) if len(args) > 1 else 20)
+        print("Frames every few seconds, labelled with the time; look at it, then archive-clip ID --start …:", out)
+        return
+    if c == "archive-clip":
+        from . import footage
+        print(footage.archive_clip(args[0], a.start, a.dur))
+        return
+    if c == "price-fetch":  # real share prices for the stock_chart look
+        from . import prices
+        rng = args[1] if len(args) > 1 else "1y"
+        d = prices.fetch(args[0], rng)
+        chg = (d["c"][-1] - d["c"][0]) / d["c"][0] * 100
+        print(f"{d['ticker']} ({d['name']}), {rng}: {d['c'][0]:,.2f} -> {d['c'][-1]:,.2f} ({chg:+.1f}%), saved.")
         return
     if c in ("sfx-auto", "sfx-list"):
         from . import sfx
