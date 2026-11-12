@@ -126,6 +126,7 @@ async function poll() {
   await drawList(nr.status === "done" && started);
 }
 
+function gbs(mb) { return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`; }
 async function drawList(justDone) {
   const list = await api("/api/projects");
   if (!list.length) return show($("#list"), `<div class="muted">No reels yet.</div>`);
@@ -135,12 +136,24 @@ async function drawList(justDone) {
     const file = full?.render?.file;
     rows.push({ p, file });
   }
-  $("#list").innerHTML = rows.map(({ p, file }) => `<div class="row"><div><b>${esc(p.title)}</b><br><span class="muted">${file ? "ready" : "being edited / not rendered yet"}</span></div>
-    ${file ? `<a href="${media(file)}" download="${esc(p.title)}.mp4">⬇ Download</a>` : ""}</div>`).join("");
+  $("#list").innerHTML = rows.map(({ p, file }) => `<div class="row"><div><b>${esc(p.title)}</b><br><span class="muted">${p.archived
+      ? "saved to your phone · space freed on your Chromebook" : file ? "ready" : "being edited / not rendered yet"}</span></div>
+    ${file ? `<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end"><a href="${media(file)}" download="${esc(p.title)}.mp4">⬇ Download</a>
+      ${p.mb > 50 ? `<a href="#" data-free="${p.name}" data-title="${esc(p.title)}" data-mb="${p.mb}" style="font-size:13px">🧹 Saved it? Free up ${gbs(p.mb)}</a>` : ""}</div>` : ""}</div>`).join("");
+  document.querySelectorAll("[data-free]").forEach(a => a.onclick = async ev => {
+    ev.preventDefault();
+    if (!confirm(`Is “${a.dataset.title}” saved in your phone's gallery?\n\nThis deletes its clips, footage and videos from your Chromebook `
+      + `(about ${gbs(+a.dataset.mb)}) so there's room for your next reel. The video on your phone isn't touched.`)) return;
+    a.textContent = "Freeing up space…";
+    try { const r = await api(`/api/project/${a.dataset.free}/free-space`, {}); a.textContent = r.error ? "⚠ " + r.error : `✓ Freed ${gbs(r.freed_mb)}`; }
+    catch (err) { a.textContent = "⚠ " + err.message; }
+    setTimeout(() => drawList(false), 1500);
+  });
   if (justDone && rows[0]?.file) {
     show($("#ready"), `<b>✓ Your reel is ready</b><video src="${media(rows[0].file)}" controls playsinline></video>
       <a class="btn" href="${media(rows[0].file)}" download="${esc(rows[0].p.title)}.mp4">⬇ Save to my phone</a>
-      <div class="muted" style="margin-top:8px">Then post it, or open it in CapCut to keep editing. Want changes? Open the studio on your Chromebook.</div>`);
+      <div class="muted" style="margin-top:8px">Then post it, or open it in CapCut to keep editing. Want changes? Open the studio on your Chromebook.
+      Once it's in your gallery and you're happy with it, tap <b>🧹 Free up</b> next to it below to clear it off your Chromebook.</div>`);
   }
 }
 poll();

@@ -132,6 +132,11 @@ async function home() {
     toast("Reel deleted."); home();
   }), 0);
   const busy = nr.status === "running";
+  const st = await api("/api/status").catch(() => ({}));
+  const diskNote = st.disk_free_mb != null && st.disk_free_mb < 4000
+    ? `<div class="card" style="background:var(--hl)"><b>Only ${gb(st.disk_free_mb)} free on this computer.</b>
+       <div class="muted">A new reel needs about 4 GB while it's being made. Save finished reels to your phone, then press <b>🧹 Free up</b> on them below.</div></div>` : "";
+  setTimeout(() => document.querySelectorAll("[data-free]").forEach(b => b.onclick = () => freeSpace(b.dataset.free, b.dataset.title, +b.dataset.mb)), 0);
   $("#panel").innerHTML = `<div class="projlist">${banner}
     ${busy ? "" : `<label class="dropzone" id="dropzone">
       <input type="file" id="dropFile" accept="video/*,.mov,.mp4,.m4v" multiple hidden>
@@ -142,9 +147,26 @@ async function home() {
     </label>`}
     <div id="phoneCard"></div>
     <h1>Your reels</h1>
-    ${list.length ? list.map(p => `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} raw · ${p.render === "done" ? "rendered" : "in progress"}</small></div>
+    ${diskNote}
+    ${list.length ? list.map(p => p.archived
+      ? `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>✓ Saved to your phone · space freed on this computer</small></div>
+      <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button></div>`
+      : `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} filmed · ${p.render === "done" ? "rendered" : "in progress"}${p.mb ? ` · uses ${gb(p.mb)}` : ""}</small></div>
+      ${p.render === "done" && p.mb > 50 ? `<button class="ghost" data-free="${p.name}" data-title="${esc(p.title)}" data-mb="${p.mb}" title="Once the finished video is on your phone, delete its clips and footage here">🧹 Free up ${gb(p.mb)}</button>` : ""}
       <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button>
       <button class="primary" onclick="openReel('${p.name}')">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
+}
+
+function gb(mb) { return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`; }
+async function freeSpace(name, title, mb) {
+  if (!confirm(`Is “${title}” saved on your phone?\n\nThis deletes its clips, footage and rendered videos from this computer (about ${gb(mb)}). `
+    + `The finished video on your phone isn't touched. You won't be able to edit or re-render this reel here afterwards.`)) return;
+  try {
+    const r = await api(`/api/project/${name}/free-space`, {});
+    if (r.error) return toast(r.error);
+    toast(`Freed ${gb(r.freed_mb)}. ${gb(r.disk_free_mb)} free now.`);
+  } catch (e) { toast(e.message); }
+  home();
 }
 
 // ---------- phone uploads (Google Drive "One Take/Inbox")
@@ -255,6 +277,10 @@ function bindDropzone() {
 async function loadProject(name) {
   S.name = name;
   const [p, lb, lib] = await Promise.all([api(`/api/project/${name}`), api("/api/lookbook"), api("/api/library")]);
+  if (p.archived) {  // its footage was cleared after it was saved to the phone: nothing to edit here
+    toast("This reel was saved to your phone and cleared from this computer to free space, so it can't be edited here.");
+    S.name = null; location.hash = ""; return;
+  }
   S.lookbook = lb; S.library = lib;
   setProject(p);
   v.src = media(p._proxy || p.source);  // the light preview copy when there is one (renders use the full video)

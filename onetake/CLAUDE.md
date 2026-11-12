@@ -126,7 +126,10 @@ Run `python3 -m engine` with no arguments for the full list.
    Or straight from the phone's gallery: the studio's **Send from your phone** card (PIN-protected) makes a private
    https://….trycloudflare.com link (`engine/tunnel.py`, no port forwarding needed) with a QR code; the user opens
    `<link>/phone`, picks a video, and gets the rendered reel back on that page. The link changes when the studio restarts.
-8. Don't render the final reel yourself unless asked — that's the user's "lock in" moment.
+8. **Disk space** (Chromebooks are small; a reel needs ~4 GB while it's made): `python3 -m engine free-space` lists what each
+   reel uses. Once a finished reel is saved on the user's phone, `free-space NAME` (or the studio's 🧹 Free up button,
+   also on the phone page) deletes its clips, footage and renders and keeps the edit. Never do it without the user's OK.
+9. Don't render the final reel yourself unless asked — that's the user's "lock in" moment.
    (If they ask: `python3 -m engine render NAME`.)
 
 ## Studio requests
