@@ -88,12 +88,12 @@ def render(ctx):
         td = ctx.ImageDraw.Draw(tile)
         if lg is not None:
             lg = lg.convert("RGBA")
-            if dark:  # a black logo on a black tile: draw it white
-                px = [(r_, g_, b_) for r_, g_, b_, a_ in lg.resize((40, 40)).getdata() if a_ > 128]
-                if px and sum(0.3 * r_ + 0.59 * g_ + 0.11 * b_ for r_, g_, b_ in px) / len(px) < 110:
-                    white = ctx.Image.new("RGBA", lg.size, (255, 255, 255, 255))
-                    white.putalpha(lg.getchannel("A"))
-                    lg = white
+            px = [(r_, g_, b_) for r_, g_, b_, a_ in lg.resize((40, 40)).getdata() if a_ > 128]
+            lum = sum(0.3 * r_ + 0.59 * g_ + 0.11 * b_ for r_, g_, b_ in px) / len(px) if px else 128
+            if (dark and lum < 110) or (not dark and lum > 225):  # black logo on a black tile / white on white
+                solid = ctx.Image.new("RGBA", lg.size, (255, 255, 255, 255) if dark else (17, 17, 17, 255))
+                solid.putalpha(lg.getchannel("A"))
+                lg = solid
             sc = min((tw * 0.78) / lg.width, (th * 0.62) / lg.height)
             lg = lg.resize((max(1, int(lg.width * sc)), max(1, int(lg.height * sc))), ctx.Image.LANCZOS)
             tile.alpha_composite(lg, (pad + (tw - lg.width) // 2, pad + (th - lg.height) // 2))

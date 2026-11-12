@@ -37,6 +37,7 @@
   restore NAME FILE...      bring back a cleared reel's footage from its clips (in order) or a copy of its
                             old footage; the edit is kept
   logo-find NAME...         download company logos (Wikidata) into library/logos for the logo_row look
+  logo-pack [--top N]       download the logos of every NYSE/NASDAQ company (or the N best-known) at once
   free-space [NAME]         how much each reel takes; with NAME, delete that finished reel's big files
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
@@ -248,6 +249,13 @@ WantedBy=default.target
     if c == "restore":  # footage cleared/lost: rebuild it from the clips or an old footage copy
         from . import ingest
         ingest.restore(args[0], args[1:])
+        return
+    if c == "logo-pack":  # every listed company's logo, ahead of time (works by name or ticker)
+        from . import logos
+        top = None
+        if "--top" in args:
+            top = int(args[args.index("--top") + 1])
+        logos.pack(top)
         return
     if c == "logo-find":  # company logos for the logo_row look
         from . import logos
