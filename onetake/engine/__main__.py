@@ -38,6 +38,7 @@
                             old footage; the edit is kept
   logo-find NAME...         download company logos (Wikidata) into library/logos for the logo_row look
   logo-pack [--top N]       download the logos of every NYSE/NASDAQ company (or the N best-known) at once
+  logo-import               add ~5,100 ticker icon marks (github.com/davidepalazzo/ticker-logos, ~105 MB)
   free-space [NAME]         how much each reel takes; with NAME, delete that finished reel's big files
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
@@ -250,6 +251,10 @@ WantedBy=default.target
         from . import ingest
         ingest.restore(args[0], args[1:])
         return
+    if c == "logo-import":  # every ticker's icon mark at once
+        from . import logos
+        logos.import_icons()
+        return
     if c == "logo-pack":  # every listed company's logo, ahead of time (works by name or ticker)
         from . import logos
         top = None
@@ -262,7 +267,9 @@ WantedBy=default.target
         for n in args:
             try:
                 f = logos.find(n)
-                print(f"{n}: {config.rel(f) if f else 'no logo found (the look shows the name instead; or drop a PNG in library/logos/)'}")
+                ic = logos.icon(n)
+                print(f"{n}: {config.rel(f) if f else 'no name logo'}; icon: {config.rel(ic) if ic else 'none'}"
+                      + ("" if f or ic else " (the look shows the name instead; or drop a PNG in library/logos/)"))
             except Exception as e:  # noqa: BLE001
                 print(f"{n}: couldn't download ({e}); try again in a minute")
         return

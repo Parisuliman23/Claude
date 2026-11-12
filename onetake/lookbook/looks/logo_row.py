@@ -5,16 +5,17 @@ META = {
                    "library/logos (python3 -m engine logo-find NVIDIA AMD Intel).",
     "params": {"companies": ["NVIDIA", "AMD", "Intel"], "logos": [], "at": [], "gap_at": 0.35,
                "title": "", "title_accent": "", "sub": "", "accent": "#F26A1B",
-               "tile": 190, "tile_h": 0, "dark": [], "max_per_row": 5, "width": 0.94},
+               "tile": 190, "tile_h": 0, "dark": [], "max_per_row": 5, "width": 0.94, "kind": "logo"},
 }
 # companies: names in the order they're said. logos: optional file paths, same order (else library/logos/<name>.png).
 # at: one time per logo, so each pops on its word, e.g. [{"w": 40}, {"w": 42}, {"w": 45}] (default: every gap_at s).
-# dark: indexes of tiles drawn black (a logo that's white on dark, like Uber's app icon).
+# dark: indexes of tiles drawn black (automatic for logos that are mostly white). kind: "logo" (the name logo, e.g. the
+# NVIDIA wordmark) or "icon" (just the symbol, e.g. the NVIDIA eye); each falls back to the other.
 
 
-def _logo(ctx, name, path):
+def _logo(ctx, name, path, kind="logo"):
     from engine import logos
-    f = path or logos.cached(name)
+    f = path or logos.best(name, kind)
     if not f:
         return None
     try:
@@ -82,9 +83,13 @@ def render(ctx):
         rx = 20 + (W - (in_row * tw + (in_row - 1) * gap)) / 2
         cx = rx + c * (tw + gap) + tw / 2
         cy = y + r * (th + gap) + th / 2
+        lg = _logo(ctx, name, paths[i] if i < len(paths) else None, p.get("kind", "logo"))
         dark = i in p["dark"]
+        if lg is not None and not dark:  # a mostly-white logo (made for dark backgrounds): give it a dark tile
+            px = [(r_, g_, b_) for r_, g_, b_, a_ in lg.convert("RGBA").resize((40, 40)).getdata() if a_ > 128]
+            whiteish = sum(1 for r_, g_, b_ in px if min(r_, g_, b_) > 225) / len(px) if px else 0
+            dark = 0.3 < whiteish < 0.98  # fully white ones are recoloured instead (below)
         tile, pad = ctx.card(tw, th, radius=max(10, th // 7), fill="#111111" if dark else "#FFFFFF")
-        lg = _logo(ctx, name, paths[i] if i < len(paths) else None)
         td = ctx.ImageDraw.Draw(tile)
         if lg is not None:
             lg = lg.convert("RGBA")

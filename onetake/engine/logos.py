@@ -6,6 +6,7 @@ in library/logos/<slug>.png, so it's only fetched once. The user can drop their 
 (a file named after the company wins). No key or account needed.
 """
 import json
+from pathlib import Path
 import re
 import urllib.parse
 import urllib.error
@@ -260,3 +261,78 @@ def pack(top=None, progress=print, pause=1.0):
     INDEX.write_text(json.dumps(ix))
     progress(f"Logo pack: {got} new, {skipped} already here, {failed} missing, {len(items)} companies.")
     return got
+
+
+# ---------- icon marks by ticker (github.com/davidepalazzo/ticker-logos) ----------
+ICONS = DIR / "icons"
+ICON_REPO = "https://github.com/davidepalazzo/ticker-logos.git"
+ICON_RAW = "https://raw.githubusercontent.com/davidepalazzo/ticker-logos/main/ticker_icons/{}.png"
+
+
+def ticker_of(name):
+    """'NVDA' / '$NVDA' -> 'NVDA'; 'Nvidia' -> its ticker from the index (None if unknown)."""
+    n = name.strip().lstrip("$")
+    if re.fullmatch(r"[A-Z][A-Z.\-]{0,5}", n):
+        return n.replace(".", "-")
+    builtin_index()
+    key = key_for(n)
+    for t, k in _idx()["tickers"].items():
+        if k == key:
+            return t
+    return None
+
+
+def icon(name, online=True):
+    """The company's icon mark (library/logos/icons/<TICKER>.png), downloaded on first use; None if there's none."""
+    t = ticker_of(name)
+    if not t:
+        return None
+    f = ICONS / f"{t}.png"
+    if f.is_file():
+        return f
+    if not online:
+        return None
+    try:
+        data = _get(ICON_RAW.format(urllib.parse.quote(t)), tries=2)
+    except Exception:  # noqa: BLE001  (not in the repo)
+        return None
+    ICONS.mkdir(parents=True, exist_ok=True)
+    f.write_bytes(data)
+    return f
+
+
+def best(name, kind="logo", online=False):
+    """What the logo_row look shows: the name logo (wordmark) or the icon mark, falling back to the other one."""
+    order = (icon, cached) if kind == "icon" else (cached, icon)
+    for fn in order:
+        f = fn(name, online=online) if fn is icon else fn(name)
+        if f:
+            return f
+    return None
+
+
+def import_icons(progress=print):
+    """All ~5,100 ticker icons at once (about 105 MB): a sparse git checkout of just the ticker_icons folder."""
+    import shutil
+    import subprocess
+    import tempfile
+    tmp = Path(tempfile.mkdtemp(prefix="ticker-logos-"))
+    try:
+        run = lambda *a: subprocess.run(["git", *a], cwd=tmp, check=True, capture_output=True, text=True)
+        run("init", "-q")
+        run("remote", "add", "origin", ICON_REPO)
+        run("config", "core.sparseCheckout", "true")
+        (tmp / ".git" / "info" / "sparse-checkout").write_text("ticker_icons/\n")
+        progress("  downloading the ticker icons (about 105 MB)…")
+        run("pull", "-q", "--depth", "1", "origin", "main")
+        ICONS.mkdir(parents=True, exist_ok=True)
+        n = 0
+        for f in (tmp / "ticker_icons").glob("*.png"):
+            dest = ICONS / f.name.upper().replace(".PNG", ".png")
+            if not dest.exists():
+                shutil.copy2(f, dest)
+                n += 1
+        progress(f"Added {n} ticker icons to {ICONS}.")
+        return n
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
