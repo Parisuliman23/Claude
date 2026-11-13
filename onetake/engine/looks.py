@@ -260,6 +260,8 @@ class Ctx:
         if key not in _card_cache:
             if len(_card_cache) > 64:
                 _card_cache.clear()
+            if len(_card_cache) > 64:
+                _card_cache.clear()
             _card_cache[key] = self._card(*key)
         img, pad = _card_cache[key]
         return img.copy(), pad
@@ -446,6 +448,18 @@ def frame(look_id, params, t, dur, W, H):
     return m.render(Ctx(t, dur, W, H, params_for(look_id, params)))
 
 
+_sprite_lock = __import__("threading").Lock()
+
+
+def _trim_memory():
+    """Give freed memory back to the system (otherwise Python keeps it and the studio only ever grows)."""
+    try:
+        import ctypes
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception:  # noqa: BLE001  (not Linux/glibc: nothing to do)
+        pass
+
+
 def sprite(look_id, params, dur, out_dir, W=1080, H=1920, fps=10, scale=0.5, max_len=6.0):
     """Render a preview sprite sheet (frames side by side) for the browser.
     Returns {url, fps, n, w, h} where w/h are the full-size graphic dimensions."""
@@ -458,17 +472,23 @@ def sprite(look_id, params, dur, out_dir, W=1080, H=1920, fps=10, scale=0.5, max
     if meta_f.exists() and png.exists():
         return json.loads(meta_f.read_text())
     n = max(1, int(dur * fps))
-    frames = [frame(look_id, params, i / fps, dur, W, H) for i in range(n)]
-    frames = [f if f is not None else Image.new("RGBA", (2, 2)) for f in frames]
-    fw = max(f.width for f in frames)
-    fh = max(f.height for f in frames)
-    cw, ch = max(1, int(fw * scale)), max(1, int(fh * scale))
-    sheet = Image.new("RGBA", (cw * n, ch), (0, 0, 0, 0))
-    for i, f in enumerate(frames):
-        cell = Image.new("RGBA", (fw, fh), (0, 0, 0, 0))
-        cell.paste(f, ((fw - f.width) // 2, (fh - f.height) // 2))
-        sheet.paste(cell.resize((cw, ch), Image.LANCZOS), (i * cw, 0))
-    sheet.save(png)
+    with _sprite_lock:  # one at a time: a reel opening asks for every look at once, which ran Chromebooks out of memory
+        if meta_f.exists() and png.exists():
+            return json.loads(meta_f.read_text())
+        small, fw, fh = [], 2, 2
+        for i in range(n):  # keep only the shrunk copy of each frame (a full-size one is up to 8 MB)
+            f = frame(look_id, params, i / fps, dur, W, H) or Image.new("RGBA", (2, 2))
+            fw, fh = max(fw, f.width), max(fh, f.height)
+            small.append((f.resize((max(1, round(f.width * scale)), max(1, round(f.height * scale))), Image.LANCZOS)))
+            del f
+        cw, ch = max(1, int(fw * scale)), max(1, int(fh * scale))
+        sheet = Image.new("RGBA", (cw * n, ch), (0, 0, 0, 0))
+        for i, f in enumerate(small):
+            sheet.paste(f, (i * cw + (cw - f.width) // 2, (ch - f.height) // 2))
+        del small
+        sheet.save(png)
+        del sheet
+        _trim_memory()
     meta = {"url": "/media/" + config.rel(png), "fps": fps, "n": n, "w": fw, "h": fh}
     meta_f.write_text(json.dumps(meta))
     return meta
