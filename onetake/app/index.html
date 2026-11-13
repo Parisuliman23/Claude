@@ -10,10 +10,11 @@
 <header id="top">
   <div class="brand"><button id="homeBtn" class="ghost" hidden onclick="goHome()" title="Back to all your reels">← All reels</button><span class="logo">✂</span><div><b>One Take Studio</b><small id="ptitle"></small></div></div>
   <nav id="tabs">
-    <button data-tab="cut">✂ Cut</button>
-    <button data-tab="visuals">✦ Visuals</button>
-    <button data-tab="sound">♪ Sound</button>
-    <button data-tab="finish">✓ Finish</button>
+    <button data-mact="edit" class="mob"><i>✂</i><span>Edit</span></button>
+    <button data-tab="cut"><i>✎</i><span>Cut</span></button>
+    <button data-tab="visuals"><i>✦</i><span>Visuals</span></button>
+    <button data-tab="sound"><i>♪</i><span>Sound</span></button>
+    <button data-tab="finish"><i>✓</i><span>Finish</span></button>
   </nav>
   <div class="tools">
     <button id="undo" title="Undo (⌘Z)">↶</button>
@@ -21,13 +22,15 @@
     <button id="claudeBtn" title="Ask Claude to change something">✳ Ask Claude <span id="claudeBadge" class="badge" hidden>0</span></button>
     <button id="helpBtn" title="Show me around">?</button>
     <button id="themeBtn" title="Light / dark">◐</button>
+    <button id="exportBtn" class="primary mob">Export</button>
   </div>
 </header>
 
 <div id="claudeTray" class="tray" hidden></div>
 
 <main id="main">
-  <section id="panel"></section>
+  <section id="sheet"><div id="sheetBar"><b id="sheetTitle"></b><button id="sheetClose" title="Close">✕</button></div>
+    <section id="panel"></section></section>
   <aside id="previewCol">
     <div id="phone">
       <div id="stageWrap">
@@ -60,6 +63,7 @@
   <div class="clock"><b id="clock">0:00</b><small id="clockOf">of 0:00</small></div>
   <div class="tlwrap">
     <div class="tltools">
+      <button data-op="back" class="big mob" title="Done"><b>‹</b>Done</button>
       <button data-op="split" class="big" title="Split the clip at the playhead (B)"><b>✂</b>Split</button>
       <button data-op="delete" class="big" title="Delete the selected clip (Delete)"><b>🗑</b>Delete</button>
       <button data-op="cutBefore" class="big" title="Cut this clip before the playhead (Q)"><b>⇤</b>Cut before</button>
