@@ -285,3 +285,68 @@ small { color: var(--ink2); }
 .cmp { position: absolute; top: 8px; left: 10px; z-index: 5; font-size: 12px; font-weight: 700; color: #fff; background: rgba(0,0,0,.55);
   border: 1px solid rgba(255,255,255,.35); padding: 5px 10px; border-radius: 14px; cursor: pointer; }
 .cmp.on { background: #fff; color: #111; }
+
+/* ---------- CapCut-style studio on a phone ---------- */
+.mob { display: none !important; }
+#sheet { display: contents; }
+#sheetBar { display: none; }
+#tabs button i { font-style: normal; margin-right: 4px; }
+@media (max-width: 600px) {
+  body.editing { --bg: #0e0e11; --panel: #1b1b20; --ink: #f4f4f6; --ink2: #a2a2ad; --line: #2b2b33;
+    --accent: #8C7EFF; --accent-soft: #2B2747; --accent-ink: #111; --hl: #4A4320; --cut: #6B6A78;
+    background: #0e0e11; grid-template-rows: auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); height: 100dvh; width: 100vw; }
+  body.editing #top, body.editing #main, body.editing #bottom, body.editing .tlwrap, body.editing #tlScroll { max-width: 100vw; min-width: 0; }
+  body.editing .mob { display: inline-flex !important; }
+  /* top bar: × back, title, undo/redo, Claude, Export */
+  body.editing #top { flex-wrap: nowrap; padding: 6px 10px; background: #0e0e11; border: 0; gap: 6px; }
+  body.editing #top .logo, body.editing .brand b { display: none; }
+  body.editing .brand { gap: 4px; }
+  body.editing .brand small { max-width: 26vw; font-size: 11px; }
+  body.editing #homeBtn { font-size: 13px; padding: 4px 6px; }
+  body.editing .tools button { padding: 6px 9px; border-radius: 9px; }
+  body.editing #exportBtn { background: #22d3ee; border-color: #22d3ee; color: #062a33; padding: 6px 14px; }
+  /* preview fills the space, controls right under it */
+  body.editing #main { display: flex !important; flex-direction: column; overflow: hidden; padding: 4px 8px 2px; gap: 6px; }
+  body.editing #previewCol { flex: 1 1 auto; min-height: 0; order: 0; gap: 4px; }
+  body.editing #phone { height: calc(100% - 44px); max-height: none; border: 0; border-radius: 6px; box-shadow: none; }
+  body.editing .pv { display: none; }
+  body.editing .pcontrols { width: 100%; justify-content: center; }
+  body.editing .pcontrols #ptime { position: absolute; left: 14px; font-size: 13px; color: var(--ink); }
+  /* each section slides up as a sheet over the timeline */
+  body.editing #sheet { display: flex; flex-direction: column; position: fixed; left: 0; right: 0; bottom: 64px; height: 62dvh;
+    background: var(--panel); border-radius: 16px 16px 0 0; z-index: 40; box-shadow: 0 -10px 30px rgba(0,0,0,.5);
+    transform: translateY(calc(100% + 70px)); transition: transform .22s ease; }
+  body.editing.sheet #sheet { transform: none; }
+  body.editing #sheetBar { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 6px; }
+  body.editing #sheetBar b { font-family: "Montserrat_800ExtraBold"; font-size: 16px; }
+  body.editing #sheetClose { border: 0; background: var(--line); border-radius: 50%; width: 32px; height: 32px; padding: 0; }
+  body.editing #panel { flex: 1; overflow-y: auto; padding: 0 14px 20px; }
+  /* timeline: just the strip (pinch to zoom), above the icon bar */
+  body.editing #bottom { background: #0e0e11; border: 0; padding: 0 0 4px; margin-bottom: 64px; display: block; }
+  body.editing #play2, body.editing #bottom .clock, body.editing #nextBtn, body.editing .tlhint,
+  body.editing .tltools .spacer, body.editing .tltools [data-op="zoomIn"], body.editing .tltools [data-op="zoomOut"],
+  body.editing #zoom { display: none !important; }
+  /* the bottom icon bar (like CapCut's Edit · Audio · Text · Effects…) */
+  body.editing #tabs { position: fixed; left: 0; right: 0; bottom: 0; height: 64px; z-index: 50; display: flex; gap: 0;
+    justify-content: space-around; background: #141418; border-top: 1px solid #24242b; order: 0; padding: 0 4px; }
+  body.editing #tabs button { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    background: transparent; border: 0; border-radius: 0; color: #e8e8ee; font-size: 11px; padding: 6px 2px; }
+  body.editing #tabs button i { font-size: 20px; margin: 0; line-height: 1; }
+  body.editing #tabs button.on { color: var(--accent); }
+  /* a selected clip turns the bar into the clip tools: Done · Split · Delete · Cut before · Cut after */
+  body.editing .tltools { display: none; }
+  body.editing.clipsel .tltools { display: flex; position: fixed; left: 0; right: 0; bottom: 0; height: 64px; z-index: 55; margin: 0;
+    background: #141418; border-top: 1px solid #24242b; justify-content: space-around; flex-wrap: nowrap; }
+  body.editing.clipsel .tltools button.big { background: transparent; border: 0; color: #e8e8ee; min-width: 0; flex: 1; }
+  body.editing.clipsel .tltools button.big.on { background: transparent; color: #f87171; }
+  body.editing.clipsel #tabs { display: none; }
+  body.editing .tray { bottom: 72px !important; top: auto !important; }
+}
+@media (max-width: 600px) {
+  body.editing .brand small { display: none; }
+  body.editing #homeBtn { font-size: 0; padding: 4px 8px; }
+  body.editing #homeBtn::before { content: "✕"; font-size: 20px; }
+  body.editing .tools { margin-left: auto; }
+  body.editing #claudeBtn { font-size: 13px; padding: 6px 8px; }
+  body.editing #undo, body.editing #redo { background: transparent; border: 0; font-size: 18px; padding: 4px 6px; }
+}

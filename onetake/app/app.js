@@ -95,7 +95,7 @@ async function tickNewReel() {
 }
 
 async function home() {
-  document.body.classList.add("home");
+  document.body.classList.add("home"); document.body.classList.remove("editing");
   $("#previewCol").hidden = true; $("#bottom").hidden = true; $("#tabs").hidden = true;
   $("#main").style.gridTemplateColumns = "1fr";
   const list = await api("/api/projects");
@@ -285,6 +285,7 @@ async function loadProject(name) {
     S.name = null; location.hash = ""; return;
   }
   S.lookbook = lb; S.library = lib;
+  document.body.classList.add("editing");
   setProject(p);
   v.src = media(p._proxy || p.source);  // the light preview copy when there is one (renders use the full video)
   v.muted = +(p.voice_volume ?? 1) === 0;
@@ -387,7 +388,30 @@ function updateNextBtn() {  // while the reel renders, the button shows how far 
   b.disabled = false;
   b.textContent = i < 3 ? `Next: ${TABS[i + 1][0].toUpperCase() + TABS[i + 1].slice(1)} ›` : "Lock in my looks";
 }
-document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => setTab(b.dataset.tab));
+// On a phone the studio is laid out like CapCut: preview on top, timeline, an icon bar at the bottom, and each
+// section (Cut, Visuals, Sound, Finish) slides up as a sheet when you tap it (tap again or ✕ to close).
+const isPhone = () => matchMedia("(max-width: 600px)").matches;
+function openSheet() {
+  document.body.classList.add("sheet");
+  const b = document.querySelector(`#tabs [data-tab="${S.tab}"] span`);
+  $("#sheetTitle").textContent = b ? b.textContent : "";
+}
+function closeSheet() { document.body.classList.remove("sheet"); }
+$("#sheetClose").onclick = closeSheet;
+document.querySelectorAll("#tabs [data-tab]").forEach(b => b.onclick = () => {
+  if (isPhone()) {
+    if (document.body.classList.contains("sheet") && S.tab === b.dataset.tab) return closeSheet();
+    setTab(b.dataset.tab); return openSheet();
+  }
+  setTab(b.dataset.tab);
+});
+document.querySelector('#tabs [data-mact="edit"]').onclick = () => {  // CapCut's Edit: select the clip under the playhead
+  closeSheet();
+  const i = S.segs.findIndex(sg => sg.o <= S.outT + 1e-3 && S.outT < sg.o + sg.e - sg.s);
+  S.selClip = i >= 0 ? i : (S.segs.length ? 0 : null);
+  updateTlTools(); drawTimeline();
+};
+$("#exportBtn").onclick = () => { setTab("finish"); openSheet(); };
 $("#nextBtn").onclick = () => { const i = TABS.indexOf(S.tab); if (i < 3) setTab(TABS[i + 1]); else lockIn(); };
 
 function renderPanel() {
@@ -1351,6 +1375,7 @@ function renderJobsOnly() { updateNextBtn(); if (S.tab === "finish" || (S.tab ==
 async function lockIn() {
   if (S.dirty) await save();
   setTab("finish");
+  if (isPhone()) openSheet();
   S.jobs.render = await api(`/api/project/${S.name}/render`, {});
   renderPanel(); updateNextBtn();
   $("#panel").scrollTop = 0;  // show "1 · Your reel" with the progress bar
@@ -2134,6 +2159,7 @@ function unCut(p, a, b) {  // give back [a, b]: shrink time cuts, and bring back
 function srcAtPlayhead() { const sg = S.segs.find(s => s.o <= S.outT && S.outT < s.o + s.e - s.s) || S.segs[S.segs.length - 1]; return sg ? [sg, sg.s + (S.outT - sg.o)] : [null, 0]; }
 function updateTlTools() {
   const on = S.selClip != null;
+  document.body.classList.toggle("clipsel", on);  // phone: the bottom bar becomes the clip tools, like CapCut
   document.querySelectorAll('.tltools [data-op="delete"]').forEach(b => b.classList.toggle("on", on));
 }
 $("#zoom").min = 0; $("#zoom").max = 5.6; $("#zoom").step = 0.1;
@@ -2148,7 +2174,8 @@ function tlOp(op) {
     return toast("Tap a clip on the timeline to select it, then Delete.");
   }
   if (!sg) return;
-  if (op === "split") { S.selClip = null; return mutate(p => { (p.splits = p.splits || []).push(+ts.toFixed(3)); }); }
+  if (op === "back") { S.selClip = null; updateTlTools(); return drawTimeline(); }
+  if (op === "split") { S.selClip = null; updateTlTools(); return mutate(p => { (p.splits = p.splits || []).push(+ts.toFixed(3)); }); }
   if (op === "cutBefore") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([sg.s, ts]); });
   if (op === "cutAfter") return mutate(p => { (p.time_cuts = p.time_cuts || []).push([ts, sg.e]); });
 }
