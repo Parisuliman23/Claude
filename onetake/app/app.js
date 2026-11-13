@@ -1902,6 +1902,7 @@ const hexA = h => { const n = parseInt(h.slice(1), 16); return `rgba(${(n >>> 24
 // so silent moments like fixing the camera can be cut too. Mirrors engine/timeline.py apply_time_edits.
 const tl = $("#tl"), tctx = tl.getContext("2d"), tlBox = $("#tlScroll");
 S.pps = 60;  // pixels per second
+const HANDLE_W = 18, HANDLE_HIT = 34;  // a finger-sized grab area around each handle
 const TL_H = 112, STRIP_Y = 20, STRIP_H = 56, OV_Y = STRIP_Y + STRIP_H + 6, BR_Y = OV_Y + 11, BAR_H = 8;
 const tlPad = () => tlBox.clientWidth / 2;
 const timeToX = t => tlPad() + t * S.pps;
@@ -1964,11 +1965,12 @@ function drawTimeline() {
     }
     c.strokeStyle = "#333"; c.lineWidth = 5; c.beginPath(); c.roundRect(x, STRIP_Y, w, STRIP_H, 6); c.stroke();
     c.strokeStyle = "#fff"; c.lineWidth = 3; c.stroke();
-    for (const hx of [x - 12, x + w]) {
-      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, 12, STRIP_H, 4); c.fill();
+    for (const hx of [x - HANDLE_W, x + w]) {  // CapCut-style handles: wide white tabs with a grip line
+      c.fillStyle = "#fff"; c.beginPath(); c.roundRect(hx, STRIP_Y, HANDLE_W, STRIP_H, 5); c.fill();
       c.strokeStyle = "#333"; c.lineWidth = 1.5; c.stroke();  // outlined so it shows on the light background
-      c.fillStyle = "#888"; c.fillRect(hx + 5, STRIP_Y + STRIP_H / 2 - 9, 2, 18);
+      c.fillStyle = "#666"; c.fillRect(hx + HANDLE_W / 2 - 1.5, STRIP_Y + STRIP_H / 2 - 11, 3, 22);
     }
+    if (S.trim && S.trim.snap) { c.fillStyle = "#FACC15"; c.fillRect(timeToX(S.outT) - 1, STRIP_Y - 6, 2, STRIP_H + 12); }
     c.fillStyle = "rgba(0,0,0,.6)"; c.beginPath(); c.roundRect(x + 4, STRIP_Y + 4, 40, 15, 4); c.fill();
     c.fillStyle = "#fff"; c.fillText(`${len.toFixed(1)}s`, x + 8, STRIP_Y + 15);
   }
@@ -2010,18 +2012,54 @@ tlBox.addEventListener("wheel", e => {  // ctrl/pinch = zoom, wheel = scroll thr
 function setZoom(pps) { S.pps = Math.max(8, Math.min(400, pps)); $("#zoom").value = Math.log2(S.pps / 8); drawTimeline(); }
 function clipAtX(x) { return S.segs.findIndex(sg => x >= timeToX(sg.o) && x <= timeToX(sg.o) + (sg.e - sg.s) * S.pps); }
 function tlX(e) { const r = tl.getBoundingClientRect(); return e.clientX - r.left; }
+// Touch like CapCut: one finger slides the strip, a handle trims the selected clip, two fingers zoom the timeline.
+// The page itself never zooms or scrolls here (touch-action: none), so a drag can't turn into an accidental cut.
+const tlPointers = new Map();
+let tlPinch = null;
 tl.onpointerdown = e => {
+  tlPointers.set(e.pointerId, e.clientX);
+  if (tlPointers.size === 2) {  // second finger: pinch-zoom the timeline, cancel anything else
+    if (S.trim) { S.trim = null; drawTimeline(); }
+    const xs = [...tlPointers.values()];
+    tlPinch = { d0: Math.max(20, Math.abs(xs[0] - xs[1])), pps0: S.pps };
+    S.tapStart = null;
+    return;
+  }
+  if (tlPointers.size > 2) return;
+  tl.setPointerCapture?.(e.pointerId);
   const x = tlX(e), y = e.clientY - tl.getBoundingClientRect().top;
   const sel = S.selClip != null ? S.segs[S.selClip] : null;
-  if (sel && y > STRIP_Y - 4 && y < STRIP_Y + STRIP_H + 4) {  // grab a handle to trim
+  if (sel && y > STRIP_Y - 10 && y < STRIP_Y + STRIP_H + 10) {  // grab a handle to trim
     const l = timeToX(sel.o), r = l + (sel.e - sel.s) * S.pps;
-    const side = x >= l - 22 && x <= l + 6 ? "l" : x >= r - 6 && x <= r + 22 ? "r" : null;
+    const dl = Math.abs(x - (l - HANDLE_W / 2)), dr = Math.abs(x - (r + HANDLE_W / 2));
+    const side = Math.min(dl, dr) <= HANDLE_HIT ? (dl <= dr ? "l" : "r") : null;
     if (side) {
       e.preventDefault(); e.stopPropagation();
-      S.trim = { side, x0: x, x, clip: S.selClip };
-      const mv = ev => { S.trim.x = Math.max(l - (side === "l" ? sel.s * S.pps : 0), tlX(ev)); drawTimeline(); };
-      const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); finishTrim(); };
-      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+      S.trim = { side, x0: x, x, clip: S.selClip, moved: false };
+      const mv = ev => {
+        if (!S.trim || ev.pointerId !== e.pointerId) return;
+        let nx = tlX(ev);
+        if (Math.abs(nx - S.trim.x0) > 4) S.trim.moved = true;
+        nx = Math.max(l - (side === "l" ? sel.s * S.pps : 0), nx);
+        const px = timeToX(S.outT), edge = side === "l" ? l + (nx - S.trim.x0) : r + (nx - S.trim.x0);
+        S.trim.snap = Math.abs(edge - px) < 10;  // snaps to the playhead, like CapCut
+        if (S.trim.snap) nx = S.trim.x0 + (px - (side === "l" ? l : r));
+        S.trim.x = nx; drawTimeline();
+      };
+      const end = ev => {
+        if (ev.pointerId !== e.pointerId) return;
+        window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", end);
+        window.removeEventListener("pointercancel", cancel);
+        tlPointers.delete(ev.pointerId);
+        if (S.trim && S.trim.moved) finishTrim(); else { S.trim = null; drawTimeline(); }
+      };
+      const cancel = ev => {  // the system took the touch (e.g. a second finger): cut nothing
+        window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", end);
+        window.removeEventListener("pointercancel", cancel);
+        tlPointers.delete(ev.pointerId); S.trim = null; drawTimeline();
+      };
+      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", end);
+      window.addEventListener("pointercancel", cancel);
       return;
     }
   }
@@ -2029,13 +2067,36 @@ tl.onpointerdown = e => {
   // grab and slide the strip: drag right = rewind, drag left = forward (like CapCut)
   const startX = e.clientX, startScroll = tlBox.scrollLeft;
   tl.style.cursor = "grabbing";
-  const mv = ev => { if (Math.abs(ev.clientX - startX) > 3) tlBox.scrollLeft = startScroll - (ev.clientX - startX); };
-  const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); tl.style.cursor = "grab"; };
+  const mv = ev => {
+    if (ev.pointerId !== e.pointerId) return;
+    tlPointers.set(ev.pointerId, ev.clientX);
+    if (tlPinch && tlPointers.size === 2) {
+      const xs = [...tlPointers.values()];
+      return setZoom(tlPinch.pps0 * Math.max(20, Math.abs(xs[0] - xs[1])) / tlPinch.d0);
+    }
+    if (!tlPinch && Math.abs(ev.clientX - startX) > 3) tlBox.scrollLeft = startScroll - (ev.clientX - startX);
+  };
+  const up = ev => {
+    tlPointers.delete(ev.pointerId);
+    if (tlPointers.size === 0) tlPinch = null;
+    if (ev.pointerId !== e.pointerId) return;
+    window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
+    tl.style.cursor = "grab";
+  };
   window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
 };
+window.addEventListener("pointermove", ev => { if (tlPointers.has(ev.pointerId)) {
+  tlPointers.set(ev.pointerId, ev.clientX);
+  if (tlPinch && tlPointers.size === 2) { const xs = [...tlPointers.values()]; setZoom(tlPinch.pps0 * Math.max(20, Math.abs(xs[0] - xs[1])) / tlPinch.d0); }
+} });
+window.addEventListener("pointerup", ev => { tlPointers.delete(ev.pointerId); if (tlPointers.size < 2) tlPinch = null; });
+window.addEventListener("pointercancel", ev => { tlPointers.delete(ev.pointerId); if (tlPointers.size < 2) tlPinch = null; });
 tl.onpointerup = e => {  // a tap (not a drag-scroll) selects / deselects a clip
   const st = S.tapStart; S.tapStart = null;
-  if (st && Math.abs(e.clientX - st.x) <= 6 && st.y >= OV_Y - 2) {  // tapped a blue / green bar: open it to edit
+  if (tlPinch) return;
+  if (st && Math.abs(e.clientX - st.x) <= 8 && st.y >= OV_Y - 2) {  // tapped a blue / green bar: open it to edit
     const t = (tlX(e) - tlPad()) / S.pps;
     if (st.y < BR_Y - 2) {
       const hits = S.spans.filter(([ov, [a, b]]) => a <= t && t < b);
@@ -2046,7 +2107,7 @@ tl.onpointerup = e => {  // a tap (not a drag-scroll) selects / deselects a clip
     }
     return;
   }
-  if (!st || Math.abs(e.clientX - st.x) > 6 || st.y < STRIP_Y || st.y > STRIP_Y + STRIP_H) return;
+  if (!st || Math.abs(e.clientX - st.x) > 8 || st.y < STRIP_Y || st.y > STRIP_Y + STRIP_H) return;
   const i = clipAtX(tlX(e));
   S.selClip = i < 0 || i === S.selClip ? null : i;
   updateTlTools(); drawTimeline();
