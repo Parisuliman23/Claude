@@ -68,3 +68,21 @@ def _run(name, rid):
             _set(name, rid, status="failed", note=(res.stderr or res.stdout)[-300:])
     except Exception as e:  # noqa: BLE001
         _set(name, rid, status="failed", note=str(e)[:300])
+
+
+def clear_orphans():
+    """At studio start: requests still 'running' were cut off (the studio or Linux restarted), since Claude runs inside
+    the studio. Mark them stopped so the studio doesn't show them at 95% forever."""
+    n = 0
+    for p in project.list_projects():
+        def fn(q):
+            nonlocal n
+            for r in q.get("requests", []):
+                if r.get("status") == "running":
+                    r.update(status="failed", note="It stopped when the studio restarted. Send it again.")
+                    n += 1
+        try:
+            project.update(p["name"], fn)
+        except Exception:  # noqa: BLE001
+            pass
+    return n

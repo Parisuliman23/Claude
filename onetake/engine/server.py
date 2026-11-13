@@ -608,6 +608,10 @@ def serve(name=None, open_browser=True, port=None):
             open_url(url)
         return
     print(f"Studio running at {url}  (Ctrl+C to stop)")
+    try:
+        bridge.clear_orphans()
+    except Exception:  # noqa: BLE001
+        pass
     _serve_remote(port)
     from . import inbox
     inbox.watch()  # phone uploads: Google Drive "One Take/Inbox" -> edited reel in "One Take/Ready"
