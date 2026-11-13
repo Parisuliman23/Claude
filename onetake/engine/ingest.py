@@ -69,7 +69,7 @@ def make_master(clips, out, log=print):
         vf = f"fps={fps},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1"
         tail = ["-map", "0:v:0", "-map", "0:a:0" if has_audio(c) else "1:a:0",
                 # this file is only the editing master: on a slow computer, encode fast and keep quality with crf
-                "-c:v", "libx264", "-preset", "ultrafast" if config.is_chromebook() else "veryfast",
+                "-c:v", "libx264", *config.x264_light(), "-preset", "ultrafast" if config.is_chromebook() else "veryfast",
                 "-crf", "17", "-pix_fmt", "yuv420p",
                 # label the master as normal HD colour: otherwise an HDR clip's "HLG/BT.2020" label is copied over and
                 # players brighten it again (washed out) while OpenCV reads it with the wrong colour formula (grey)

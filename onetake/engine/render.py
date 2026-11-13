@@ -457,7 +457,7 @@ class Composer:
                     chars = None if chars >= total else chars
                 key = (gi, active, min(5, int(t_in * self.fps)) if pop else 0, chars)
                 if key not in self.cap_cache:
-                    if len(self.cap_cache) > 200:
+                    if len(self.cap_cache) > 40:  # each is a full-width image: keep the cache small
                         self.cap_cache.clear()
                     self.cap_cache[key] = draw.caption_image(words, g, active, style, W, t_in if pop else None, chars)
                 in_split = any(b.get("layout") == "split" and sp[0] <= t < sp[1] for b, sp, _ in self.brolls)
@@ -536,7 +536,7 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
         _audio(c.p, c.segs, c.T, tmp_audio)
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
                "-r", str(fps), "-i", "-", "-i", str(tmp_audio), "-map", "0:v", "-map", "1:a",
-               "-vf", config.RGB_TO_BT709, "-c:v", "libx264", "-preset", "veryfast" if config.fast() else "fast", "-crf", "19",
+               "-vf", config.RGB_TO_BT709, "-c:v", "libx264", *config.x264_light(), "-preset", "veryfast" if config.fast() else "fast", "-crf", "19",
                "-pix_fmt", "yuv420p", *config.BT709_TAGS, "-c:a", "copy", "-shortest", "-movflags", "+faststart", str(out)]
     else:
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", f"{W}x{H}",
@@ -545,6 +545,8 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
     try:
         for n in range(N):
             proc.stdin.write(c.frame(n / fps).tobytes())
+            if n % 300 == 299:  # hand freed memory back now and then (renders run inside the studio)
+                looks._trim_memory()
             if progress and n % 15 == 0:
                 progress(n / N)
     finally:
@@ -565,7 +567,7 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
         if c.transparent:
             cmd += _prores_alpha()
         else:
-            cmd += ["-filter:a", f"atempo={speed}", "-c:v", "libx264", "-preset", "veryfast" if config.fast() else "fast", "-crf", "19", "-pix_fmt", "yuv420p",
+            cmd += ["-filter:a", f"atempo={speed}", "-c:v", "libx264", *config.x264_light(), "-preset", "veryfast" if config.fast() else "fast", "-crf", "19", "-pix_fmt", "yuv420p",
                     *config.BT709_TAGS, "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"]
         subprocess.run(cmd + [str(tmp)], check=True)
         tmp.replace(out)

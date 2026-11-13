@@ -487,7 +487,7 @@ def storyboard(name, progress=None, cols=4):
 def phone_copy(src, out):
     """A small copy to check on your phone like a viewer would (540x960, small file)."""
     subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-vf", "scale=540:960",
-                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p",
+                    "-c:v", "libx264", *config.x264_light(), "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p",
                     *config.BT709_TAGS, "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(out)], check=True)
     return out
 
