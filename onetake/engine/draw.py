@@ -106,7 +106,7 @@ def _arrays(img):
     bgr = np.ascontiguousarray(a[:, :, 2::-1])
     w1 = a[:, :, 3].astype(np.float32) / 255.0
     w2 = 1.0 - w1
-    if len(_arr_cache) > 128:
+    if len(_arr_cache) > 24:
         _arr_cache.clear()
     _arr_cache[k] = (img, bgr, w1, w2)
     return bgr, w1, w2
@@ -127,7 +127,7 @@ def blend(frame, img, cx, cy):
                                               np.ascontiguousarray(w1[sl]), np.ascontiguousarray(w2[sl]))
 
 
-@lru_cache(maxsize=256)
+@lru_cache(maxsize=48)  # small caches: the studio runs on Chromebooks with ~1 GB for Linux
 def _resized(key, w, h):
     kind, ref = key
     img = emoji(ref) if kind == "emoji" else (load_image(ref) if kind == "image" else None)
@@ -254,7 +254,7 @@ def _draw_words(d, lines, space, pad, tw, lh, size, style, active, stroke=None, 
             x += it["w"] + space
 
 
-@lru_cache(maxsize=64)
+@lru_cache(maxsize=16)
 def load_image(path, maxside=1400):
     img = Image.open(path)
     if getattr(img, "is_animated", False):
@@ -266,7 +266,7 @@ def load_image(path, maxside=1400):
     return img
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=4)
 def gif_frames(path, maxside=900):
     """[(frame RGBA, duration_s)] for animated GIF/WebP."""
     im = Image.open(path)
