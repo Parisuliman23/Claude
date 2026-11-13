@@ -102,8 +102,8 @@ small { color: var(--ink2); }
 .tltools button { padding: 3px 9px; font-size: 12px; border-color: transparent; }
 .tltools .spacer { flex: 1; }
 #zoom { width: 110px; }
-#tlScroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; touch-action: pan-x; }
-#tl { display: block; cursor: pointer; }
+#tlScroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; touch-action: none; overscroll-behavior: contain; }
+#tl { display: block; cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
 
 /* panels */
 .intro { max-width: 720px; margin-bottom: 14px; }
