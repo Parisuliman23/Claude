@@ -118,6 +118,9 @@ async function home() {
       ${nr.waiting ? `<button class="primary" id="nrRetry" style="margin-top:10px">↻ Try again with the same video</button>`
         : `<div class="muted">Send the video again, or open the Terminal and type <b>~/Claude/onetake/new-reel.sh</b> to watch it work.</div>`}</div>`,
   }[(nr.status === "running" || (nr.now - (nr.ended || nr.started || 0)) < 6 * 3600) ? nr.status : "none"] || "";
+  // fetched BEFORE the setTimeouts below: they bind buttons once the page is drawn, and an await in between
+  // made them run first (Delete, Try again and the phone card did nothing)
+  const st = await api("/api/status").catch(() => ({}));
   clearTimeout(nrTimer);
   if (nr.status === "running") nrTimer = setTimeout(tickNewReel, 5000);
   setTimeout(() => { const r = $("#nrRetry"); if (r) r.onclick = async () => {
@@ -132,7 +135,6 @@ async function home() {
     toast("Reel deleted."); home();
   }), 0);
   const busy = nr.status === "running";
-  const st = await api("/api/status").catch(() => ({}));
   const diskNote = st.disk_free_mb != null && st.disk_free_mb < 4000
     ? `<div class="card" style="background:var(--hl)"><b>Only ${gb(st.disk_free_mb)} free on this computer.</b>
        <div class="muted">A new reel needs about 4 GB while it's being made. Save finished reels to your phone, then press <b>🧹 Free up</b> on them below.</div></div>` : "";
