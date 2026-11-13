@@ -1406,8 +1406,10 @@ function requestFinished(q) {
 
 // Claude doesn't report progress, so this is an estimate from how long that kind of job usually takes
 const REQ_TYPICAL = { edit: 120, ask: 120, look: 240, carousel: 180, story: 150, trials: 300, reference: 480 };
+const reqSeen = {};  // when THIS device first saw each request working: the Chromebook's clock can differ from the phone's
 function reqPct(r) {
-  const el = Math.max(0, Date.now() / 1000 - (r.created || Date.now() / 1000)), typ = REQ_TYPICAL[r.kind] || 180;
+  reqSeen[r.id] ||= Date.now() / 1000;
+  const el = Math.max(0, Date.now() / 1000 - reqSeen[r.id]), typ = REQ_TYPICAL[r.kind] || 180;
   return Math.min(95, Math.round(100 * (1 - Math.exp(-el / typ * 1.4))));
 }
 function renderTray(reqs) {
