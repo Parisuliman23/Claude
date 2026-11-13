@@ -33,10 +33,15 @@ def is_hdr(path):
     return out.strip().split(",")[0].strip() in ("arib-std-b67", "smpte2084")
 
 
-# iPhone HDR (HLG/PQ) -> normal colors. Needs ffmpeg built with zimg (Homebrew's is).
-# hable, checked on the user's own Samsung HLG clip: natural skin, full colour, real blacks, no clipped highlights.
-# (mobius/reinhard made the same clip ~35% brighter and faded: the "washed out, overexposed" look.)
-TONEMAP = "zscale=t=linear:npl=100,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p,"
+# Needs ffmpeg built with zimg (zscale).
+# HDR (HLG) phone clips -> normal video that looks like the clip does on the phone. Matched against a screenshot of the
+# user's own Samsung clip in its gallery: reference white at 203 nits (the HLG standard; 100 made everything ~25%
+# too bright), hable roll-off for highlights, and a light, hue-safe desaturation in RGB (the straight conversion made
+# skin warmer/more orange than the phone shows). Measured on that frame: L 76.8 / a 2.9 / b 1.5 vs the phone's
+# 74.0 / 2.0 / 1.4 (the old conversion: 95.5 / 4.2 / 2.1).
+TONEMAP = ("zscale=t=linear:npl=203,format=gbrpf32le,zscale=p=bt709,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,"
+           "format=gbrp,colorchannelmixer=rr=0.9:rg=0.07:rb=0.03:gr=0.03:gg=0.94:gb=0.03:br=0.03:bg=0.07:bb=0.9,"
+           "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p,")
 
 
 def drop_clips(folder=None):
