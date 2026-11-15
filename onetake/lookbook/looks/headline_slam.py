@@ -10,7 +10,7 @@ META = {
 def render(ctx):
     import math
     p = ctx.p
-    f = ctx.font(ctx.MO_BLACK, int(p["size"]))
+    f = ctx.font(p.get("font") or ctx.MO_BLACK, int(p["size"]))
     words = str(p["text"]).upper().split()
     lines = ctx.wrap(" ".join(words), f, ctx.W * p["width"])
     lh = int(p["size"] * 1.02)

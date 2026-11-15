@@ -13,7 +13,7 @@ def render(ctx):
     W = int(ctx.W * p["width"])
     cw, ch, gap = (W - 40) / 2, 300, 40
     img = ctx.Image.new("RGBA", (W + 48, ch + 80), (0, 0, 0, 0))
-    tf, vf = ctx.font(ctx.MO_SEMI, 32), ctx.font(ctx.MO_BOLD, 64)
+    tf, vf = ctx.font(p.get("font2") or ctx.MO_SEMI, 32), ctx.font(p.get("font") or ctx.MO_BOLD, 64)
     verdict = ctx.t >= p["verdict_at"] and p["winner"] in ("left", "right")
     for side, x in (("left", 24), ("right", 24 + cw + gap)):
         at = p[f"{side}_at"]
@@ -43,5 +43,5 @@ def render(ctx):
         d = ctx.ImageDraw.Draw(img)
         bx, by = 24 + cw + gap / 2, 40 + ch / 2
         d.ellipse([bx - 44, by - 44, bx + 44, by + 44], fill=ctx.rgba(MO["ink"]))
-        d.text((bx, by + 2), "VS", font=ctx.font(ctx.MO_BLACK, 34), fill=ctx.rgba("#FFFFFF"), anchor="mm")
+        d.text((bx, by + 2), "VS", font=ctx.font(p.get("font") or ctx.MO_BLACK, 34), fill=ctx.rgba("#FFFFFF"), anchor="mm")
     return img

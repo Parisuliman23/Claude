@@ -12,11 +12,11 @@ def render(ctx):
     if ctx.t < p["roll_at"]:  # appears as the number is said
         return None
     text = str(p["to"])
-    f = ctx.font(ctx.MO_BLACK, int(p["size"]))
+    f = ctx.font(p.get("font") or ctx.MO_BLACK, int(p["size"]))
     lh = int(p["size"] * 1.05)
     widths = [f.getlength(c) for c in text]
     W = int(sum(widths) + 40)
-    lf = ctx.font(ctx.MO_SEMI, int(p["size"] * 0.24))
+    lf = ctx.font(p.get("font2") or ctx.MO_SEMI, int(p["size"] * 0.24))
     H = lh + (int(p["size"] * 0.4) if p["label"] else 0) + 20
     img = ctx.Image.new("RGBA", (W, H), (0, 0, 0, 0))
     x = 20

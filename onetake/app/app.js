@@ -138,6 +138,7 @@ async function home() {
   const diskNote = st.disk_free_mb != null && st.disk_free_mb < 4000
     ? `<div class="card" style="background:var(--hl)"><b>Only ${gb(st.disk_free_mb)} free on this computer.</b>
        <div class="muted">A new reel needs about 4 GB while it's being made. Save finished reels to your phone, then press <b>🧹 Free up</b> on them below.</div></div>` : "";
+  setTimeout(bindRename, 0);
   setTimeout(() => document.querySelectorAll("[data-free]").forEach(b => b.onclick = () => freeSpace(b.dataset.free, b.dataset.title, +b.dataset.mb)), 0);
   $("#panel").innerHTML = `<div class="projlist">${banner}
     ${busy ? "" : `<label class="dropzone" id="dropzone">
@@ -151,12 +152,38 @@ async function home() {
     <h1>Your reels</h1>
     ${diskNote}
     ${list.length ? list.map(p => p.archived
-      ? `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>✓ Saved to your phone · space freed on this computer</small></div>
+      ? `<div class="card row" data-reel="${p.name}" data-title="${esc(p.title)}"><div style="flex:1"><b>${esc(p.title)}</b><br><small>✓ Saved to your phone · space freed on this computer</small></div>
       <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button></div>`
-      : `<div class="card row"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} filmed · ${p.render === "done" ? "rendered" : "in progress"}${p.mb ? ` · uses ${gb(p.mb)}` : ""}</small></div>
+      : `<div class="card row" data-reel="${p.name}" data-title="${esc(p.title)}"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} filmed · ${p.render === "done" ? "rendered" : "in progress"}${p.mb ? ` · uses ${gb(p.mb)}` : ""}</small></div>
       ${p.render === "done" && p.mb > 50 ? `<button class="ghost" data-free="${p.name}" data-title="${esc(p.title)}" data-mb="${p.mb}" title="Once the finished video is on your phone, delete its clips and footage here">🧹 Free up ${gb(p.mb)}</button>` : ""}
       <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button>
       <button class="primary" onclick="openReel('${p.name}')">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
+}
+
+// tap and hold a reel on the home screen (or right-click it) to rename it
+function bindRename() {
+  document.querySelectorAll("[data-reel]").forEach(card => {
+    let timer = null, x0 = 0, y0 = 0;
+    const stop = () => { clearTimeout(timer); timer = null; };
+    card.addEventListener("pointerdown", e => {
+      if (e.target.closest("button")) return;
+      x0 = e.clientX; y0 = e.clientY; stop();
+      timer = setTimeout(() => { timer = null; if (navigator.vibrate) navigator.vibrate(30); renameReel(card.dataset.reel, card.dataset.title); }, 550);
+    });
+    card.addEventListener("pointermove", e => { if (timer && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) stop(); });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(ev => card.addEventListener(ev, stop));
+    card.addEventListener("contextmenu", e => { e.preventDefault(); if (!timer) renameReel(card.dataset.reel, card.dataset.title); stop(); });
+  });
+}
+async function renameReel(name, title) {
+  const t = prompt("Rename this reel:", title);
+  if (t == null || !t.trim() || t.trim() === title) return;
+  try {
+    const p = await api(`/api/project/${name}`);
+    p.title = t.trim();
+    await api(`/api/project/${name}`, { project: p, rev: p.rev || 0 }, "PUT");
+    toast("Renamed."); home();
+  } catch (e) { toast(e.conflict ? "It changed at the same time, try again." : "Couldn't rename: " + e.message); }
 }
 
 function gb(mb) { return mb >= 1000 ? `${(mb / 1000).toFixed(1)} GB` : `${mb} MB`; }
@@ -345,7 +372,9 @@ async function save() {
     else toast("Couldn't save: " + e.message);
   } finally { S.saving = false; }
 }
-async function reload() { setProject(await api(`/api/project/${S.name}`)); S.dirty = false; renderPanel(); }
+// the project changed outside this page (Claude, a server action): start a fresh undo history, so undo
+// can't bring back the old version and silently wipe those changes
+async function reload() { setProject(await api(`/api/project/${S.name}`)); S.hist = []; S.fut = []; S.dirty = false; renderPanel(); }
 
 async function poll() {
   if (!S.name) return;

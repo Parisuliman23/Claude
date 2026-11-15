@@ -236,6 +236,7 @@ Full breakdown: `lookbook/style/05-split-screen-reference.md`. Whatever look you
   panel = `add-broll NAME --json '{"w0":A,"w1":B,"src":null,"color":"#FFFFFF","layout":"split"}'` + the look at y ~0.25;
   footage = `"src": "library/broll/x.mp4", "layout": "split"`. Never lay a large card or chalkboard over my face.
   Small things (captions, a word, an emoji off to the side) can stay on top.
+- No light blue accent (#5AB0FF) on hooks or graphics: I don't like it. Use gold `#F5C542` in motion looks.
 - Company names (NVIDIA, AMD, Intel…): their logos pop up on screen as I say each one (`logo_row`).
 - Video quality comes from filming, not filters: no filter by default. After every import, tell me the footage-check tips (daylight on my face, background with depth, back camera, HDR off). Guide: `lookbook/style/06-clear-footage.md`.
 - (Claude adds preferences here as it learns them.)

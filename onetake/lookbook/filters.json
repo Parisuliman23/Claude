@@ -38,6 +38,13 @@
   "sat": 0.95
  },
  {
+  "id": "soft-skin",
+  "name": "Soft skin (less orange)",
+  "sat": 0.82,
+  "bright": 0.93,
+  "warm": -0.05
+ },
+ {
   "id": "bw",
   "name": "Black & white",
   "gray": 1.0,

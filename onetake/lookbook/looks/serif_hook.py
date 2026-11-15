@@ -10,7 +10,7 @@ META = {
 def render(ctx):
     p = ctx.p
     sz = int(p["size"])
-    fs, fm = ctx.font("Poppins_700Bold", sz), ctx.font(ctx.NB_SERIF, int(sz * p["mid_scale"]))
+    fs, fm = ctx.font(p.get("font2") or "Poppins_700Bold", sz), ctx.font(p.get("font") or ctx.NB_SERIF, int(sz * p["mid_scale"]))
     rows = [(p["top"], fs, p["color"]), (p["mid"], fm, p["accent"]), (p["bottom"], fs, p["color"])]
     rows = [r for r in rows if r[0]]
     W = int(max(f.getlength(t) for t, f, _ in rows) + 40)

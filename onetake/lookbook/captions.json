@@ -44,6 +44,28 @@
   "y": 0.6
  },
  {
+  "id": "motion-clean-blue",
+  "name": "Motion · clean Poppins, spoken word on a blue pill",
+  "look": "E",
+  "max_words": 3,
+  "max_chars": 18,
+  "uppercase": true,
+  "font": "Poppins_800ExtraBold",
+  "size": 80,
+  "color": "#FFFFFF",
+  "active_color": "#FFFFFF",
+  "active_box": "#2F80ED",
+  "emph_font": "Poppins_800ExtraBold",
+  "emph_scale": 1.1,
+  "emph_color": "#5AB0FF",
+  "shadow": true,
+  "stroke_w": 0,
+  "stroke_color": "#000000",
+  "pop": true,
+  "x": 0.5,
+  "y": 0.6
+ },
+ {
   "id": "class-serif",
   "name": "Class \u00b7 serif fragments that type on",
   "look": "F",

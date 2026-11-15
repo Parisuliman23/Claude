@@ -8,7 +8,7 @@ META = {
 
 def render(ctx):
     p, MO = ctx.p, ctx.MO
-    nf, rf = ctx.font(ctx.MO_BOLD, 46), ctx.font(ctx.MO_SEMI, 30)
+    nf, rf = ctx.font(p.get("font") or ctx.MO_BOLD, 46), ctx.font(p.get("font2") or ctx.MO_SEMI, 30)
     W = int(max(nf.getlength(p["name"]), rf.getlength(p["role"])) + 80)
     H = 150
     img = ctx.Image.new("RGBA", (W + 40, H + 40), (0, 0, 0, 0))

@@ -12,7 +12,7 @@ def render(ctx):
     words = str(p["text"]).split()
     if p["upper"]:
         words = [w.upper() for w in words]
-    f = ctx.font(ctx.MO_BOLD, int(p["size"]))
+    f = ctx.font(p.get("font") or ctx.MO_BOLD, int(p["size"]))
     at = list(p["words_at"])
     times = [at[i] if i < len(at) and at[i] is not None else i * p["gap"] for i in range(len(words))]
     space = f.getlength(" ")
