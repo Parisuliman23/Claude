@@ -140,7 +140,7 @@ Run `python3 -m engine` with no arguments for the full list.
    `<link>/phone`, picks a video, and gets the rendered reel back on that page. The link changes when the studio restarts.
    **"Set up my permanent phone link"**: run `bash setup-phone-link.sh` in the onetake folder (installs Tailscale, the user
    signs in once and allows Funnel once via the links it prints; then `phone-link permanent` + `autostart on`). The address
-   is then fixed (https://<name>.ts.net/phone) and always asks the PIN once per phone. Tell the user to keep the Chromebook
+   is then fixed (https://<name>.ts.net/phone). The user turned the PIN off for good (Nov 2026): don't turn it back on unless they ask. Tell the user to keep the Chromebook
    plugged in with Settings → Device → Power → "When lid is closed: Stay awake" so it works while they're out.
 8. **Disk space** (Chromebooks are small; a reel needs ~4 GB while it's made): `python3 -m engine free-space` lists what each
    reel uses. Once a finished reel is saved on the user's phone, `free-space NAME` (or the studio's 🧹 Free up button,

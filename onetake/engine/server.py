@@ -236,8 +236,8 @@ class Handler(BaseHTTPRequestHandler):
         st = config.settings()
         if not st.get("phone_access"):
             return not self.via_tunnel()
-        if st.get("phone_pin_off") and not (self.via_tunnel() and st.get("phone_link") == "permanent"):
-            return True  # you chose no PIN on the changing link (a permanent link always asks, once per phone)
+        if st.get("phone_pin_off"):
+            return True  # the user chose no PIN at all (Nov 14, 2026), also on the permanent public link
         c = self.headers.get("Cookie") or ""
         return f"onetake_pin={pin_token(st)}" in c.replace(" ", "").split(";")
 
@@ -352,7 +352,7 @@ class Handler(BaseHTTPRequestHandler):
                 st = config.settings()
                 from . import space, tunnel
                 return self.send_json({"phone_access": bool(st.get("phone_access")), "phone_pin": st.get("phone_pin"),
-                                       "phone_pin_off": bool(st.get("phone_pin_off")) and st.get("phone_link") != "permanent",
+                                       "phone_pin_off": bool(st.get("phone_pin_off")),
                                        "phone_link": tunnel.status(),
                                        "disk_free_mb": round(space.disk_free() / 1e6),
                                        "claude": bool(bridge.claude_bin()) and st["claude_bridge"] == "auto",
