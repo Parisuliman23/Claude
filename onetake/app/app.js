@@ -130,7 +130,7 @@ async function home() {
   setTimeout(bindDropzone, 0);
   setTimeout(drawPhoneCard, 0);
   setTimeout(() => document.querySelectorAll("[data-del]").forEach(b => b.onclick = async () => {
-    if (!confirm(`Delete “${b.dataset.title}”? Its edits and exports will be gone for good. Download the MP4 first if you want to keep it.`)) return;
+    if (!confirm(`Delete “${b.dataset.title}”? It goes to the trash: for 14 days Claude can bring it back (ask \"bring back my deleted reel\"), then it's gone for good.`)) return;
     await api(`/api/project/${b.dataset.del}/delete`, {});
     toast("Reel deleted."); home();
   }), 0);

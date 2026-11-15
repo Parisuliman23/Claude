@@ -507,8 +507,18 @@ class Handler(BaseHTTPRequestHandler):
             d = project.pdir(name)
             if d.resolve().parent != config.PROJECTS.resolve() or not (d / "project.json").exists():
                 return self.send_error(400)
-            shutil.rmtree(d)
-            return self.send_json({"deleted": name})
+            # move it to projects/.trash instead of erasing it, so Claude can bring it back; trash older than
+            # 14 days is emptied here (the Chromebook's disk is small)
+            import time as _t
+            trash = config.PROJECTS / ".trash"
+            trash.mkdir(exist_ok=True)
+            for old in trash.iterdir():
+                if old.is_dir() and _t.time() - old.stat().st_mtime > 14 * 86400:
+                    shutil.rmtree(old, ignore_errors=True)
+            dest = trash / f"{name}-{_t.strftime('%Y%m%d-%H%M%S')}"
+            shutil.move(str(d), str(dest))
+            os.utime(dest)
+            return self.send_json({"deleted": name, "trash": config.rel(dest)})
         if action == "free-space":  # the reel is saved on the phone: delete its big files here
             from . import space
             if any(j.get("status") == "running" for j in jobs_for(name).values()):

@@ -245,6 +245,8 @@ the same kind of option, add a short line to it. Read it at the start of every e
 ## Rules
 
 - Never delete or overwrite anything in `projects/*/raw/` or the user's `library/`.
+- The studio's 🗑 Delete moves a reel to `projects/.trash/<name>-<date>` (emptied after 14 days). To bring one back,
+  move its folder back to `projects/<name>` (check that name is free first).
 - Edit `project.json` through the CLI commands above (they keep the studio in sync). If you must hand-edit
   it, keep it valid JSON and bump `"edit_rev"`.
 - The studio is where the user decides. Show them, don't just tell them.
