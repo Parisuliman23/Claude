@@ -333,6 +333,18 @@ def filter_matrix(fl):
     return np.hstack([M, b[:, None]])
 
 
+def clarity(frame, level):
+    """Make soft, grainy phone footage look cleaner and crisper: an edge-keeping denoise (bilateral) that smooths
+    grain but keeps edges, then an unsharp mask. ~0.13 s per 1080x1920 frame on the Chromebook. It can't add detail
+    the camera never caught. level: "clean" (default strength) or "strong"; anything else = off."""
+    if level not in ("clean", "strong"):
+        return frame
+    d, sc, amt = (7, 25, 0.6) if level == "clean" else (9, 35, 0.85)
+    x = cv2.bilateralFilter(frame, d, sc, d)
+    b = cv2.GaussianBlur(x, (0, 0), 1.2)
+    return cv2.addWeighted(x, 1 + amt, b, -amt, 0)
+
+
 def apply_filter(frame, fl):
     """Color filter on a BGR frame. Mirrored (approximately) by CSS filters in the studio preview."""
     if not fl or fl.get("id") in (None, "none"):

@@ -488,6 +488,7 @@ class Composer:
         frame = cover_fit(self.src.at(ts), W, H)
         if self.burn_band:  # paint out captions that were already in the video
             analyze.remove_burned_text(frame, self.burn_band, state=self.burn_state)
+        frame = draw.clarity(frame, self.p.get("clarity"))  # denoise + sharpen the footage (project "clarity")
         frame = draw.apply_filter(frame, self.filter)  # color filter on footage only, not covers or graphics
         for c in self.covers:
             pos = analyze.face_at(self.tracks[c["face"]], ts)
