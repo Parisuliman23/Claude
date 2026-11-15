@@ -1668,6 +1668,31 @@ const toggle = () => S.playing ? pause() : play();
 $("#play").onclick = $("#play2").onclick = toggle;
 $("#back5").onclick = () => seek(S.outT - 3);
 $("#fwd5").onclick = () => seek(S.outT + 3);
+// full screen: the whole preview (captions, graphics, cut-aways), not the bare video
+function fsOn() { return document.fullscreenElement === $("#phone") || $("#phone").classList.contains("fs"); }
+function fsToggle() {
+  const ph = $("#phone");
+  if (fsOn()) {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    ph.classList.remove("fs");
+  } else if (ph.requestFullscreen) {
+    ph.requestFullscreen().catch(() => ph.classList.add("fs"));
+  } else ph.classList.add("fs");
+  setTimeout(fitStage, 150);
+}
+(() => {
+  const x = document.createElement("button"); x.id = "fsx"; x.textContent = "✕"; x.title = "Exit full screen";
+  x.onclick = e => { e.stopPropagation(); fsToggle(); };
+  $("#phone").appendChild(x);
+  $("#fsBtn").onclick = fsToggle;
+  // in full screen, a tap on the picture plays / pauses
+  $("#phone").addEventListener("click", e => { if (fsOn() && e.target.id !== "fsx") toggle(); });
+  document.addEventListener("fullscreenchange", () => setTimeout(fitStage, 100));
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && $("#phone").classList.contains("fs")) fsToggle();
+    if ((e.key === "f" || e.key === "F") && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !document.activeElement.isContentEditable) fsToggle();
+  });
+})();
 
 function syncMusic(force) {
   if (!S.p.sound.src) return;
