@@ -148,7 +148,6 @@ async function home() {
       <div class="muted">or click to choose it, or paste it with <b>Ctrl + V</b>. Several clips? Drop them all; they're joined in name order.</div>
       <div id="dzProg" hidden><div class="progress"><i id="dzBar"></i></div><small id="dzMsg"></small></div>
     </label>`}
-    <div id="phoneCard"></div>
     <h1>Your reels</h1>
     ${diskNote}
     ${list.length ? list.map(p => p.archived
@@ -157,7 +156,7 @@ async function home() {
       : `<div class="card row" data-reel="${p.name}" data-title="${esc(p.title)}"><div style="flex:1"><b>${esc(p.title)}</b><br><small>${fmt(p.duration)} filmed · ${p.render === "done" ? "rendered" : "in progress"}${p.mb ? ` · uses ${gb(p.mb)}` : ""}</small></div>
       ${p.render === "done" && p.mb > 50 ? `<button class="ghost" data-free="${p.name}" data-title="${esc(p.title)}" data-mb="${p.mb}" title="Once the finished video is on your phone, delete its clips and footage here">🧹 Free up ${gb(p.mb)}</button>` : ""}
       <button class="ghost" data-del="${p.name}" data-title="${esc(p.title)}" title="Delete this reel">🗑 Delete</button>
-      <button class="primary" onclick="openReel('${p.name}')">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}</div>`;
+      <button class="primary" onclick="openReel('${p.name}')">Open</button></div>`).join("") : `<div class="card muted">No projects yet.</div>`}<div id="phoneCard"></div></div>`;
 }
 
 // tap and hold a reel on the home screen (or right-click it) to rename it
@@ -199,53 +198,43 @@ async function freeSpace(name, title, mb) {
 }
 
 // ---------- phone uploads (Google Drive "One Take/Inbox")
+// a small strip at the bottom of the home screen: the phone link's QR code + link. It checks the link every
+// minute and redraws the code if it changed (the changing Cloudflare link moves when the studio restarts)
+let phoneTimer = null;
+// QR code drawn in the browser (qrcodejs from cdnjs), so the Chromebook needs no extra package
+function drawQr(el, text) {
+  if (!el) return;
+  const go = () => { el.innerHTML = ""; new QRCode(el, { text, width: 72, height: 72, correctLevel: QRCode.CorrectLevel.M }); };
+  if (window.QRCode) return go();
+  const sc = document.createElement("script");
+  sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js";
+  sc.onload = go; sc.onerror = () => el.remove();
+  document.head.appendChild(sc);
+}
 async function drawPhoneCard() {
   const box = $("#phoneCard"); if (!box) return;
-  let st; try { st = await api("/api/inbox"); } catch { return; }
-  const ps = await api("/api/status").catch(() => ({}));
+  clearTimeout(phoneTimer);
+  const ps = await api("/api/status").catch(() => null);
+  if (!ps) return;
   const link = ps.phone_link || {};
-  const linkHtml = link.url
-    ? `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:8px">
-        <img src="/api/phone-qr.png?u=${encodeURIComponent(link.url)}" alt="" width="132" height="132" style="border-radius:10px;background:#fff" onerror="this.remove()">
-        <div class="muted" style="flex:1;min-width:220px;line-height:1.6"><b>Point your phone's camera at the code</b>, or open this link on your phone:<br>
-        <b style="word-break:break-all;user-select:all">${esc(link.url)}/phone</b> (upload a video)<br>
-        Full studio on your phone (edit, Finish, your reels): <b style="word-break:break-all;user-select:all">${esc(link.url)}</b><br>
-        ${ps.phone_pin_off ? `No PIN needed: anyone with the link can open your phone page.` : `Then enter PIN <b style="font-size:18px;letter-spacing:.15em">${esc(ps.phone_pin)}</b> (once per phone).`} Works on Wi-Fi or mobile data.
-        <br><small>${link.permanent ? "<b>This link never changes.</b> Open it on your phone, then browser menu → <b>Add to Home screen</b>: One Take becomes an app icon. It works whenever this Chromebook is on."
-          : "The link changes when the studio restarts, so scan the new code then. Want one that never changes (an app icon on your phone)? Ask Claude: <b>set up my permanent phone link</b>."}</small></div></div>`
-    : link.state === "error"
-      ? `<div class="muted" style="margin-top:6px">⚠ ${esc(link.error)}<br>Check this Chromebook is online, then turn this off and on again.</div>`
-      : `<div class="muted" style="margin-top:6px">✳ Making your private phone link… (the first time takes a minute)</div>`;
-  if (ps.phone_access && !link.url && link.state !== "error") setTimeout(drawPhoneCard, 3000);
-  const direct = ps.phone_access
-    ? `<div class="card" style="background:var(--hl)"><b>📲 Send from your phone's gallery is on</b>${linkHtml}
-        <button class="ghost" id="phoneOff" style="margin-top:6px">Turn off</button>
-        <button class="ghost" id="pinToggle" style="margin-top:6px">${ps.phone_pin_off ? "Ask for a PIN again" : "Don't ask for a PIN"}</button></div>`
-    : `<div class="card"><b>📲 Send videos from your phone's gallery</b>
-        <div class="muted" style="margin-top:4px">Pick a video on your phone, it's edited here, and you download the finished reel on your phone.
-        Uses a private link protected by a PIN, so it works on Wi-Fi or mobile data.</div>
-        <button class="primary" id="phoneOn" style="margin-top:8px">Turn on</button></div>`;
-  setTimeout(() => {
-    const on = $("#phoneOn"), off = $("#phoneOff");
-    if (on) on.onclick = async () => { await api("/api/phone-access", { on: true }); drawPhoneCard(); };
-    if (off) off.onclick = async () => { await api("/api/phone-access", { on: false }); drawPhoneCard(); };
-    const pt = $("#pinToggle");
-    if (pt) pt.onclick = async () => { await api("/api/phone-pin", { on: !!ps.phone_pin_off }); drawPhoneCard(); };
-  }, 0);
-  if (st.connected) {
-    const last = st.status === "ready" ? `Last one: <b>${esc(st.last || "")}</b> is ready in Drive → One Take → Ready.`
-      : st.status === "editing" ? `Editing <b>${esc(st.last || "")}</b> from your phone now…` : "";
-    box.innerHTML = direct + `<div class="card"><b>📱 Phone uploads are on</b>
-      <div class="muted" style="margin-top:4px">On your phone: film, then <b>Share → Drive → One Take → Inbox</b>. It's edited here in your style,
-      and the finished reel appears in <b>Drive → One Take → Ready</b>, ready to post or open in CapCut. ${last}</div></div>`;
-  } else {
-    box.innerHTML = direct + `<details class="card"><summary><b>📱 Upload from anywhere with Google Drive</b> <small class="muted">(one-time setup)</small></summary>
-      <ol class="muted" style="margin:8px 0 0;padding-left:18px;line-height:1.6">
-        <li>On this Chromebook, open the <b>Files</b> app, right-click <b>Google Drive</b> → <b>Share with Linux</b>.</li>
-        <li>Restart the studio. It creates <b>One Take → Inbox</b> and <b>Ready</b> folders in your Drive.</li>
-        <li>On your phone: film, then <b>Share → Drive → One Take → Inbox</b>. The finished reel shows up in <b>Ready</b>.</li>
-      </ol><small class="muted">Your Chromebook does the editing, so it needs to be on with the studio running. Videos wait in the Inbox until it is.</small></details>`;
+  if (!ps.phone_access) {
+    box.innerHTML = `<div class="phonestrip"><span>📲 Phone link is off</span><button class="ghost" id="phoneOn">Turn on</button></div>`;
+    $("#phoneOn").onclick = async () => { await api("/api/phone-access", { on: true }); drawPhoneCard(); };
+    return;
   }
+  if (link.url) {
+    if (box.dataset.url !== link.url) {
+      box.dataset.url = link.url;
+      box.innerHTML = `<div class="phonestrip">
+        <div class="qr" id="phoneQr" title="Scan with your phone's camera"></div>
+        <div><b>📲 Open on your phone</b><br><small style="word-break:break-all;user-select:all">${esc(link.url)}</small></div></div>`;
+      drawQr($("#phoneQr"), link.url);
+    }
+  } else {
+    delete box.dataset.url;
+    box.innerHTML = `<div class="phonestrip"><small class="muted">${link.state === "error" ? "⚠ Phone link: " + esc(link.error || "not working") : "✳ Making your phone link…"}</small></div>`;
+  }
+  phoneTimer = setTimeout(() => { if (document.body.classList.contains("home")) drawPhoneCard(); }, link.url ? 60000 : 4000);
 }
 
 // ---------- new reel by drag & drop / paste
