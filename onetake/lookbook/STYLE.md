@@ -229,6 +229,14 @@ Full breakdown: `lookbook/style/05-split-screen-reference.md`. Whatever look you
 - Hook: a held two-line title (+ small bracketed line) over 1-second B-roll cuts or proof images; end: "Comment
   'WORD'" then "+follow". Speaker alone never longer than ~4 s.
 
+## ★ Reference · My own "5 checks before you buy a stock" reel
+Full write-up: `lookbook/style/07-my-5-checks-reel.md` (its whole edit: `lookbook/references/my-5-checks-reel/project.json`).
+For "N things / N checks / N rules" teaching reels: money-story hook (`typed_title` + red `big_number` loss), a teased
+`checklist` that stays top-left and ticks forward one overlay per point, a red `equation` rule card under each point
+("CAN'T EXPLAIN IT → DON'T BUY IT"), `hand_note` paraphrases, an emoji off to the side, `keyword_def` for terms,
+`red_x` for bad reasons, a punch-in at every point, `cinematic-pill` captions at y 0.65, and a "save this" `cta_keyword`
+plus a "tomorrow:…" teaser.
+
 ## Things I've told Claude
 - Colour: keep my footage looking like it does on my phone. No colour filter unless I ask (no faded/lifted looks).
 - Split screen over covering my face: any big graphic (chalkboard, definition, list, chart, notes, screenshot) or B-roll
