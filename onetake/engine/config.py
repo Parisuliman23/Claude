@@ -101,6 +101,14 @@ BT709_TAGS = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc",
 RGB_TO_BT709 = "scale=out_color_matrix=bt709:out_range=tv"  # for raw frames piped in from the renderer
 
 
+def x264_player_safe():
+    """x264_light without B-frames, for files people download and post. B-frames make the MP4 carry an "edit list"
+    (a small start delay) that some players ignore (Samsung Gallery, Nov 18 2026: picture behind the voice, while
+    CapCut played the same file in sync). Without B-frames there's no delay to get wrong; slightly bigger files."""
+    return ["-threads", "1", "-filter_threads", "1", "-x264-params", "rc-lookahead=5:sync-lookahead=0:ref=1:bframes=0",
+            "-bf", "0"]
+
+
 def x264_light():
     """libx264 settings that keep the encoder small (~200 MB instead of ~430 MB at 1080x1920): fewer threads and a
     short look-ahead. Quality is the same at the same crf; it's a little slower on a big computer, not on a Chromebook."""
