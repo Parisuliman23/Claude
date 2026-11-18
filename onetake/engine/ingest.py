@@ -72,10 +72,9 @@ def make_master(clips, out, log=print):
             cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-shortest"]
         # frame rate and size first: everything after (HDR color fix, encoding) then works on far fewer pixels
         # lanczos keeps more detail than the default when shrinking 4K phone video to 1080p
-        # start_time=0 + tpad: phone clips start their video ~0.05 s after the sound and end a bit early; without this
-        # each join leaves a gap, the frame count falls short and the picture drifts out of sync with the voice
-        vf = (f"fps={fps}:start_time=0,tpad=stop_mode=clone:stop_duration=1,"
-              f"scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},setsar=1")
+        # NB: don't pad/fill the small start gap phone clips have (fps start_time=0 / tpad): it was tried on Nov 18, 2026
+        # and put the lips visibly behind the voice; the plain join stays in sync (the user checked it)
+        vf = f"fps={fps},scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},setsar=1"
         tail = ["-map", "0:v:0", "-map", "0:a:0" if has_audio(c) else "1:a:0",
                 # this file is only the editing master: on a slow computer, encode fast and keep quality with crf
                 "-c:v", "libx264", *config.x264_light(), "-preset", "superfast" if config.is_chromebook() else "veryfast",
@@ -85,7 +84,7 @@ def make_master(clips, out, log=print):
                 *config.BT709_TAGS,
                 # a keyframe every 0.5s keeps scrubbing in the browser snappy
                 "-g", str(fps // 2), "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "1",
-                "-shortest", "-progress", "pipe:1", "-nostats", str(part)]
+                "-progress", "pipe:1", "-nostats", str(part)]
         done_before = sum(clip_secs[:n])
 
         def run(filters):
