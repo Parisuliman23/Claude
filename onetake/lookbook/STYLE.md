@@ -237,6 +237,17 @@ For "N things / N checks / N rules" teaching reels: money-story hook (`typed_tit
 `red_x` for bad reasons, a punch-in at every point, `cinematic-pill` captions at y 0.65, and a "save this" `cta_keyword`
 plus a "tomorrow:…" teaser.
 
+## ★★ Reference · My 3 chosen finance reels (Nov 17, 2026): THE style to edit in
+Full breakdown: `lookbook/style/08-nov17-finance-references.md`. The user picked these three reels as the reference for
+their style; they override the Notebook/Class looks unless the user asks for those. Edit like them:
+- **Hook**: held two-line white title + small (bracketed) line from frame 1, over ~1 s visual cuts, a big number above it.
+- **Main beat = split screen**: top half B-roll / white maths panel / article / chart that literally shows the words,
+  changing every **1.5–3 s**; full-screen images for big moments. Speaker alone ≤ ~4 s.
+- **Captions** `cinematic-pill` (small boxed words on the seam). No punch-ins, no filter, sparse sound, little/no music.
+- **Numbers & rules** on white panels in black + blue #0444A4 (`equation`, `big_number`), lists as a **numbered checklist
+  above the head with future items blurred** (`checklist` `tease: true`), progress rings and growth lines for %.
+- **End**: "Comment 'WORD'" (`cta_keyword`) then "+follow"; a typed recap list if it's a framework.
+
 ## Things I've told Claude
 - Colour: keep my footage looking like it does on my phone. No colour filter unless I ask (no faded/lifted looks).
 - Split screen over covering my face: any big graphic (chalkboard, definition, list, chart, notes, screenshot) or B-roll
