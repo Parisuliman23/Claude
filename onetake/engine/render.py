@@ -537,7 +537,10 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
         _audio(c.p, c.segs, c.T, tmp_audio)
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
                "-r", str(fps), "-i", "-", "-i", str(tmp_audio), "-map", "0:v", "-map", "1:a",
-               "-vf", config.RGB_TO_BT709, "-c:v", "libx264", *config.x264_light(), "-preset", "veryfast" if config.fast() else "fast", "-crf", "19",
+               "-vf", config.RGB_TO_BT709, "-c:v", "libx264", *config.x264_light(),
+               # the final reel: high quality (Instagram re-compresses it, so give it a clean 1080p to start from)
+               "-preset", "veryfast" if config.fast() else "medium", "-crf", str(config.settings().get("render_crf", 15)),
+               "-tune", "film",
                "-pix_fmt", "yuv420p", *config.BT709_TAGS, "-c:a", "copy", "-shortest", "-movflags", "+faststart", str(out)]
     else:
         enc = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s", f"{W}x{H}",
