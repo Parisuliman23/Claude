@@ -80,7 +80,9 @@ def list_projects():
 def segments(p, words=None, order=None):
     s = config.settings()
     words = words or p["words"]
-    segs = timeline.build_segments(words, p["duration"], s["max_gap"], s["pad_before"], s["pad_after"], order=order)
+    # a reel can keep more air around words than the defaults (p["pad_before"] / p["pad_after"])
+    segs = timeline.build_segments(words, p["duration"], p.get("max_gap", s["max_gap"]), p.get("pad_before", s["pad_before"]),
+                                   p.get("pad_after", s["pad_after"]), order=order)
     return timeline.apply_time_edits(segs, words, p.get("time_cuts"), p.get("splits"), p.get("time_keeps"))
 
 

@@ -71,11 +71,12 @@ def make_master(clips, out, log=print):
         if not has_audio(c):
             cmd += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-shortest"]
         # frame rate and size first: everything after (HDR color fix, encoding) then works on far fewer pixels
-        vf = f"fps={fps},scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},setsar=1"
+        # lanczos keeps more detail than the default when shrinking 4K phone video to 1080p
+        vf = f"fps={fps},scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H},setsar=1"
         tail = ["-map", "0:v:0", "-map", "0:a:0" if has_audio(c) else "1:a:0",
                 # this file is only the editing master: on a slow computer, encode fast and keep quality with crf
-                "-c:v", "libx264", *config.x264_light(), "-preset", "ultrafast" if config.is_chromebook() else "veryfast",
-                "-crf", "17", "-pix_fmt", "yuv420p",
+                "-c:v", "libx264", *config.x264_light(), "-preset", "superfast" if config.is_chromebook() else "veryfast",
+                "-crf", "16", "-pix_fmt", "yuv420p",
                 # label the master as normal HD colour: otherwise an HDR clip's "HLG/BT.2020" label is copied over and
                 # players brighten it again (washed out) while OpenCV reads it with the wrong colour formula (grey)
                 *config.BT709_TAGS,
@@ -179,7 +180,7 @@ def restore(name, files, log=print):
 
 
 def make_proxy(name):
-    """A light 540p copy of the footage for the studio's preview (renders still use the full video).
+    """A light 720p copy of the footage for the studio's preview (renders still use the full video).
     Made at import, while the computer is busy anyway, so it never slows down editing."""
     from . import project as _p
     src = config.absolute(_p.load(name)["source"])
@@ -187,8 +188,8 @@ def make_proxy(name):
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name("proxy.part.mp4")
     try:
-        subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-vf", "scale=540:960",
-                        "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28", "-g", "15", "-pix_fmt", "yuv420p", *config.BT709_TAGS,
+        subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-vf", "scale=720:1280:flags=lanczos",
+                        "-c:v", "libx264", "-preset", "superfast", "-crf", "23", "-g", "15", "-pix_fmt", "yuv420p", *config.BT709_TAGS,
                         "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", str(tmp)], check=True)
         tmp.replace(out)
         return config.rel(out)
