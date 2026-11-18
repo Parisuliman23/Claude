@@ -13,6 +13,18 @@ from PIL import Image
 from . import analyze, config, draw, looks, project, timeline
 
 
+def _frame_times(path):
+    """Sorted presentation times (s) of every video frame, from ffprobe; [] if that fails (then frame numbers are used).
+    Picking frames by number drifts out of lip sync on joined phone clips (Nov 18, 2026: up to 0.43 s)."""
+    try:
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "packet=pts_time",
+                              "-of", "csv=p=0", str(path)], capture_output=True, text=True, timeout=120).stdout
+        pts = sorted(float(x.strip().strip(",")) for x in out.splitlines() if x.strip().strip(",") not in ("", "N/A"))
+        return pts if len(pts) > 1 else []
+    except Exception:  # noqa: BLE001
+        return []
+
+
 class FrameReader:
     """Random-ish access to video frames, fast when reading forwards."""
 
@@ -22,9 +34,14 @@ class FrameReader:
         self.n = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
         self.pos = -1
         self.frame = None
+        self.pts = _frame_times(path)  # each frame's real time: joined phone clips have small gaps between clips
 
     def at(self, t):
-        idx = max(0, int(round(t * self.fps)))
+        if self.pts:  # the frame on screen at time t (as a player shows it), not frame number t*fps
+            import bisect
+            idx = max(0, bisect.bisect_right(self.pts, t + 0.5 / self.fps) - 1)
+        else:
+            idx = max(0, int(round(t * self.fps)))
         if self.n:
             idx = min(idx, self.n - 1)
         if idx == self.pos and self.frame is not None:
