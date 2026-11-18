@@ -247,5 +247,5 @@ plus a "tomorrow:…" teaser.
 - No light blue accent (#5AB0FF) on hooks or graphics: I don't like it. Use gold `#F5C542` in motion looks.
 - Company names (NVIDIA, AMD, Intel…): their logos pop up on screen as I say each one (`logo_row`).
 - Video quality comes from filming, not filters: no filter by default. After every import, tell me the footage-check tips (daylight on my face, background with depth, back camera, HDR off). Guide: `lookbook/style/06-clear-footage.md`.
-- Re-filmed script: when a new take is the SAME script as an earlier reel (e.g. "5 checks before you buy a stock"), rebuild that reel's edit on the new take: the same graphics with the same params, each moved to the matching words, same caption style, camera punches and sounds. Saved edits: `lookbook/references/my-*/project.json` (write-up in `lookbook/style/07-my-5-checks-reel.md`). Only fix what the new take says differently.
+- Re-filmed script (a new take of an earlier reel): edit it FRESH, like a brand-new video, with style-pick and my current preferences. Don't copy the old reel's edit unless I ask (Nov 17, 2026: I didn't like the copied version).
 - (Claude adds preferences here as it learns them.)
