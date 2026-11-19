@@ -109,7 +109,9 @@ Captions `class-serif` (small serif fragments typed on with an `_` cursor). Hook
 | a section change | `add-fx` `drip` |
 Static camera (no punch-ins), music bed at volume ~0.2, sparse sounds (`sfx-auto`).
 
-## Versions: every edit comes in at least two styles
+## Versions: ONE for now (Nov 18, 2026), two again on my new laptop
+Until I get a new laptop, make ONE version per reel, in my main style (the 3 reference reels below). Don't make the class
+version unless I ask. When I'm on the new laptop, go back to this:
 The main edit is in the `style-pick` style; `python3 -m engine variants NAME` then makes the **class** (Look F)
 version of the same cut as its own project (`variants NAME motion notebook` for more). Style each version fully.
 I pick my favourite in the studio; the phone page shows all of them.
@@ -259,4 +261,5 @@ their style; they override the Notebook/Class looks unless the user asks for tho
 - Company names (NVIDIA, AMD, Intel…): their logos pop up on screen as I say each one (`logo_row`).
 - Video quality comes from filming, not filters: no filter by default. After every import, tell me the footage-check tips (daylight on my face, background with depth, back camera, HDR off). Guide: `lookbook/style/06-clear-footage.md`.
 - Re-filmed script (a new take of an earlier reel): edit it FRESH, like a brand-new video, with style-pick and my current preferences. Don't copy the old reel's edit unless I ask (Nov 17, 2026: I didn't like the copied version).
+- One version per reel for now, in my reference style (the Chromebook can't handle two). Back to two on a new laptop.
 - (Claude adds preferences here as it learns them.)

@@ -47,9 +47,10 @@ NAME=$(python3 -c "from engine import project; print(project.list_projects()[0][
 # 2. Claude reviews the cut and styles it, plus the extra versions (an hour at most)
 PROMPT="I have a new reel to edit. It's already imported as project $NAME (joined, transcribed and rough-cut),
 so don't run 'new': start at step 3 of CLAUDE.md (review the cut), then run 'style-pick $NAME' and do the
-styling pass (step 4) in the style it picks, timing every effect to the words. Then make the extra versions
-with 'variants $NAME' and style each one the same way in its own style (one is always the class style, Look F):
-same cut, its own looks. Style the class version last.
+styling pass (step 4) in the user's main style: the "My 3 chosen finance reels" reference in lookbook/STYLE.md
+(split-screen B-roll every 1.5-3 s, logos on every company name, white maths panels, numbered list above the head),
+timing every effect to the words. Make ONE version only: don't run 'variants' (the Chromebook is short on memory;
+the user will ask for versions again on a new laptop).
 You're running in the background from One Take: the studio is already running, so don't open it, and there's
 nobody to answer questions, so make sensible choices yourself. Run every command in the foreground and wait
 for it to finish; never start anything in the background. Finish with the short summary for the user
@@ -72,7 +73,6 @@ if command -v claude >/dev/null 2>&1 && CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0 t
   :
 else
   # Claude unavailable (not installed, usage limit, stuck…): finish the automatic styling without Claude
-  python3 -m engine variants "$NAME" >> "$LOG" 2>&1  # you still get the class-style version
   for V in $(python3 -c "from engine import variants; print(' '.join(variants.family('$NAME')))"); do
     python3 -m engine sfx-auto "$V" >> "$LOG" 2>&1
     python3 -m engine edge-check "$V" --fix >> "$LOG" 2>&1

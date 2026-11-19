@@ -48,7 +48,9 @@ Run `python3 -m engine` with no arguments for the full list.
      motion (Look E: animated charts, counters, slams, kinetic type, intros, lower thirds, call-outs, transitions via
      `add-fx`) or mix, plus the word indexes of numbers/trends/comparisons/steps to put graphics on. Follow it unless the
      user asked for a style. Look E details: `lookbook/STYLE.md` ("Look E"); its captions are `motion-pill`.
-   - **Always make versions: `python3 -m engine variants NAME`** after styling the main edit. It makes `NAME-class`
+   - **ONE version only for now** (user's choice, Nov 18 2026: the Chromebook is short on memory). Style it in the user's main
+     style (STYLE.md "My 3 chosen finance reels") and skip `variants` unless the user asks. On a new laptop they want versions again:
+     **Versions (when asked): `python3 -m engine variants NAME`** after styling the main edit. It makes `NAME-class`
      (Look F, the user's favourite: Jess Inskip-style finance class) as its own project with the same cut (the main
      edit is the style-pick version; `variants NAME motion notebook` adds more). Style each one fully. Look F rules: `lookbook/STYLE.md` ("Look F") and
      `lookbook/style/04-class-style.md`; looks `jess_title`, `jess_checklist`, `jess_chalkboard`, `jess_composition`,
