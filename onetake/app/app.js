@@ -1313,6 +1313,8 @@ function renderFinish() {
     ${stale() ? `<div class="muted">You've made changes since the last render.</div>` : ""}
     <div class="row" style="margin:8px 0"><button class="primary" id="lock">${done ? "Render again" : "🔒 Lock in my looks"}</button></div>${jobBar("render")}
     <div id="edgeCard"></div>
+    ${done && r.sync && r.sync.ok === false ? `<div class="card" style="background:#FDE2E2;color:#7A1111"><b>⚠ Lip sync check failed:</b> the picture is up to ${r.sync.worst_frames} frames off the voice in this render. Ask Claude to check it before you post.</div>` : ""}
+    ${done && r.sync && r.sync.ok ? `<div class="muted" style="font-size:13px">✓ Lip sync checked (${r.sync.checked} spots, within ${r.sync.worst_frames} frame${r.sync.worst_frames === 1 ? "" : "s"})</div>` : ""}
     ${done ? `<video class="finalv" controls src="${media(r.file)}?v=${p.edit_rev || 0}-${p.rev}"></video>
       <div class="row" style="margin-top:10px"><a download href="${media(r.file)}"><button>⬇ Download MP4</button></a>
       ${r.phone ? `<a download href="${media(r.phone)}"><button title="A small copy to check on your phone like a viewer would">📱 Phone copy</button></a>` : ""}

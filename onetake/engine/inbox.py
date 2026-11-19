@@ -125,8 +125,12 @@ def deliver(name):
     edit_rev = p.get("edit_rev", 0)
     progress.mark("render", 0.93)
     phone = finish.phone_copy(out, out.with_name("reel_phone.mp4"))
+    try:
+        sync = render.sync_check(name, out)
+    except Exception as e:  # noqa: BLE001
+        sync = {"ok": None, "error": str(e)[:200]}
     project.update(name, lambda q: q.update({"render": {"status": "done", "file": config.rel(out), "edit_rev": edit_rev,
-                                                        "phone": config.rel(phone)}}))
+                                                        "phone": config.rel(phone), "sync": sync}}))
     _, ready, _ = folders()
     dest = None
     if ready and ensure():

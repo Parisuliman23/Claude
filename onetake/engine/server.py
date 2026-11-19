@@ -134,9 +134,14 @@ def render_full(name):
         out = render.render(name, project.pdir(name) / "exports" / "reel.mp4", progress=lambda x: prog(x * 0.96), p=p)
         phone = finish.phone_copy(out, out.with_name("reel_phone.mp4"))
         cov = finish.cover(name)
+        try:  # lips vs voice: compare the finished video with the footage (flags a broken render instead of hiding it)
+            sync = render.sync_check(name, out)
+        except Exception as e:  # noqa: BLE001
+            sync = {"ok": None, "error": str(e)[:200]}
 
         def mark(q):
-            q["render"] = {"status": "done", "file": config.rel(out), "edit_rev": edit_rev, "phone": config.rel(phone)}
+            q["render"] = {"status": "done", "file": config.rel(out), "edit_rev": edit_rev, "phone": config.rel(phone),
+                           "sync": sync}
             if cov:
                 q.setdefault("exports", {})["cover"] = cov
         project.update(name, mark)

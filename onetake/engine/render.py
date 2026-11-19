@@ -620,3 +620,49 @@ def render(name, out=None, variant=None, layer="full", progress=None, p=None):
     if progress:
         progress(1.0)
     return out
+
+
+def sync_check(name, out=None, points=6):
+    """After a render: does the picture match the footage at the moment the voice plays? Compares the finished video
+    with the source (ffmpeg -ss, exact by timestamp) at a few full-screen moments. Returns
+    {"ok": bool, "worst_frames": n, "checked": k}. ok = no point more than 2 frames off (1 frame = 1/30 s)."""
+    import subprocess as sp_
+    p = project.load(name)
+    c = Composer(name, p=p)
+    out = str(out or project.pdir(name) / "exports" / "reel.mp4")
+    src = str(config.absolute(p["source"]))
+
+    def grab(f, t):
+        raw = sp_.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-ss", f"{t:.3f}", "-i", f, "-frames:v", "1",
+                       "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout
+        return np.frombuffer(raw, np.uint8).reshape(192, 108).astype(np.float32) if len(raw) == 108 * 192 else None
+
+    cands = []
+    t = 1.0
+    while t < c.T - 0.5:
+        if not any(sp[0] - 0.1 <= t < sp[1] + 0.1 for _, sp, _ in c.brolls):
+            sg = [s for s in c.segs if s["o"] <= t][-1]
+            ts = sg["s"] + (t - sg["o"])
+            if ts < sg["e"] - 0.1:
+                cands.append((t, ts))
+        t += 0.5
+    if not cands:
+        return {"ok": True, "worst_frames": 0, "checked": 0}
+    step = max(1, len(cands) // points)
+    worst, n = 0, 0
+    for t, ts in cands[::step][:points]:
+        r = grab(out, t)
+        if r is None:
+            continue
+        best = None
+        for k in range(-6, 7):
+            f = grab(src, ts + k / 30)
+            if f is None:
+                continue
+            e = float(np.mean(np.abs(r[115:] - f[115:])))  # the speaker's lower body: graphics sit higher up
+            if best is None or e < best[0]:
+                best = (e, k)
+        if best and best[0] < 12:
+            worst = max(worst, abs(best[1]))
+            n += 1
+    return {"ok": worst <= 2, "worst_frames": worst, "checked": n}
