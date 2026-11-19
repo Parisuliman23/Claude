@@ -48,6 +48,7 @@ class FrameReader:
     """Random-ish access to video frames, fast when reading forwards."""
 
     def __init__(self, path):
+        self.path = path
         self.cap = cv2.VideoCapture(str(path))
         self.fps = self.cap.get(cv2.CAP_PROP_FPS) or 30
         self.n = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
@@ -65,9 +66,13 @@ class FrameReader:
             idx = min(idx, self.n - 1)
         if idx == self.pos and self.frame is not None:
             return self.frame
-        if idx < self.pos or idx - self.pos > 45:
-            self.cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            self.pos = idx - 1
+        if idx < self.pos:
+            # going back: start over and read forward. Never jump with CAP_PROP_POS_FRAMES: on joined phone clips it
+            # lands up to ~15 frames off (OpenCV guesses times from the frame rate), which put lips 0.5 s off the voice
+            # (Nov 19 2026). Reading forward frame by frame is exact.
+            self.cap.release()
+            self.cap = cv2.VideoCapture(str(self.path))
+            self.pos = -1
         while self.pos < idx:
             if not self.cap.grab():
                 break
