@@ -1,0 +1,47 @@
+# ---- Day-trading agent config ----
+
+# paper = simulated money with real market prices. live = real orders.
+mode: paper
+
+# Any ccxt exchange id: coinbase, kraken, binanceus, okx, bybit, ...
+exchange: coinbase
+quote_currency: USD
+
+# Coins the agent is allowed to trade. It can't touch anything else.
+symbols:
+  - BTC/USD
+  - ETH/USD
+  - SOL/USD
+
+# Paper account starting balance (in quote currency)
+paper_starting_cash: 10000
+paper_fee_rate: 0.006      # 0.6% taker fee per fill (Coinbase-like)
+paper_slippage: 0.0005     # 0.05% slippage per fill
+
+# How often Claude looks at the market and decides (minutes)
+decision_interval_minutes: 15
+# How often code checks stop-loss / take-profit between decisions (seconds)
+monitor_interval_seconds: 20
+
+# ---- Hard risk limits: enforced in code, Claude cannot override ----
+risk:
+  max_position_pct: 0.20        # max 20% of equity in any one coin
+  max_total_exposure_pct: 0.60  # max 60% of equity in positions overall
+  risk_per_trade_pct: 0.01      # max 1% of equity lost if a stop-loss hits
+  max_daily_loss_pct: 0.02      # stop trading for the day after -2%
+  max_trades_per_day: 10
+  min_order_usd: 10
+  require_stop_loss: true
+  max_stop_distance_pct: 0.08   # stop can't be more than 8% from entry
+  flatten_at_utc: null          # e.g. "23:55" closes everything daily; null = hold overnight allowed
+
+# ---- Claude ----
+model: claude-opus-5-5
+effort: high                  # low | medium | high | xhigh | max
+max_tool_rounds: 12           # max tool calls per decision cycle
+
+# Your own trading instructions for Claude (style, preferences)
+strategy_notes: |
+  Intraday momentum and mean-reversion on liquid coins.
+  Prefer trading with the 1h trend. Avoid chasing big candles.
+  Doing nothing is a valid decision - only trade clear setups.
