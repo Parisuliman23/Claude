@@ -25,6 +25,25 @@ def _frame_times(path):
         return []
 
 
+BRIDGE_GAP = 0.6  # s
+
+
+def bridge_cutaways(items):
+    """items: [(b, (start, end), ...)] in output seconds. When one cut-away ends and the next starts less than
+    BRIDGE_GAP later (a pause between two words), the first one runs on until the next begins, so the viewer never sees
+    a split-second flash of the full-screen speaker between them (looked like a glitch, Nov 19 2026)."""
+    items = sorted(items, key=lambda x: x[1][0])
+    out = []
+    for k, it in enumerate(items):
+        b, (s0, e0), *rest = it
+        if k + 1 < len(items):
+            nxt = items[k + 1][1][0]
+            if nxt - e0 < BRIDGE_GAP and nxt > s0:  # small gap: run on; overlap: hand over to the newer one
+                e0 = nxt
+        out.append((b, (s0, e0), *rest))
+    return out
+
+
 class FrameReader:
     """Random-ish access to video frames, fast when reading forwards."""
 
@@ -386,6 +405,7 @@ class Composer:
             sp = timeline.range_out(words, segs, b["w0"], b["w1"])
             if sp:
                 self.brolls.append((b, sp, _reader(b.get("src"))))
+        self.brolls = bridge_cutaways(self.brolls)
         self.tracks = {f["id"]: f["track"] for f in p.get("faces", {}).get("detected", [])}
         self.covers = [c for c in p.get("faces", {}).get("covers", []) if c.get("face") in self.tracks]
         self.src = FrameReader(config.absolute(p["source"]))

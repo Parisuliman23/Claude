@@ -330,7 +330,7 @@ function recompute() {
   if (p.caption_y != null) S.style.y = +p.caption_y;
   S.groups = p.captions === false ? [] : captionGroups(p.words, S.segs, S.style);
   S.spans = p.overlays.map(ov => [ov, overlaySpan(p, p.words, S.segs, ov)]).filter(x => x[1]);
-  S.bspans = p.broll.map(b => [b, rangeOut(p.words, S.segs, b.w0, b.w1)]).filter(x => x[1]);
+  S.bspans = bridgeCutaways(p.broll.map(b => [b, rangeOut(p.words, S.segs, b.w0, b.w1)]).filter(x => x[1]));
   S.outT = Math.min(S.outT, S.T);
   S.lastCapKey = null; S._fxt = null;
   drawTimeline();
@@ -1726,6 +1726,16 @@ function watchStall() {
     lastMove = now;
     const t = v.currentTime; v.currentTime = t + 0.001; v.play().catch(() => {});
   }
+}
+// two cut-aways less than 0.6 s apart: the first runs on until the next starts, so there's no split-second flash of
+// the full-screen speaker between them (same as engine/render.py bridge_cutaways)
+function bridgeCutaways(spans) {
+  spans = spans.map(([b, sp]) => [b, [sp[0], sp[1]]]).sort((x, y) => x[1][0] - y[1][0]);
+  for (let k = 0; k + 1 < spans.length; k++) {
+    const gap = spans[k + 1][1][0] - spans[k][1][1];
+    if (gap < 0.6 && spans[k + 1][1][0] > spans[k][1][0]) spans[k][1][1] = spans[k + 1][1][0];  // gap: run on; overlap: hand over
+  }
+  return spans;
 }
 function syncMusic(force) {
   if (!S.p.sound.src) return;
