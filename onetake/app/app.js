@@ -1712,8 +1712,24 @@ function fsToggle() {
   });
 })();
 
+// the video can stop to load (phone connection, a jump at a cut): hold the music while it waits instead of letting
+// it run on and get pulled back again and again (that sounded like the music looping), and nudge a stuck video
+v.addEventListener("waiting", () => { if (S.playing) music.pause(); });
+v.addEventListener("stalled", () => { if (S.playing) music.pause(); });
+v.addEventListener("playing", () => { if (S.playing && S.p?.sound?.src) { syncMusic(true); music.play().catch(() => {}); } });
+var lastVT = -1, lastMove = 0;
+function watchStall() {
+  if (!S.playing) { lastVT = -1; return; }
+  const now = performance.now();
+  if (v.currentTime !== lastVT) { lastVT = v.currentTime; lastMove = now; return; }
+  if (now - lastMove > 2500) {  // no progress for 2.5 s: retry from the same spot
+    lastMove = now;
+    const t = v.currentTime; v.currentTime = t + 0.001; v.play().catch(() => {});
+  }
+}
 function syncMusic(force) {
   if (!S.p.sound.src) return;
+  if (!force && v.readyState < 3) return;  // video is still loading: don't drag the music around
   const want = (S.p.sound.offset || 0) + S.outT;
   if (music.duration && want < music.duration && (force || Math.abs(music.currentTime - want) > 0.35)) music.currentTime = want;
 }
@@ -1733,6 +1749,7 @@ function tick() {
     if (S.playing && sg) S.outT = sg.o + Math.max(0, Math.min(sg.e, v.currentTime) - sg.s);
     if (S.playing) playSfxBetween(before, S.outT);
     syncMusic(false);
+    watchStall();
   }
   draw();
   requestAnimationFrame(tick);
