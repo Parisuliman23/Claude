@@ -354,3 +354,41 @@ def test_scanner_uses_sec_shares_outstanding_when_float_missing(tmp_path):
     assert res["BIG"]["pillars"]["float"] is False          # 90M outstanding -> too big
     assert res["NONEWS"]["pillars"]["float"] is None        # 30M: near the line, flagged not blocked
     assert any("check it" in f for f in res["NONEWS"]["flags"])
+
+
+class FakeNotifier:
+    enabled = True
+
+    def __init__(self, cmds):
+        self.cmds, self.sent = list(cmds), []
+
+    def poll_commands(self):
+        out, self.cmds = self.cmds, []
+        return out
+
+    def send(self, title, message, priority="default", tags=""):
+        self.sent.append((title, message))
+
+
+def test_phone_commands_stop_resume_flatten_status(setup):
+    from trader.main import handle_commands
+    cfg, ex, broker, risk, journal, tb = setup
+    tb.t_open_long("ETH/USD", 500, stop_loss=2_900, reason="t")
+    n = FakeNotifier(["status", "stop"])
+    handle_commands(n, broker, risk, journal, tb)
+    assert n.sent[0][0].startswith("Equity") and "ETH/USD" in n.sent[0][1]
+    assert risk.kill_file.exists()
+    assert tb.t_open_long("BTC/USD", 500, stop_loss=49_000, reason="t")["status"] == "rejected"
+    n.cmds = ["resume"]; handle_commands(n, broker, risk, journal, tb)
+    assert not risk.kill_file.exists()
+    n.cmds = ["flatten"]; handle_commands(n, broker, risk, journal, tb)
+    assert not broker.positions and risk.kill_file.exists()
+
+
+def test_trade_events_become_phone_alerts(tmp_path):
+    n = FakeNotifier([])
+    j = Journal(tmp_path / "j.jsonl", notifier=n)
+    j.log("open", symbol="WISA", price=9.59, usd=2400, qty=250, stop=9.39, tp=9.99, reason="pullback")
+    j.log("close", symbol="WISA", exit_price=9.99, pnl_usd=100.0, trade_total_pnl_usd=100.0, reason="target")
+    j.log("cycle_start")  # not alert-worthy
+    assert [t for t, _ in n.sent] == ["BUY WISA @ 9.59", "SOLD WISA @ 9.99  +$100.00"]

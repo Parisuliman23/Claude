@@ -31,13 +31,22 @@ def closed_candles(candles: list[list[float]], timeframe: str, now_ms: float | N
 class Journal:
     """Append-only JSONL log of everything the agent does."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, notifier=None):
         self.path = path
+        self.notifier = notifier
 
     def log(self, event: str, **data) -> None:
         rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "event": event, **data}
         with self.path.open("a") as f:
             f.write(json.dumps(rec, default=str) + "\n")
+        if self.notifier is not None and self.notifier.enabled:
+            from .notify import describe_event
+            try:
+                msg = describe_event(event, data)
+            except Exception:
+                msg = None
+            if msg:
+                self.notifier.send(*msg)
 
     def tail(self, n: int, events: set[str] | None = None) -> list[dict]:
         if not self.path.exists():

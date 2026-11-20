@@ -19,6 +19,7 @@ import anthropic
 from .agent import TradingAgent
 from .broker import BaseBroker, PaperBroker
 from .config import Config, load_config
+from .notify import COMMANDS, Notifier
 from .risk import RiskManager
 from .tools import Journal, Toolbox
 
@@ -39,7 +40,7 @@ def build(cfg: Config):
         else:
             broker = PaperBroker(market, cfg.state_dir / "paper_account.json", cfg.paper_starting_cash,
                                  cfg.paper_fee_rate, cfg.paper_slippage)
-    journal = Journal(cfg.state_dir / f"journal_{cfg.market}_{cfg.mode}.jsonl")
+    journal = Journal(cfg.state_dir / f"journal_{cfg.market}_{cfg.mode}.jsonl", notifier=Notifier())
     risk = RiskManager(cfg, broker)
     return broker, risk, journal, Toolbox(cfg, broker, risk, journal)
 
@@ -159,6 +160,39 @@ class SetupWatcher:
         return None
 
 
+def handle_commands(notifier: Notifier, broker: BaseBroker, risk: RiskManager, journal: Journal,
+                    toolbox: Toolbox) -> None:
+    """Commands sent from the phone (ntfy app, topic <NTFY_TOPIC>-cmd)."""
+    for cmd in notifier.poll_commands():
+        log.info("PHONE COMMAND: %s", cmd)
+        if cmd == "status":
+            a = toolbox.t_get_account()
+            pos = "\n".join(f"{p['symbol']}: {p['qty']:.0f} sh, {p['unrealized_pnl_usd']:+,.2f} "
+                            f"(stop {p['stop_loss']})" for p in a["positions"]) or "no positions"
+            notifier.send(f"Equity ${a['equity']:,.2f}  day {a['day_pnl_usd']:+,.2f}",
+                          f"{pos}\nTrades today: {a['trades_today']}\n"
+                          f"New trades: {a['new_trades_blocked'] or 'allowed'}", "default", "bar_chart")
+        elif cmd == "stop":
+            risk.kill_file.write_text("stopped from phone\n")
+            notifier.send("Stopped", "No new trades. Open positions keep their stops. Send 'resume' to undo.",
+                          "high", "stop_sign")
+        elif cmd == "resume":
+            risk.kill_file.unlink(missing_ok=True)
+            notifier.send("Resumed", "New trades allowed again (daily limits still apply).", "default",
+                          "arrow_forward")
+        elif cmd == "flatten":
+            risk.kill_file.write_text("flattened from phone\n")
+            for sym in list(broker.positions):
+                try:
+                    journal.log("close", **broker.close(sym, "phone: flatten"))
+                except Exception as e:
+                    notifier.send(f"Could not sell {sym}", str(e), "urgent", "warning")
+            notifier.send("Flat", "Everything sold. New trades blocked; send 'resume' to undo.", "high",
+                          "stop_sign")
+        else:
+            notifier.send("Commands", "\n".join(f"{k}: {v}" for k, v in COMMANDS.items()), "low", "")
+
+
 def run_cycle_safely(agent: TradingAgent, alert: dict | None = None) -> None:
     try:
         summary = agent.run_cycle(alert)
@@ -169,8 +203,9 @@ def run_cycle_safely(agent: TradingAgent, alert: dict | None = None) -> None:
         log.warning("Network error talking to Claude API; skipping this cycle (%s)", e)
     except anthropic.APIStatusError as e:
         log.error("Claude API error %s: %s", e.status_code, e.message)
-    except Exception:
+    except Exception as e:
         log.exception("Decision cycle crashed; continuing")
+        agent.journal.log("error", message=f"Decision cycle crashed: {type(e).__name__}: {e}")
 
 
 def cmd_status(cfg: Config) -> None:
@@ -235,9 +270,33 @@ def cmd_run(cfg: Config, once: bool) -> None:
         run_cycle_safely(agent)
         return
 
-    next_cycle = next_watch = next_candle_check = last_mark_cycle = 0.0
+    notifier = journal.notifier
+    notifier.send("Agent started", f"{cfg.mode.upper()} {cfg.market}, equity ${broker.equity():,.2f}. "
+                  f"Window {cfg.risk.trade_window}. Send 'help' for commands.", "low", "rocket")
+    next_cycle = next_watch = next_candle_check = last_mark_cycle = next_cmd = 0.0
     idle_logged = False
+    last_halt = None
+    summary_sent_day = None
     while True:
+        if notifier.enabled and time.time() >= next_cmd:
+            next_cmd = time.time() + 10
+            try:
+                handle_commands(notifier, broker, risk, journal, toolbox)
+            except Exception:
+                log.exception("command handling failed")
+        try:
+            h = risk.halted()
+            if h and h != last_halt and "Kill switch" not in h:
+                journal.log("halt", reason=h)
+            last_halt = h
+            if risk.state.get("day") and summary_sent_day != risk.state["day"] and risk.flatten_due() \
+                    and not broker.positions and risk.state["trades_today"]:
+                pnl, pct = risk.day_pnl()
+                journal.log("day_summary", text=f"Day P&L {pnl:+,.2f} ({pct*100:+.2f}%), "
+                            f"{risk.state['trades_today']} trades. Equity ${broker.equity():,.2f}.")
+                summary_sent_day = risk.state["day"]
+        except Exception:
+            log.exception("alert bookkeeping failed")
         try:
             do_candles = time.time() >= next_candle_check
             if do_candles:
