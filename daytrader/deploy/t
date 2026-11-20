@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Short commands for the trading server.  Usage:
+#   t id PASTE        save Alpaca Key ID          t scan    test: today's stocks
+#   t secret PASTE    save Alpaca Secret          t start   turn trading on
+#   t topic NAME      save ntfy topic             t stop    turn trading off
+#   t claude PASTE    save Anthropic key          t status  account + results
+#   t update          get the latest version      t logs    live log (Ctrl+C to exit)
+D=/opt/daytrader/daytrader
+cd "$D" || exit 1
+save() { "$D/deploy/set_keys.sh" "$1" "$2"; }
+case "$1" in
+  id)      save APCA_API_KEY_ID "$2" ;;
+  secret)  save APCA_API_SECRET_KEY "$2" ;;
+  topic)   save NTFY_TOPIC "$2" ;;
+  claude)  save ANTHROPIC_API_KEY "$2" ;;
+  fmp)     save FMP_API_KEY "$2" ;;
+  scan)    .venv/bin/python -m trader.main scan ;;
+  status)  .venv/bin/python -m trader.main status ;;
+  start)   systemctl restart daytrader && echo "Trading is ON. Check your phone for 'Agent started'." ;;
+  stop)    systemctl stop daytrader && echo "Trading is OFF." ;;
+  logs)    journalctl -u daytrader -f -n 50 ;;
+  update)  git -C /opt/daytrader pull --ff-only && .venv/bin/pip install -q -r requirements.txt && echo "Updated." ;;
+  *)       sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac
