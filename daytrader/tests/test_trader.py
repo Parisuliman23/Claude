@@ -392,3 +392,36 @@ def test_trade_events_become_phone_alerts(tmp_path):
     j.log("close", symbol="WISA", exit_price=9.99, pnl_usd=100.0, trade_total_pnl_usd=100.0, reason="target")
     j.log("cycle_start")  # not alert-worthy
     assert [t for t, _ in n.sent] == ["BUY WISA @ 9.59", "SOLD WISA @ 9.99  +$100.00"]
+
+
+def test_rules_mode_scans_watches_and_enters(setup):
+    from trader.rules import RulesAgent
+    cfg, ex, broker, risk, journal, tb = setup
+    agent = RulesAgent(tb)
+    # scan: crypto allowlist mode; both symbols pass price/gain? give them a +12% day
+    ex.fetch_ticker = lambda s: {"last": ex.prices[s], "percentage": 12.0, "quoteVolume": 5e9,
+                                 "bid": ex.prices[s] - 1, "ask": ex.prices[s] + 1}
+    tb.scanner.last = [{"symbol": "BTC/USD", "passes": True, "change_pct": 12.0,
+                        "pillars": {"float": None}, "size_factor": 1.0}]
+    tb.scanner.scan = lambda: tb.scanner.last
+    tb.scanner.market_temperature = "normal"
+    assert "watching BTC/USD" in agent.run_cycle()
+    assert tb.watchlist == ["BTC/USD"]
+    # a triggered setup -> rules buy with stop at the pullback low and target >= 2R
+    st = {"state": "triggered", "problems": [], "stop": 49_000.0, "entry_trigger": 49_900.0,
+          "swing_high": 52_500.0, "target_2r": 51_700.0, "pole_gain_pct": 8, "pullback_vol_vs_pole": 0.4}
+    msg = agent.run_cycle({"symbol": "BTC/USD", "setup": st})
+    assert "filled" in msg
+    p = broker.positions["BTC/USD"]
+    assert p.stop_loss == 49_000.0 and p.take_profit == 52_500.0
+    # third entry on the same symbol in a day is refused (first/second pullback only)
+    broker.close("BTC/USD", "t")
+    agent.run_cycle({"symbol": "BTC/USD", "setup": st}); broker.close("BTC/USD", "t")
+    assert "first/second pullback" in agent.run_cycle({"symbol": "BTC/USD", "setup": st})
+
+
+def test_rules_mode_does_not_need_anthropic_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    from trader.config import load_config
+    cfg = load_config()
+    assert cfg.decision_mode == "rules"

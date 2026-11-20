@@ -1,4 +1,8 @@
-# Day Trader: a Claude momentum day-trading agent (Ross Cameron style)
+# Day Trader: a momentum day-trading agent (Ross Cameron style)
+
+Two decision modes (`decision_mode` in `config.yaml`):
+- **rules** (default, free): the code trades Ross's rules by itself. No Claude, no API cost.
+- **claude**: Claude makes the calls within the same rules (needs `ANTHROPIC_API_KEY`).
 
 Claude trades small-cap US stocks using Ross Cameron's (Warrior Trading)
 momentum strategy. Code around it enforces his discipline rules, so a bad call

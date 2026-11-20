@@ -81,6 +81,7 @@ class ScannerConfig:
 class Config:
     mode: str = "paper"
     market: str = "crypto"            # crypto | stocks
+    decision_mode: str = "rules"      # rules (no Claude, free) | claude (needs ANTHROPIC_API_KEY)
     stocks_data_feed: str = "iex"     # iex (free) | sip (paid Alpaca data plan)
     iex_volume_share: float = 0.03    # IEX prints ~3% of US volume; used to estimate real volume
     scanner: ScannerConfig = field(default_factory=ScannerConfig)
@@ -116,6 +117,8 @@ def load_config(path: str | Path = ROOT / "config.yaml") -> Config:
     cfg.symbols = cfg.symbols or []
     if cfg.mode not in ("paper", "live"):
         raise ValueError(f"mode must be 'paper' or 'live', got {cfg.mode!r}")
+    if cfg.decision_mode not in ("rules", "claude"):
+        raise ValueError(f"decision_mode must be 'rules' or 'claude', got {cfg.decision_mode!r}")
     if cfg.market not in ("crypto", "stocks"):
         raise ValueError(f"market must be 'crypto' or 'stocks', got {cfg.market!r}")
     cfg.state_dir = Path(cfg.state_dir)

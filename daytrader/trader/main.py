@@ -193,7 +193,7 @@ def handle_commands(notifier: Notifier, broker: BaseBroker, risk: RiskManager, j
             notifier.send("Commands", "\n".join(f"{k}: {v}" for k, v in COMMANDS.items()), "low", "")
 
 
-def run_cycle_safely(agent: TradingAgent, alert: dict | None = None) -> None:
+def run_cycle_safely(agent, alert: dict | None = None) -> None:
     try:
         summary = agent.run_cycle(alert)
         log.info("CYCLE SUMMARY:\n%s", summary)
@@ -258,7 +258,13 @@ def cmd_flatten(cfg: Config) -> None:
 
 def cmd_run(cfg: Config, once: bool) -> None:
     broker, risk, journal, toolbox = build(cfg)
-    agent = TradingAgent(cfg, toolbox, journal)
+    if cfg.decision_mode == "rules":
+        from .rules import RulesAgent
+        agent = RulesAgent(toolbox)  # Ross's rules, no Claude / no API cost
+        log.info("Decision mode: RULES ONLY (no Claude)")
+    else:
+        agent = TradingAgent(cfg, toolbox, journal)
+        log.info("Decision mode: CLAUDE (%s)", cfg.model)
     watcher = SetupWatcher(toolbox)
     if cfg.is_live:
         log.warning("LIVE MODE: real orders. Ctrl-C to stop, or create state/KILL to block new trades.")

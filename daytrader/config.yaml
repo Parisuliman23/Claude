@@ -8,6 +8,10 @@ mode: paper
 # crypto = the same rules adapted to coins (via a ccxt exchange)
 market: stocks
 
+# rules  = the code trades Ross's rules by itself (free, no Claude)
+# claude = Claude makes the calls within the same rules (needs ANTHROPIC_API_KEY)
+decision_mode: rules
+
 # ---- stocks (Alpaca) ----
 # Paper mode uses your Alpaca PAPER account; live uses your real Alpaca account.
 stocks_data_feed: iex         # iex = free data; sip = full market data (paid Alpaca plan, better volume)
