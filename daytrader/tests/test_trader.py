@@ -496,11 +496,16 @@ def test_halt_protection_exits_and_entry_blocks():
     try:
         pos = Position("X", 100, 5.0, 4.8, None, 0, 500, entry_spread_pct=0.4)
         assert exit_signal(M(4.55, 4.54, 4.56), "X", pos, r)[0] == "all"         # near limit-down
-        assert exit_signal(M(5.45, 5.44, 5.46), "X", pos, r)[0] == "half"        # near limit-up: take half
+        assert exit_signal(M(5.45, 5.44, 5.46), "X", pos, r) is None             # limit-up rules OFF by default (Ross)
+        r.luld_upper_rules = True
+        assert exit_signal(M(5.45, 5.44, 5.46), "X", pos, r)[0] == "half"        # ...optional: take half
+        r.luld_upper_rules = False
         assert exit_signal(M(5.0, 4.90, 5.10), "X", pos, r)[0] == "all"          # spread blew out (4%)
         assert exit_signal(M(5.0, 4.99, 5.01), "X", pos, r) is None              # normal
-        assert "spread" in entry_block(M(5.0, 4.94, 5.06), "X", r)               # 2.4% spread: don't buy
-        assert "limit-up" in entry_block(M(5.4, 5.39, 5.41), "X", r)             # right under the band
+        assert "spread" in entry_block(M(5.0, 4.91, 5.09), "X", r)               # 3.6% spread: don't buy
+        assert entry_block(M(5.0, 4.94, 5.06), "X", r) is None                   # 2.4%: normal for small caps
+        assert entry_block(M(5.4, 5.39, 5.41), "X", r) is None                   # squeezing toward limit-up: allowed
+        assert "limit-down" in entry_block(M(4.6, 4.59, 4.61), "X", r)
         assert entry_block(M(5.0, 4.99, 5.01), "X", r) is None
     finally:
         H.luld_active = real

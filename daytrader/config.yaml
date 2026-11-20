@@ -78,10 +78,12 @@ risk:
   exit_on_new_low_candle: true  # Ross: "the exit indicator is the first candle that makes a new low"
   # Halt / gap protection (Level 1 proxies; Alpaca has no Level 2 or halt feed)
   halt_protection: true
-  max_entry_spread_pct: 2.0     # skip buys when the bid/ask spread is wider than 2%
-  luld_entry_buffer_pct: 3.0    # skip buys within 3% of a LULD halt band (9:30-4:00 only)
+  # Emergency-only protections that don't change Ross's strategy:
+  max_entry_spread_pct: 3.0     # skip buys when the bid/ask spread is wider than 3%
+  luld_entry_buffer_pct: 3.0    # skip buys within 3% of the limit-DOWN halt band (9:30-4:00 only)
   luld_exit_buffer_pct: 2.0     # sell everything within 2% of the limit-DOWN band
-  luld_upper_scale_pct: 1.5     # sell half within 1.5% of the limit-UP band (Ross keeps the rest)
+  luld_upper_rules: false       # limit-UP rules OFF: Ross holds/buys squeezes into halt-ups
+  luld_upper_scale_pct: 1.5     # (only used if luld_upper_rules: true)
   spread_spike_mult: 3.0        # sell if the spread is 3x wider than when bought...
   spread_spike_min_pct: 3.0     # ...and at least 3%
   min_order_usd: 50

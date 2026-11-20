@@ -52,7 +52,8 @@ class RiskConfig:
     exit_candle_timeframe: str = "1m"
     # --- Halt / gap protection (Level 1 proxies) ---
     halt_protection: bool = True
-    max_entry_spread_pct: float = 2.0        # don't buy if bid/ask spread is wider than this
+    max_entry_spread_pct: float = 3.0        # don't buy if bid/ask spread is wider than this
+    luld_upper_rules: bool = False           # OFF = Ross-faithful: he holds/buys squeezes into halt-ups
     luld_entry_buffer_pct: float = 3.0       # don't buy within 3% of a LULD halt band
     luld_exit_buffer_pct: float = 2.0        # sell all within 2% of the limit-DOWN band
     luld_upper_scale_pct: float = 1.5        # sell half within 1.5% of the limit-UP band

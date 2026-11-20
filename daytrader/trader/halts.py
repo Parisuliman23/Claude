@@ -74,7 +74,7 @@ def entry_block(market, symbol: str, r) -> str | None:
         buf = r.luld_entry_buffer_pct / 100
         if price <= bands["lower"] * (1 + buf):
             return f"price {price:.2f} is near the limit-down halt band {bands['lower']:.2f}"
-        if price >= bands["upper"] * (1 - buf):
+        if r.luld_upper_rules and price >= bands["upper"] * (1 - buf):
             return (f"price {price:.2f} is near the limit-up halt band {bands['upper']:.2f}: a halt here "
                     "could trap the position")
     return None
@@ -93,7 +93,7 @@ def exit_signal(market, symbol: str, pos, r, candles=None) -> tuple[str, str] | 
     if bands:
         if price <= bands["lower"] * (1 + r.luld_exit_buffer_pct / 100):
             return "all", f"approaching the limit-down halt band ({price:.2f} vs {bands['lower']:.2f})"
-        if not pos.scaled_out and price >= bands["upper"] * (1 - r.luld_upper_scale_pct / 100):
+        if r.luld_upper_rules and not pos.scaled_out and price >= bands["upper"] * (1 - r.luld_upper_scale_pct / 100):
             return "half", f"approaching the limit-up halt band ({price:.2f} vs {bands['upper']:.2f}): taking half"
     try:
         sp = spread_pct(market.order_book(symbol))
