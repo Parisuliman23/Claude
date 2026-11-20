@@ -5,6 +5,7 @@
 #   t topic NAME      save ntfy topic             t stop    turn trading off
 #   t claude PASTE    save Anthropic key          t status  account + results
 #   t update          get the latest version      t logs    live log (Ctrl+C to exit)
+#   t setup           asks for the keys, tests, and turns trading on
 D=/opt/daytrader/daytrader
 cd "$D" || exit 1
 save() { "$D/deploy/set_keys.sh" "$1" "$2"; }
@@ -20,5 +21,18 @@ case "$1" in
   stop)    systemctl stop daytrader && echo "Trading is OFF." ;;
   logs)    journalctl -u daytrader -f -n 50 ;;
   update)  git -C /opt/daytrader pull --ff-only && .venv/bin/pip install -q -r requirements.txt && echo "Updated." ;;
-  *)       sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//' ;;
+  setup)
+    echo "Paste each one and press Enter (Enter alone = skip / keep current)."
+    read -e -r -p "1/3 Alpaca Key ID: " a;  [ -n "$a" ] && save APCA_API_KEY_ID "$a" >/dev/null
+    read -e -r -p "2/3 Alpaca Secret: " b;  [ -n "$b" ] && save APCA_API_SECRET_KEY "$b" >/dev/null
+    read -e -r -p "3/3 ntfy topic:    " c;  [ -n "$c" ] && save NTFY_TOPIC "$c" >/dev/null
+    history -c 2>/dev/null; clear
+    echo "Saved:"; grep -E "^(APCA_API_KEY_ID|APCA_API_SECRET_KEY|NTFY_TOPIC)=" .env | sed -E 's/=(.{0,4}).*/=\1.../'
+    echo; echo "Testing the connection..."
+    if .venv/bin/python -m trader.main scan; then
+      systemctl restart daytrader && echo && echo "ALL SET: trading is ON. Check your phone for 'Agent started'."
+    else
+      echo; echo "The test failed (see above). Run 't setup' again and re-paste the Alpaca keys."
+    fi ;;
+  *)       sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac
