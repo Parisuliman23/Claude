@@ -1,7 +1,8 @@
 """Command-line entry point.
 
-  python -m trader.main run        # run forever: Claude decides every N minutes, code guards stops
-  python -m trader.main once       # one decision cycle, then exit
+  python -m trader.main run        # run all day: scans, setup alerts, stop/target guard
+  python -m trader.main once       # one scheduled cycle, then exit
+  python -m trader.main scan       # print today's 5-pillar scanner results (no Claude, no trades)
   python -m trader.main status     # print account, positions, P&L
   python -m trader.main flatten    # sell everything now
 """
@@ -16,9 +17,8 @@ import time
 import anthropic
 
 from .agent import TradingAgent
-from .broker import BaseBroker, LiveBroker, PaperBroker
+from .broker import BaseBroker, PaperBroker
 from .config import Config, load_config
-from .market import MarketData, make_exchange
 from .risk import RiskManager
 from .tools import Journal, Toolbox
 
@@ -26,22 +26,31 @@ log = logging.getLogger("trader")
 
 
 def build(cfg: Config):
-    market = MarketData(make_exchange(cfg))
-    if cfg.is_live:
-        broker: BaseBroker = LiveBroker(market, cfg.state_dir / "live_account.json", cfg.quote_currency)
+    if cfg.market == "stocks":
+        from .alpaca import AlpacaBroker, AlpacaClient, AlpacaMarket
+        market = AlpacaMarket(AlpacaClient(live=cfg.is_live, feed=cfg.stocks_data_feed))
+        broker: BaseBroker = AlpacaBroker(market, cfg.state_dir / f"stocks_{cfg.mode}_positions.json")
     else:
-        broker = PaperBroker(market, cfg.state_dir / "paper_account.json", cfg.paper_starting_cash,
-                             cfg.paper_fee_rate, cfg.paper_slippage)
-    journal = Journal(cfg.state_dir / f"journal_{cfg.mode}.jsonl")
+        from .broker import LiveBroker
+        from .market import MarketData, make_exchange
+        market = MarketData(make_exchange(cfg))
+        if cfg.is_live:
+            broker = LiveBroker(market, cfg.state_dir / "live_account.json", cfg.quote_currency)
+        else:
+            broker = PaperBroker(market, cfg.state_dir / "paper_account.json", cfg.paper_starting_cash,
+                                 cfg.paper_fee_rate, cfg.paper_slippage)
+    journal = Journal(cfg.state_dir / f"journal_{cfg.market}_{cfg.mode}.jsonl")
     risk = RiskManager(cfg, broker)
     return broker, risk, journal, Toolbox(cfg, broker, risk, journal)
 
 
 def guard(broker: BaseBroker, risk: RiskManager, journal: Journal) -> None:
-    """Runs between decisions: enforce stops/targets, daily-loss halt, and end-of-day flatten."""
+    """Runs every few seconds, no AI: stops, targets (scale out half + break-even),
+    breakout-or-bailout, daily-loss / end-of-window flatten."""
+    r = risk.r
     flatten_reason = None
     if risk.flatten_due():
-        flatten_reason = "end-of-day flatten"
+        flatten_reason = "end of trade window / flatten time"
     elif (h := risk.halted()) and "Daily loss" in h:
         flatten_reason = "daily loss limit"
 
@@ -51,45 +60,78 @@ def guard(broker: BaseBroker, risk: RiskManager, journal: Journal) -> None:
         except Exception as e:
             log.warning("price fetch failed for %s: %s", symbol, e)
             continue
-        reason = flatten_reason
-        if not reason and pos.stop_loss is not None and price <= pos.stop_loss:
-            reason = f"stop-loss hit ({price} <= {pos.stop_loss})"
-        elif not reason and pos.take_profit is not None and price >= pos.take_profit:
-            reason = f"take-profit hit ({price} >= {pos.take_profit})"
-        if reason:
-            try:
+        try:
+            reason = flatten_reason
+            if not reason and pos.stop_loss is not None and price <= pos.stop_loss:
+                reason = f"stop hit ({price} <= {pos.stop_loss})"
+            held_min = (time.time() - pos.opened_at) / 60
+            if (not reason and r.breakout_or_bailout_minutes and not pos.scaled_out
+                    and held_min >= r.breakout_or_bailout_minutes and price < pos.entry_price):
+                reason = (f"breakout or bailout: still below entry after {held_min:.0f} min "
+                          f"({price} < {pos.entry_price})")
+            if reason:
                 rec = broker.close(symbol, f"auto: {reason}")
                 journal.log("close", **rec)
                 log.info("AUTO CLOSE %s: %s  pnl=$%.2f", symbol, reason, rec["pnl_usd"])
-            except Exception:
-                log.exception("auto close failed for %s", symbol)
+                continue
+            if pos.take_profit is not None and price >= pos.take_profit:
+                if r.scale_out_fraction and not pos.scaled_out and r.scale_out_fraction < 1:
+                    rec = broker.reduce(symbol, r.scale_out_fraction,
+                                        f"auto: first target {pos.take_profit} hit, scaling out")
+                    journal.log("sell_partial", **rec)
+                    if symbol in broker.positions:
+                        p = broker.positions[symbol]
+                        p.scaled_out = True
+                        p.take_profit = None  # the rest rides; Claude manages the exit
+                        if r.move_stop_to_breakeven:
+                            p.stop_loss = max(p.stop_loss or 0, p.entry_price)
+                        broker.save()
+                        journal.log("update_stops", symbol=symbol, stop=p.stop_loss, tp=None,
+                                    reason="auto: break-even after scale-out")
+                    log.info("SCALE OUT %s at %s pnl=$%.2f, stop to break-even", symbol, price,
+                             rec["pnl_usd"])
+                else:
+                    rec = broker.close(symbol, f"auto: take-profit hit ({price})")
+                    journal.log("close", **rec)
+                    log.info("AUTO CLOSE %s at target pnl=$%.2f", symbol, rec["pnl_usd"])
+        except Exception:
+            log.exception("guard action failed for %s", symbol)
+    risk.update_peak()
 
 
-def cmd_status(cfg: Config) -> None:
-    broker, risk, journal, toolbox = build(cfg)
-    print(json.dumps(toolbox.t_get_account(), indent=2, default=str))
-    trades = broker.realized
-    if trades:
-        wins = [t for t in trades if t["pnl_usd"] > 0]
-        print(f"\nClosed trades: {len(trades)}  win rate: {len(wins)/len(trades)*100:.0f}%  "
-              f"total realized: ${sum(t['pnl_usd'] for t in trades):,.2f}")
-    if isinstance(broker, PaperBroker):
-        eq = broker.equity()
-        print(f"Paper return since start: {(eq/broker.starting_cash-1)*100:+.2f}%")
+class SetupWatcher:
+    """Checks the watchlist's 1-minute charts and returns a triggered setup, if any."""
+
+    def __init__(self, toolbox: Toolbox, cooldown_s: float = 180):
+        self.toolbox = toolbox
+        self.cooldown_s = cooldown_s
+        self.last_alert: dict[str, float] = {}
+
+    def check(self) -> dict | None:
+        tb = self.toolbox
+        if tb.risk.new_trade_block():
+            return None
+        approved = tb.cfg.symbols or tb.scanner.approved_symbols()
+        for sym in tb.watchlist:
+            if sym in tb.broker.positions or sym not in approved:
+                continue
+            if time.time() - self.last_alert.get(sym, 0) < self.cooldown_s:
+                continue
+            try:
+                st = tb.setup(sym, tb.cfg.setup_timeframe)
+            except Exception as e:
+                log.debug("setup check %s failed: %s", sym, e)
+                continue
+            if st.get("state") == "triggered":
+                self.last_alert[sym] = time.time()
+                tb.journal.log("setup_alert", symbol=sym, setup=st)
+                return {"symbol": sym, "timeframe": tb.cfg.setup_timeframe, "setup": st}
+        return None
 
 
-def cmd_flatten(cfg: Config) -> None:
-    broker, risk, journal, _ = build(cfg)
-    for s in list(broker.positions):
-        rec = broker.close(s, "manual flatten")
-        journal.log("close", **rec)
-        print(f"Closed {s}: pnl ${rec['pnl_usd']:.2f}")
-    print("Flat.")
-
-
-def run_cycle_safely(agent: TradingAgent) -> None:
+def run_cycle_safely(agent: TradingAgent, alert: dict | None = None) -> None:
     try:
-        summary = agent.run_cycle()
+        summary = agent.run_cycle(alert)
         log.info("CYCLE SUMMARY:\n%s", summary)
     except anthropic.RateLimitError as e:
         log.warning("Rate limited by Claude API; skipping this cycle (%s)", e)
@@ -101,35 +143,89 @@ def run_cycle_safely(agent: TradingAgent) -> None:
         log.exception("Decision cycle crashed; continuing")
 
 
+def cmd_status(cfg: Config) -> None:
+    broker, risk, journal, toolbox = build(cfg)
+    print(json.dumps(toolbox.t_get_account(), indent=2, default=str))
+    done = broker.completed_trades()
+    if done:
+        pnl = [t.get("trade_total_pnl_usd", t["pnl_usd"]) for t in done]
+        wins = [p for p in pnl if p > 0]
+        losses = [p for p in pnl if p <= 0]
+        avg_w = sum(wins) / len(wins) if wins else 0
+        avg_l = -sum(losses) / len(losses) if losses else 0
+        print(f"\nTrades: {len(done)}  accuracy: {len(wins)/len(done)*100:.0f}%  "
+              f"avg win ${avg_w:,.2f} / avg loss ${avg_l:,.2f}"
+              f"{f'  (P/L ratio {avg_w/avg_l:.2f})' if avg_l else ''}  total ${sum(pnl):,.2f}")
+    if isinstance(broker, PaperBroker):
+        print(f"Paper return since start: {(broker.equity()/broker.starting_cash-1)*100:+.2f}%")
+
+
+def cmd_scan(cfg: Config) -> None:
+    _, _, _, toolbox = build(cfg)
+    for c in toolbox.scanner.scan():
+        mark = "PASS" if c["passes"] else "fail"
+        print(f"[{mark}] {c['symbol']:<8} ${c['price']:<8} {c['change_pct']:+.1f}%  "
+              f"rvol {c.get('relative_volume')}  float {c.get('float_shares')}  "
+              f"failed: {', '.join(c['failed_pillars']) or '-'}")
+        for n in (c.get("news") or [])[:2]:
+            print(f"           news: {n['headline']}")
+
+
+def cmd_flatten(cfg: Config) -> None:
+    broker, risk, journal, _ = build(cfg)
+    for s in list(broker.positions):
+        rec = broker.close(s, "manual flatten")
+        journal.log("close", **rec)
+        print(f"Closed {s}: pnl ${rec['pnl_usd']:.2f}")
+    print("Flat.")
+
+
 def cmd_run(cfg: Config, once: bool) -> None:
     broker, risk, journal, toolbox = build(cfg)
     agent = TradingAgent(cfg, toolbox, journal)
+    watcher = SetupWatcher(toolbox)
     if cfg.is_live:
-        log.warning("LIVE MODE: real orders will be placed on %s. Ctrl-C to stop, "
-                    "or create state/KILL to block new trades.", cfg.exchange)
+        log.warning("LIVE MODE: real orders. Ctrl-C to stop, or create state/KILL to block new trades.")
     else:
-        log.info("Paper mode on %s, equity $%.2f", cfg.exchange, broker.equity())
+        log.info("PAPER mode (%s), equity $%.2f", cfg.market, broker.equity())
 
     if once:
         guard(broker, risk, journal)
         run_cycle_safely(agent)
         return
 
-    next_decision = 0.0
+    next_cycle = next_watch = 0.0
+    idle_logged = False
     while True:
         try:
             guard(broker, risk, journal)
         except Exception:
             log.exception("guard failed")
-        if time.time() >= next_decision:
+        now = time.time()
+        active = risk.in_window() or bool(broker.positions)
+        if not active:
+            if not idle_logged:
+                log.info("Outside the trade window (%s); waiting.", cfg.risk.trade_window)
+                idle_logged = True
+            time.sleep(30)
+            continue
+        idle_logged = False
+
+        if now >= next_cycle:
             run_cycle_safely(agent)
-            next_decision = time.time() + cfg.decision_interval_minutes * 60
+            next_cycle = time.time() + cfg.decision_interval_minutes * 60
+        elif now >= next_watch and toolbox.watchlist:
+            next_watch = now + cfg.watch_interval_seconds
+            alert = watcher.check()
+            if alert:
+                log.info("SETUP TRIGGER %s: waking Claude", alert["symbol"])
+                run_cycle_safely(agent, alert)
         time.sleep(cfg.monitor_interval_seconds)
 
 
 def main(argv: list[str] | None = None) -> None:
-    p = argparse.ArgumentParser(prog="trader", description="Claude crypto day-trading agent")
-    p.add_argument("command", choices=["run", "once", "status", "flatten"])
+    p = argparse.ArgumentParser(prog="trader", description="Claude momentum day-trading agent")
+    p.add_argument("command", choices=["run", "once", "scan", "status", "flatten"])
     p.add_argument("--config", default=None, help="path to config.yaml")
     p.add_argument("-v", "--verbose", action="store_true")
     a = p.parse_args(argv)
@@ -140,6 +236,8 @@ def main(argv: list[str] | None = None) -> None:
 
     if a.command == "status":
         cmd_status(cfg)
+    elif a.command == "scan":
+        cmd_scan(cfg)
     elif a.command == "flatten":
         cmd_flatten(cfg)
     else:

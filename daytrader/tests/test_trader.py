@@ -46,7 +46,9 @@ class FakeExchange:
 
 @pytest.fixture
 def setup(tmp_path: Path):
-    cfg = Config(symbols=["BTC/USD", "ETH/USD"], state_dir=tmp_path, risk=RiskConfig(),
+    risk_cfg = RiskConfig(starter_size_fraction=1.0, max_position_pct=0.20, max_stop_distance_pct=0.08,
+                          breakout_or_bailout_minutes=None, giveback_pct_of_peak=0)
+    cfg = Config(symbols=["BTC/USD", "ETH/USD"], state_dir=tmp_path, risk=risk_cfg,
                  paper_starting_cash=10_000, paper_fee_rate=0.006, paper_slippage=0.0)
     ex = FakeExchange()
     market = MarketData(ex, cache_seconds=0)
@@ -89,7 +91,7 @@ def test_stop_only_tightens_and_guard_closes(setup):
     ex.prices["ETH/USD"] = 2_940.0
     guard(broker, risk, journal)
     assert "ETH/USD" not in broker.positions
-    assert broker.realized[-1]["reason"].startswith("auto: stop-loss")
+    assert broker.realized[-1]["reason"].startswith("auto: stop hit")
     assert broker.realized[-1]["pnl_usd"] < 0
 
 
@@ -148,3 +150,161 @@ def test_agent_cycle_end_to_end(setup):
     assert client.calls[0]["model"] == "claude-opus-5-5"
     events = [r["event"] for r in journal.tail(50)]
     assert "open" in events and "cycle_summary" in events
+
+
+# ---------------------------------------------------------------------------
+# Ross Cameron strategy pieces
+# ---------------------------------------------------------------------------
+from trader.indicators import analyze_setup
+from trader.main import SetupWatcher
+from trader.scanner import Scanner
+from trader.config import ScannerConfig
+
+
+def bull_flag(trigger_now: bool = True):
+    """Flat base, strong pole on heavy volume, 3-candle light-volume pullback."""
+    c, t = [], 0
+    p = 5.00
+    for _ in range(40):  # base
+        c.append([t, p, p + 0.02, p - 0.02, p + 0.005, 1000]); t += 60_000
+    for _ in range(8):   # pole: +~0.15/candle, heavy volume
+        c.append([t, p, p + 0.17, p - 0.01, p + 0.15, 20000]); p += 0.15; t += 60_000
+    for _ in range(3):   # pullback: small red candles, light volume
+        c.append([t, p, p + 0.02, p - 0.08, p - 0.06, 4000]); p -= 0.06; t += 60_000
+    return c
+
+
+def test_analyze_setup_detects_first_pullback():
+    candles = bull_flag()
+    trigger = candles[-1][2]
+    st = analyze_setup(candles, live_price=trigger + 0.02, vwap_value=5.3)
+    assert st["state"] == "triggered", st
+    assert st["stop"] == min(x[3] for x in candles[-3:])
+    assert st["pullback_vol_vs_pole"] < 1
+    assert st["target_2r"] > st["entry_trigger"]
+    # below the trigger it is only forming
+    assert analyze_setup(candles, live_price=trigger - 0.05, vwap_value=5.3)["state"] == "setup_forming"
+    # below VWAP: rejected
+    st2 = analyze_setup(candles, live_price=trigger + 0.02, vwap_value=9.0)
+    assert st2["state"] == "no_setup" and any("VWAP" in p for p in st2["problems"])
+
+
+def test_starter_size_until_cushion(setup):
+    cfg, ex, broker, risk, journal, tb = setup
+    cfg.risk.starter_size_fraction = 0.25
+    r = tb.t_open_long("BTC/USD", 9000, stop_loss=49_000, reason="t")
+    assert r["status"] == "filled"
+    assert r["spent_usd"] <= 0.25 * 0.20 * 10_000 * 1.01
+    assert any("starter size" in n for n in r["size_adjustments"])
+
+
+def test_three_losers_in_a_row_stops_trading(setup):
+    cfg, ex, broker, risk, journal, tb = setup
+    for _ in range(3):
+        tb.t_open_long("ETH/USD", 500, stop_loss=2_900, reason="t")
+        ex.prices["ETH/USD"] = 2_990.0
+        tb.t_close_position("ETH/USD", "test loss")
+        ex.prices["ETH/USD"] = 3_000.0
+    r = tb.t_open_long("ETH/USD", 500, stop_loss=2_900, reason="t")
+    assert r["status"] == "rejected" and "in a row" in r["reason"]
+
+
+def test_giveback_half_of_peak_stops_trading(setup):
+    cfg, ex, broker, risk, journal, tb = setup
+    cfg.risk.giveback_pct_of_peak = 0.5
+    tb.t_open_long("BTC/USD", 2000, stop_loss=47_000, reason="t")
+    ex.prices["BTC/USD"] = 60_000.0
+    risk.update_peak()                      # peak ~ +$370
+    ex.prices["BTC/USD"] = 51_000.0         # most of it given back
+    assert "peak profit" in (risk.halted() or "")
+
+
+def test_trade_window(setup):
+    from datetime import datetime, timezone
+    cfg, *_ , risk, journal, tb = setup
+    cfg.risk.trade_window = "07:00-11:00"
+    # 2026-11-18 is a Wednesday; 13:00 UTC = 08:00 ET, 17:00 UTC = 12:00 ET
+    assert risk.in_window(datetime(2026, 11, 18, 13, 0, tzinfo=timezone.utc))
+    assert not risk.in_window(datetime(2026, 11, 18, 17, 0, tzinfo=timezone.utc))
+
+
+def test_guard_scales_out_half_and_moves_stop_to_breakeven(setup):
+    cfg, ex, broker, risk, journal, tb = setup
+    tb.t_open_long("ETH/USD", 1000, stop_loss=2_900, take_profit=3_200, reason="t")
+    qty0 = broker.positions["ETH/USD"].qty
+    ex.prices["ETH/USD"] = 3_210.0
+    guard(broker, risk, journal)
+    p = broker.positions["ETH/USD"]
+    assert p.scaled_out and abs(p.qty - qty0 / 2) < 1e-9
+    assert p.stop_loss == p.entry_price and p.take_profit is None
+    ex.prices["ETH/USD"] = 2_990.0          # back to break-even stop: rest closes
+    guard(broker, risk, journal)
+    assert "ETH/USD" not in broker.positions
+    final = broker.completed_trades()[-1]
+    assert final["trade_total_pnl_usd"] > 0   # half banked at target, rest ~flat
+
+
+def test_breakout_or_bailout(setup):
+    cfg, ex, broker, risk, journal, tb = setup
+    cfg.risk.breakout_or_bailout_minutes = 5
+    tb.t_open_long("ETH/USD", 1000, stop_loss=2_900, reason="t")
+    broker.positions["ETH/USD"].opened_at -= 6 * 60
+    ex.prices["ETH/USD"] = 2_995.0
+    guard(broker, risk, journal)
+    assert "ETH/USD" not in broker.positions
+    assert "bailout" in broker.realized[-1]["reason"]
+
+
+class FakeStockMarket:
+    """Minimal stand-in for AlpacaMarket."""
+    kind = "stocks"
+
+    def __init__(self):
+        self.floats = type("F", (), {"get": lambda self, s: {"WISA": 3e6, "BIG": 90e6}.get(s)})()
+        self.data = {
+            "WISA": dict(price=9.59, chg=45.0, vol=12e6, avg=1e6, news=[{"time": None, "headline": "FDA approval"}]),
+            "BIG": dict(price=8.0, chg=30.0, vol=50e6, avg=5e6, news=[{"time": None, "headline": "Earnings"}]),
+            "NONEWS": dict(price=4.0, chg=25.0, vol=9e6, avg=1e6, news=[]),
+            "PRICEY": dict(price=55.0, chg=20.0, vol=9e6, avg=1e6, news=[{"headline": "x"}]),
+            "SLOW": dict(price=6.0, chg=12.0, vol=2e6, avg=1e6, news=[{"headline": "x"}]),
+        }
+
+    def top_gainers(self, top):
+        return [{"symbol": s, "percent_change": d["chg"], "price": d["price"]} for s, d in self.data.items()]
+
+    def ticker(self, s):
+        return {"last": self.data[s]["price"], "day_volume": self.data[s]["vol"]}
+
+    def avg_daily_volume(self, s):
+        return self.data[s]["avg"]
+
+    def news(self, s, limit, hours):
+        return self.data[s]["news"]
+
+    def asset(self, s):
+        return {"exchange": "NASDAQ", "tradable": True}
+
+
+def test_scanner_five_pillars(tmp_path):
+    cfg = Config(market="stocks", symbols=[], state_dir=tmp_path, scanner=ScannerConfig())
+    sc = Scanner(cfg, FakeStockMarket())
+    res = {c["symbol"]: c for c in sc.scan()}
+    assert res["WISA"]["passes"] and res["WISA"]["float_rotation_x"] == 4.0
+    assert not res["BIG"]["passes"] and "float" in res["BIG"]["failed_pillars"]
+    assert not res["NONEWS"]["passes"] and "news_catalyst" in res["NONEWS"]["failed_pillars"]
+    assert not res["SLOW"]["passes"] and "relative_volume" in res["SLOW"]["failed_pillars"]
+    assert "PRICEY" not in res                      # filtered out by price band
+    assert sc.approved_symbols() == {"WISA"}
+    assert list(res)[0] == "WISA"                    # passing names rank first
+
+
+def test_watcher_wakes_on_trigger(setup):
+    cfg, ex, broker, risk, journal, tb = setup
+    candles = bull_flag()
+    trig = candles[-1][2]
+    ex.prices["BTC/USD"] = trig + 0.02
+    ex.fetch_ohlcv = lambda s, timeframe, limit: [list(c) for c in candles]
+    tb.market.session_start_ms = lambda: None
+    tb.watchlist = ["BTC/USD"]
+    alert = SetupWatcher(tb).check()
+    assert alert and alert["symbol"] == "BTC/USD" and alert["setup"]["state"] == "triggered"

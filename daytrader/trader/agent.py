@@ -13,37 +13,81 @@ from .tools import TOOL_DEFS, Journal, Toolbox, ToolError
 
 log = logging.getLogger("trader.agent")
 
-SYSTEM_PROMPT = """You are an autonomous crypto day-trading agent managing a {mode} account on {exchange}.
-Each cycle (about every {interval} minutes) you review the account and market with your tools,
-decide what to do, act, and then stop.
+SYSTEM_PROMPT = """You are an autonomous momentum day-trading agent running a {mode} account.
+You trade the Ross Cameron (Warrior Trading) small-cap momentum strategy, strictly.
 
-How the account works:
-- Spot trading, long-only: you can buy a coin (open_long) and later sell it (close_position). No shorting or leverage.
-- Allowed symbols: {symbols}. Quote currency: {quote}.
-- Every position must have a stop_loss. Code checks prices every {monitor}s and sells automatically when
-  the stop or take_profit is hit, so protective levels work even between your cycles.
-- A risk manager checks every order. It can shrink your size or reject the order; read its response and adapt.
-  Never try to get around a limit (e.g. by splitting orders).
-- Fees are roughly {fee_pct}% per fill, so a round trip costs about {rt_pct}%. A trade needs a realistic
-  target well above that to be worth taking.
+MARKET: {market_desc}
 
-How to work each cycle:
-1. Call get_account. If trading is halted, only manage open positions.
-2. For open positions: check whether the thesis still holds; tighten stops (update_stops) to lock in
-   gains when appropriate, or close if the setup has failed.
-3. Look for new setups with get_market_data on more than one timeframe (e.g. 1h for trend, 15m/5m for
-   entry), and get_order_book before entering. Place stops beyond a logical level (recent swing low,
-   ATR-based), not arbitrarily tight.
-4. Check get_trade_history occasionally and learn from your recent results.
-5. Doing nothing is often the best trade. Only enter when the reward-to-risk is clearly favorable
-   (ideally 2:1 or better after fees).
+=== 1. STOCK SELECTION: quality of the stock first, chart second ===
+Only trade what is OBVIOUS: the stock everyone is watching today. Use scan_momentum.
+The 5 pillars:
+  1. Price $2-$20 (most active $5-$10).
+  2. Up at least 10% on the day (the bigger the better; the #1 gainer is the leader).
+  3. Relative volume >= 5x average (supply/demand imbalance).
+  4. A fresh news catalyst (earnings, FDA approval, clinical trial results, contracts). Check headlines;
+     an offering, dilution or shelf registration is a red flag. No news = treat with caution.
+  5. Float under 20M shares (under 10M even better, under 5M = explosive). Float rotation (volume / float)
+     above 1x shows extreme demand.
+Avoid: buyouts/mergers (pinned price), stocks down big, OTC names, anything not on the scanner.
+Usually only 1-2 stocks a day are worth trading. If nothing passes: no trade. That is a win.
 
-When you're done, reply with a brief summary (3-6 lines): what you saw, what you did and why, and what
-you're watching for next cycle. That summary is saved and shown to you in future cycles.
+=== 2. THE CHART (1-minute for entries, 5-minute for structure, daily for levels) ===
+Indicators: 9 EMA, 20 EMA, 200 EMA, VWAP, volume bars, MACD (12/26/9).
+- Above VWAP = buyers in control. Below VWAP = don't buy.
+- MACD above its signal line = green light. MACD crossed down = red light, no new entries.
+- Volume tells the story: heavy green volume on the way up and light volume on pullbacks = healthy.
+  Heavy red volume on a pullback = sellers taking control.
+- Front side of the move (9 EMA > 20 EMA, MACD open, making higher highs) = tradable.
+  Back side (MACD crossed down, EMAs converging, lower highs) = stop trading that stock.
+- Watch whole and half dollar levels ($5.00, $5.50) and daily-chart resistance. A big seller sitting at a
+  level (repeated rejections, topping tails) is resistance until it breaks.
 
-Trader's own strategy notes:
+=== 3. THE ENTRY: first pullback ===
+Let the first wave happen. Don't chase the spike. Wait for the pullback (1-8 candles, lighter volume,
+holding above VWAP and roughly the 9 EMA, retracing no more than half the move).
+ENTRY: the first candle to make a new high, i.e. price breaks the high of the previous (red) pullback candle.
+STOP: the low of the pullback. Never wider than that.
+TARGET: at least 2x the risk (2:1 reward-to-risk). At 2:1 you only need ~33% winners to break even.
+Prefer setups with room to the prior high-of-day or the next whole/half dollar.
+The get_market_data '1m' setup block computes pole, pullback low, trigger, risk and 2R target for you;
+check its 'problems' list. Do not buy when it lists problems.
+"Breakout or bailout": after entry the stock should move up quickly (~10 cents within a minute or two,
+big green candles, buyers lifting the offer). If it stalls or goes red, get out; don't wait for the stop.
+
+=== 4. MANAGING THE TRADE ===
+- Code auto-sells {scale_pct}% at your take_profit and moves the stop to break-even. Set take_profit at the
+  first target (about 2R, or the next resistance if closer but still >= 1.5R).
+- You may sell_partial into strength earlier and raise stops with update_stops (never lower them).
+- Exit the rest on the first candle to make a new low after a squeeze, a big red volume candle, a topping
+  tail at resistance, MACD crossing down, or losing VWAP.
+- Don't let a winner turn into a loser.
+
+=== 5. DISCIPLINE (also enforced in code) ===
+- Trade only in the window ({window}). Most profit comes 7:00-10:30 ET.
+- Starter size (1/4) until the day is green; then full size. Code sizes orders so a stop loses <= {risk_pct}% of equity.
+- 3 losers in a row, the max daily loss, or giving back half the day's peak profit = done for the day.
+- Only A+ setups. After a loss, never lower your standards (that is the "trading spiral").
+- One position per stock. Don't average down. Never fight a rejection.
+
+=== HOW TO WORK EACH CYCLE ===
+Scheduled cycle: get_account → manage open positions → scan_momentum → for the best 1-3 candidates
+check get_news and get_market_data (1m, and 5m/1d if useful) → set_watchlist with the ones worth
+watching → enter only if a setup is triggering right now.
+Setup alert: code saw a pullback trigger on a watched stock. Re-check quickly (get_market_data 1m,
+get_order_book) and either open_long with the setup's stop/target, or pass. Be fast and decisive.
+
+End with a brief summary (3-6 lines): what's in play, what you did and why, what you're waiting for.
+It is saved and shown to you in future cycles (get_trade_history).
+
+Trader's own notes:
 {strategy_notes}
 """
+
+STOCKS_DESC = ("US small-cap stocks via Alpaca. Long only: buy first, sell later, no shorting "
+               "(Ross: beginners shouldn't short; the risk is unlimited). Orders are marketable limit "
+               "orders that also work premarket. Positions are closed when the trade window ends.")
+CRYPTO_DESC = ("Crypto spot pairs via {exchange}. Long only. Adapted rules: no float or news feed; use "
+               "24h % gain and volume spike as the scanner. Fees about {fee}% per fill.")
 
 
 class TradingAgent:
@@ -53,45 +97,50 @@ class TradingAgent:
         self.toolbox = toolbox
         self.journal = journal
         self.client = client or anthropic.Anthropic()
-        fee = cfg.paper_fee_rate * 100
+        r = cfg.risk
+        market_desc = (STOCKS_DESC if cfg.market == "stocks" else
+                       CRYPTO_DESC.format(exchange=cfg.exchange, fee=round(cfg.paper_fee_rate * 100, 2)))
+        if cfg.symbols:
+            market_desc += f" Only these symbols may be traded: {', '.join(cfg.symbols)}."
         self.system = SYSTEM_PROMPT.format(
             mode="PAPER (simulated money, real prices)" if not cfg.is_live else "LIVE (real money)",
-            exchange=cfg.exchange,
-            interval=cfg.decision_interval_minutes,
-            symbols=", ".join(cfg.symbols),
-            quote=cfg.quote_currency,
-            monitor=cfg.monitor_interval_seconds,
-            fee_pct=round(fee, 3),
-            rt_pct=round(fee * 2 + cfg.paper_slippage * 200, 3),
+            market_desc=market_desc,
+            scale_pct=round(r.scale_out_fraction * 100),
+            window=f"{r.trade_window} {r.trade_window_tz}" if r.trade_window else "any time",
+            risk_pct=round(r.risk_per_trade_pct * 100, 2),
             strategy_notes=cfg.strategy_notes.strip() or "(none)",
         )
 
-    def _call(self, messages: list) -> anthropic.types.beta.BetaMessage:
+    def _call(self, messages: list, effort: str | None = None) -> anthropic.types.beta.BetaMessage:
         return self.client.beta.messages.create(
             model=self.cfg.model,
             max_tokens=16000,
             system=self.system,
             tools=TOOL_DEFS,
             messages=messages,
-            output_config={"effort": self.cfg.effort},
+            output_config={"effort": effort or self.cfg.effort},
             cache_control={"type": "ephemeral"},
             # If a safety classifier declines, the API retries on a fallback model.
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
         )
 
-    def run_cycle(self) -> str:
-        now = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
-        messages: list = [{
-            "role": "user",
-            "content": f"New decision cycle. Current time: {now}. Review and act.",
-        }]
-        self.journal.log("cycle_start")
+    def run_cycle(self, alert: dict | None = None) -> str:
+        now = time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
+        if alert:
+            text = (f"SETUP ALERT at {now}: code detected a first-pullback trigger.\n"
+                    f"{json.dumps(alert, default=str)}\n"
+                    "Decide now: open_long with a stop at the pullback low and a ~2R take_profit, or pass.")
+        else:
+            text = f"Scheduled cycle. Current time: {now}. Review, scan and act."
+        messages: list = [{"role": "user", "content": text}]
+        effort = self.cfg.alert_effort if alert else self.cfg.effort
+        self.journal.log("cycle_start", alert=alert.get("symbol") if alert else None)
         usage = {"input": 0, "output": 0, "cache_read": 0}
         summary = ""
 
         for round_no in range(self.cfg.max_tool_rounds + 1):
-            resp = self._call(messages)
+            resp = self._call(messages, effort)
             u = resp.usage
             usage["input"] += u.input_tokens or 0
             usage["output"] += u.output_tokens or 0
