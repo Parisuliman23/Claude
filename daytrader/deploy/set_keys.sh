@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Phone-friendly: asks for each key and saves it into .env (input is hidden).
+# Phone-friendly: asks for each key and saves it into .env.
+# Input is shown so pasting works in phone web consoles; the screen is cleared at the end.
 # Press Enter on a question to keep what is already there.
 cd "$(dirname "$0")/.."
 [ -f .env ] || cp .env.example .env
 ask() {
   local name="$1" prompt="$2" val
-  read -r -s -p "$prompt (Enter = keep current): " val; echo
+  read -r -p "$prompt (Enter = keep current): " val
   [ -z "$val" ] && return
   val="$(printf '%s' "$val" | tr -d '[:space:]')"
   .venv/bin/python - "$name" "$val" <<'PY'
@@ -27,4 +28,8 @@ ask APCA_API_SECRET_KEY "Alpaca PAPER Secret Key"
 ask FMP_API_KEY        "FMP API key (optional)"
 ask NTFY_TOPIC         "ntfy topic name (WITHOUT -cmd)"
 chmod 600 .env
+clear
+history -c 2>/dev/null || true
+echo "Saved (only the first 4 characters shown):"
+grep -E "^(ANTHROPIC_API_KEY|APCA_API_KEY_ID|APCA_API_SECRET_KEY|FMP_API_KEY|NTFY_TOPIC)=" .env | sed -E 's/=(.{0,4}).*/=\1.../'
 echo "Done. Keys are in $(pwd)/.env (only root can read it)."
