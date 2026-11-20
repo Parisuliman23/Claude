@@ -27,6 +27,7 @@ class Position:
     scaled_out: bool = False      # half already sold at the first target
     realized_usd: float = 0.0     # P&L already banked from partial sells
     initial_qty: float = 0.0
+    max_price: float = 0.0        # highest price seen since entry (bailout check)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -111,6 +112,7 @@ class BaseBroker:
             cost_usd=fill.value_usd + fill.fee_usd,
             initial_stop=stop,
             initial_qty=fill.qty,
+            max_price=fill.price,
         )
         self.save()
         return fill

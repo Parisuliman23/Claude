@@ -183,7 +183,7 @@ class AlpacaMarket:
                 self._assets[symbol] = {}
         return self._assets[symbol]
 
-    def avg_daily_volume(self, symbol: str, days: int = 30) -> float | None:
+    def avg_daily_volume(self, symbol: str, days: int = 50) -> float | None:
         bars = self.candles(symbol, "1d", days + 1)
         today = datetime.now(ET).date()
         past = [b for b in bars

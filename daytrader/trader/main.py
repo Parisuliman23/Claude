@@ -44,10 +44,29 @@ def build(cfg: Config):
     return broker, risk, journal, Toolbox(cfg, broker, risk, journal)
 
 
-def guard(broker: BaseBroker, risk: RiskManager, journal: Journal) -> None:
-    """Runs every few seconds, no AI: stops, targets (scale out half + break-even),
-    breakout-or-bailout, daily-loss / end-of-window flatten."""
+def _min_move(cfg_r, market_kind: str, entry: float) -> float:
+    # stocks: dollars per share (Ross's "10 cents"); crypto: 0.3% of price
+    return cfg_r.bailout_min_move if market_kind == "stocks" else entry * 0.003
+
+
+def new_low_candle(broker: BaseBroker, symbol: str, since_ts: float, timeframe: str) -> bool:
+    """True if a completed candle after entry broke the previous candle's low."""
+    from .tools import closed_candles
+    candles = closed_candles(broker.market.candles(symbol, timeframe, 6), timeframe)
+    since_ms = since_ts * 1000
+    for prev, cur in zip(candles, candles[1:]):
+        if cur[0] >= since_ms - 1 and cur[3] < prev[3]:
+            return True
+    return False
+
+
+def guard(broker: BaseBroker, risk: RiskManager, journal: Journal, check_candles: bool = True) -> None:
+    """Runs every few seconds, no AI. Ross's exit rules:
+    stop at the pullback low · breakout or bailout (no ~10c move within ~1 min) ·
+    first candle to make a new low · sell half at the target and move stop to break-even ·
+    daily-loss / end-of-window flatten."""
     r = risk.r
+    kind = getattr(broker.market, "kind", "crypto")
     flatten_reason = None
     if risk.flatten_due():
         flatten_reason = "end of trade window / flatten time"
@@ -61,14 +80,23 @@ def guard(broker: BaseBroker, risk: RiskManager, journal: Journal) -> None:
             log.warning("price fetch failed for %s: %s", symbol, e)
             continue
         try:
+            if price > pos.max_price:
+                pos.max_price = price
             reason = flatten_reason
             if not reason and pos.stop_loss is not None and price <= pos.stop_loss:
                 reason = f"stop hit ({price} <= {pos.stop_loss})"
             held_min = (time.time() - pos.opened_at) / 60
             if (not reason and r.breakout_or_bailout_minutes and not pos.scaled_out
-                    and held_min >= r.breakout_or_bailout_minutes and price < pos.entry_price):
-                reason = (f"breakout or bailout: still below entry after {held_min:.0f} min "
-                          f"({price} < {pos.entry_price})")
+                    and held_min >= r.breakout_or_bailout_minutes
+                    and pos.max_price < pos.entry_price + _min_move(r, kind, pos.entry_price)):
+                reason = (f"breakout or bailout: no follow-through within {held_min:.1f} min "
+                          f"(high since entry {pos.max_price}, entry {pos.entry_price})")
+            if not reason and check_candles and r.exit_on_new_low_candle:
+                try:
+                    if new_low_candle(broker, symbol, pos.opened_at, r.exit_candle_timeframe):
+                        reason = "exit indicator: first candle to make a new low"
+                except Exception as e:
+                    log.debug("candle check %s failed: %s", symbol, e)
             if reason:
                 rec = broker.close(symbol, f"auto: {reason}")
                 journal.log("close", **rec)
@@ -82,7 +110,7 @@ def guard(broker: BaseBroker, risk: RiskManager, journal: Journal) -> None:
                     if symbol in broker.positions:
                         p = broker.positions[symbol]
                         p.scaled_out = True
-                        p.take_profit = None  # the rest rides; Claude manages the exit
+                        p.take_profit = None  # the rest rides until an exit indicator
                         if r.move_stop_to_breakeven:
                             p.stop_loss = max(p.stop_loss or 0, p.entry_price)
                         broker.save()
@@ -94,6 +122,8 @@ def guard(broker: BaseBroker, risk: RiskManager, journal: Journal) -> None:
                     rec = broker.close(symbol, f"auto: take-profit hit ({price})")
                     journal.log("close", **rec)
                     log.info("AUTO CLOSE %s at target pnl=$%.2f", symbol, rec["pnl_usd"])
+            else:
+                broker.save()
         except Exception:
             log.exception("guard action failed for %s", symbol)
     risk.update_peak()
@@ -194,11 +224,14 @@ def cmd_run(cfg: Config, once: bool) -> None:
         run_cycle_safely(agent)
         return
 
-    next_cycle = next_watch = 0.0
+    next_cycle = next_watch = next_candle_check = 0.0
     idle_logged = False
     while True:
         try:
-            guard(broker, risk, journal)
+            do_candles = time.time() >= next_candle_check
+            if do_candles:
+                next_candle_check = time.time() + cfg.watch_interval_seconds
+            guard(broker, risk, journal, check_candles=do_candles)
         except Exception:
             log.exception("guard failed")
         now = time.time()

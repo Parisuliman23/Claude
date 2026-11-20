@@ -308,3 +308,24 @@ def test_watcher_wakes_on_trigger(setup):
     tb.watchlist = ["BTC/USD"]
     alert = SetupWatcher(tb).check()
     assert alert and alert["symbol"] == "BTC/USD" and alert["setup"]["state"] == "triggered"
+
+
+def test_exit_on_first_candle_making_new_low(setup):
+    import time as _t
+    cfg, ex, broker, risk, journal, tb = setup
+    cfg.risk.exit_on_new_low_candle = True
+    tb.t_open_long("ETH/USD", 1000, stop_loss=2_900, reason="t")
+    t0 = int(broker.positions["ETH/USD"].opened_at * 1000) // 60_000 * 60_000
+    rows = [[t0 - 60_000, 2990, 3005, 2985, 3000, 10],   # entry candle
+            [t0, 3000, 3010, 2995, 3008, 10],             # higher low: hold
+            [t0 + 60_000, 3008, 3009, 2990, 2992, 10]]    # breaks prior low: exit
+    ex.fetch_ohlcv = lambda s, timeframe, limit: rows
+    import trader.tools as tools_mod
+    real = tools_mod.time.time
+    tools_mod.time.time = lambda: (t0 + 3 * 60_000) / 1000
+    try:
+        guard(broker, risk, journal)
+    finally:
+        tools_mod.time.time = real
+    assert "ETH/USD" not in broker.positions
+    assert "new low" in broker.realized[-1]["reason"]

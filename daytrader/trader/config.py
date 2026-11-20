@@ -43,7 +43,12 @@ class RiskConfig:
     cushion_pct: float = 0.005               # cushion = day P&L >= 0.5% of equity
     scale_out_fraction: float = 0.5          # sell half at the first target...
     move_stop_to_breakeven: bool = True      # ...and move the stop to break-even
-    breakout_or_bailout_minutes: float | None = 5  # exit if still below entry after N min
+    # "Breakout or bailout" (Ross): price should move up at least 10 cents within ~1 minute.
+    breakout_or_bailout_minutes: float | None = 1.5
+    bailout_min_move: float = 0.10           # stocks: $/share (crypto uses 0.3% of price)
+    # "The exit indicator is the first candle that makes a new low."
+    exit_on_new_low_candle: bool = True
+    exit_candle_timeframe: str = "1m"
     trade_window: str | None = None          # "07:00-11:00" (in trade_window_tz); null = always
     trade_window_tz: str = "America/New_York"
 

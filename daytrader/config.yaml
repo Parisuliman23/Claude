@@ -59,7 +59,9 @@ risk:
   cushion_pct: 0.005
   scale_out_fraction: 0.5       # sell half at the target, stop to break-even on the rest
   move_stop_to_breakeven: true
-  breakout_or_bailout_minutes: 5  # if it hasn't worked in 5 min (still below entry), get out
+  breakout_or_bailout_minutes: 1.5  # Ross: should move up ~10 cents within a minute, or get out
+  bailout_min_move: 0.10        # $ per share
+  exit_on_new_low_candle: true  # Ross: "the exit indicator is the first candle that makes a new low"
   min_order_usd: 50
   require_stop_loss: true
   max_stop_distance_pct: 0.10

@@ -8,7 +8,12 @@ Study notes, organized as a trading rulebook, from these videos:
 | How to Pick the BEST Stocks for Trading (with ZERO experience) | wlH8zKZ8vXA |
 | Reading Candlestick Charts Was HARD Until I Learned This 3 Step Trick | 4Pc_von1wS4 |
 
-> **Source caveat.** YouTube blocked automated access to the videos and their
+> **Verified so far:** "Reading Candlestick Charts… 3 Step Trick" (4Pc_von1wS4)
+> was transcribed in full from the video file and its frames were checked.
+> Section 11 holds what he says in that video, with timestamps. Where it
+> differs from the summaries below, section 11 wins.
+>
+> **Source caveat (other videos).** YouTube blocked automated access to the videos and their
 > captions, so these notes come from third-party AI summaries of the three
 > videos (Podwise, youtubesummary.com) and from published descriptions of his
 > "5 pillars". Where sources disagree, the notes show both. A few figures
@@ -247,3 +252,104 @@ volume surge windows (US open). The parts that carry over directly are the
 chart rules, exits and discipline (sections 3-7). The selection rules (section 1)
 need translation: top % gainers, volume spike vs 30-day average, low market cap,
 a news catalyst.
+
+
+---
+
+## 11. Verified from the video: "Reading Candlestick Charts Was HARD Until I Learned This 3 Step Trick"
+
+Transcribed from the full 48-minute video; frames checked every 20 seconds. Timestamps are mm:ss.
+
+### Step 1: Fewer indicators (02:02-17:45)
+- His old chart had "more than 20 different indicators": too many to check, and they give conflicting signals.
+  There is no "holy grail" indicator.
+- **EMAs 9, 20, 200** (9 gray, 20 blue, 200 magenta). He uses the 9 over the 10 because it's "a little bit
+  faster". He doesn't use the 50 or 100. These are periods of candles, so the same on 10-second, 1-minute,
+  5-minute and daily charts (17:45).
+- **VWAP** (orange): "the equilibrium point for the day." Above = bulls in control, below = bears.
+  "As a long bias trader, I'm going to focus on trading when the price is above VWAP." (08:20)
+- **Volume bars must be colored** by the candle's open vs close. "You could almost trade exclusively on volume
+  bars… to trade without volume bars, you would be almost trading with one eye closed." (10:40)
+  - Rising price on **declining** buy volume, then heavy red selling volume = sellers dominate → "at best double
+    topping at the high of day… I certainly would not be buying dips or pullbacks." (13:16-13:53)
+  - **Rising** volume on the way up and **light** volume on the pullback = buyers in control → "be a buyer near
+    the support of the nine moving average… set my stop at the low of this candle… add as the price moves
+    higher." (13:58-14:27)
+- **MACD:** "I focus on trading when the MACD is above the signal line." Red light / green light. He added it in
+  the 2022 bear market and the 2023 rally: "only trading when the MACD is open… greatly reduced the number of false
+  breakouts." When it crosses over: "nope I'm not interested anymore." (15:28-17:03)
+- Candles are the source; indicators are context that "validate that this is doing what you think." (12:35)
+
+### Step 2: Trade what's obvious (17:57-30:52)
+- His beginner mistake was trading familiar names (IBM, US Steel, AEP): "I don't see a gosh darn thing."
+- **Relative volume ≥5×, measured against the 50-day average.** His audited metrics: over $10M of his $12.6M
+  came from stocks at ≥500% relative volume. He **lost money on lower relative-volume stocks**. (22:03-23:18)
+- "High relative volume is a byproduct typically of a news catalyst… you need the catalyst." (23:23)
+- Large caps (AEP, TSLA, S&P 500) almost never reach 5× relative volume, so there's nothing to trade.
+- He found the pattern after a big loss forced him to review 18 months of metrics. Profits came when:
+  1. relative volume ≥5×,
+  2. **up more than 10%** ("opening gap being more than 2%, but the instrument being up 10%"),
+  3. a **news catalyst**,
+  4. **price $2-$20**. (27:08-28:56)
+- Workflow: the scanner flags the stock → check the news ("I don't have to be an expert on this stock") → chart →
+  "game time". Example: WISA, news "announcing fourth HDTV license with major TV brand", about +$9,600 (≈$9.59
+  entry on screen). (29:36-30:20)
+- He is right **68.6%** of the time ("wrong 30% of the time and I'm still making money") on **$12.6M** of
+  third-party-audited profit. "My results are not typical." (04:03-04:43)
+
+### Step 3: Build a strategy around what works (31:04-48:05)
+**Entry: the first candle to make a new high**
+- "Let the first wave happen… wait for that first wave to pull back… this is the moment of truth." On the pullback,
+  either high-volume selling, MACD crossing over and losing the moving averages (no trade), or "we hold". (32:58-33:14)
+- Chasing the first spike: "the candlestick chart's not supporting that entry." (32:39)
+- On a rising stock each candle breaks the prior high; on the pullback candles make new lows. "If it keeps making
+  new lows, I'm not going to buy… I'm going to wait for the first candle to make a new high." (34:27-34:56)
+- "Right after that candle made a low, that's going to be your lowest risk entry… where do you bail out if this
+  doesn't work? The low." (36:14-36:24)
+- On-screen chart (frame ~32:40): *"Enter as Green Candle Breaks High of Previous Red Candle" · "Stop or Max Loss at
+  Low of Pullback" · "Taking profit based on risk vs reward ratio at 1:1, 1:2, 1:3" · "High Volume Green Bars is
+  Preferred" · "Light Volume Pullback is Preferred".*
+- Always "as long as your indicators are supporting it": volume profile checks out and MACD open. (31:48, 37:44)
+
+**Profit/loss math (36:37-37:25)**
+- 10¢ stop, 20¢ target = 2:1. "If you're right even just 33% of the time, you break even… right half the time,
+  you're profitable." At 1:1 you need over 50%.
+- "It's the combination of profit loss ratio and your accuracy that creates profitability."
+
+**Selling too soon vs holding losers (38:05-40:26, 46:02-47:29)**
+- Beginners sell for a tiny 1:1 win and miss a possible 5:1. He was driven by fear of loss on a small account.
+- His fix: he reprogrammed his "sell all" hotkey to **sell half**, then moved the stop to **break-even** on the rest
+  ("now I have guarantee that this is going to be a winner"). Hotkeys: Shift+1 buy, Ctrl+Z sell all at bid,
+  Ctrl+X sell half, Ctrl+C sell a quarter.
+- Later he got better at "not selling half until I saw an exit indicator."
+- The opposite mistake: holding full size through a rejection ("going down with the ship"). Then average losers
+  are big (50¢-$1+) while winners are small. A big seller at a level (e.g. 100,000 shares) can "ruin the chart"
+  even when the indicators look good: take the loss, break-even or small win, but **do not keep holding**.
+- "Scale out more slowly into the move and… not sell until you have a valid exit indicator." Scaling out is
+  right on **big green candles**, where waiting for the first red candle gives back a lot. (41:17-41:35)
+
+**What he must see after entry (41:43-43:16)**
+1. **Price moves up: "at least 10 cents within one minute of entering the trade."**
+2. **Buyers on time & sales: "green on the tape"** (e.g. 5.50 × 5.60 quote, prints at 5.60, 5.60, 5.70).
+3. Large green candles.
+
+**Exit indicators: the inverse (43:22-45:04)**
+- No 10¢ move within a minute → out. No buyers / green on the tape → out. No large green candles → out.
+  "The next candle goes red and I get right out."
+- **"The exit indicator is the first candle that makes a new low."** (40:40) Hold until then.
+- At the top: price stops moving, buyers disappear on Level 2, red on the tape, a red candle forms → exit.
+- Accuracy is 68%, so "32% of time I'm going to be wrong… I just have to cut my loss quickly."
+
+### How the agent applies this video
+| Ross | Agent |
+|---|---|
+| 9/20/200 EMA, VWAP, colored volume, MACD | `get_market_data` returns exactly these |
+| Above VWAP, MACD open, light-volume pullback | required by the setup detector (`analyze_setup`) |
+| First candle to make a new high after the pullback | the watcher's entry trigger |
+| Stop at the low of the pullback | the setup's `stop` |
+| 2:1 target | the setup's `target_2r` |
+| Sell half, stop to break-even | automatic at the target |
+| 10¢ within 1 minute, or out | `breakout_or_bailout_minutes: 1.5`, `bailout_min_move: 0.10` |
+| First candle to make a new low = exit | `exit_on_new_low_candle: true` (1-minute candles) |
+| Relative volume ≥5× vs 50-day, up ≥10%, news, $2-$20 | scanner (50-day average, like his metrics) |
+| Level 2 / tape (green on the tape) | **not available** from Alpaca; candles and quotes stand in |
