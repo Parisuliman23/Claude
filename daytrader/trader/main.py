@@ -199,9 +199,15 @@ def cmd_scan(cfg: Config) -> None:
     _, _, _, toolbox = build(cfg)
     for c in toolbox.scanner.scan():
         mark = "PASS" if c["passes"] else "fail"
-        print(f"[{mark}] {c['symbol']:<8} ${c['price']:<8} {c['change_pct']:+.1f}%  "
-              f"rvol {c.get('relative_volume')}  float {c.get('float_shares')}  "
+        flt = c.get("float_shares")
+        out = c.get("shares_outstanding")
+        size = (f"float {flt/1e6:.1f}M" if flt and not out else
+                f"<= {out/1e6:.1f}M sh (SEC)" if out else "float ?")
+        print(f"[{mark}] {c['symbol']:<6} ${c['price']:<7} {c['change_pct']:+6.1f}%  "
+              f"rvol {c.get('relative_volume')}  {size}  size x{c.get('size_factor', 1)}  "
               f"failed: {', '.join(c['failed_pillars']) or '-'}")
+        for f in c.get("flags", []):
+            print(f"           flag: {f}")
         for n in (c.get("news") or [])[:2]:
             print(f"           news: {n['headline']}")
 

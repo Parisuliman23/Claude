@@ -295,7 +295,7 @@ class FakeStockMarket:
 
 
 def test_scanner_five_pillars(tmp_path):
-    cfg = Config(market="stocks", symbols=[], state_dir=tmp_path, scanner=ScannerConfig())
+    cfg = Config(market="stocks", stocks_data_feed="sip", symbols=[], state_dir=tmp_path, scanner=ScannerConfig())
     sc = Scanner(cfg, FakeStockMarket())
     res = {c["symbol"]: c for c in sc.scan()}
     assert res["WISA"]["passes"] and res["WISA"]["float_rotation_x"] == 4.0
@@ -348,7 +348,7 @@ def test_scanner_uses_sec_shares_outstanding_when_float_missing(tmp_path):
     m = FakeStockMarket()
     sec = {"WISA": 3e6, "BIG": 90e6, "NONEWS": 30e6}
     m.floats = type("F", (), {"info": lambda self, s: {"float": None, "outstanding": sec.get(s)}})()
-    cfg = Config(market="stocks", symbols=[], state_dir=tmp_path, scanner=ScannerConfig())
+    cfg = Config(market="stocks", stocks_data_feed="sip", symbols=[], state_dir=tmp_path, scanner=ScannerConfig())
     res = {c["symbol"]: c for c in Scanner(cfg, m).scan()}
     assert res["WISA"]["pillars"]["float"] is True          # 3M outstanding -> float < 20M
     assert res["BIG"]["pillars"]["float"] is False          # 90M outstanding -> too big

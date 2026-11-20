@@ -11,6 +11,7 @@ market: stocks
 # ---- stocks (Alpaca) ----
 # Paper mode uses your Alpaca PAPER account; live uses your real Alpaca account.
 stocks_data_feed: iex         # iex = free data; sip = full market data (paid Alpaca plan, better volume)
+iex_volume_share: 0.03        # free IEX data sees ~3% of real volume; used to estimate the real total
 
 # ---- crypto (ccxt) ----
 exchange: coinbase

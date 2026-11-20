@@ -82,6 +82,7 @@ class Config:
     mode: str = "paper"
     market: str = "crypto"            # crypto | stocks
     stocks_data_feed: str = "iex"     # iex (free) | sip (paid Alpaca data plan)
+    iex_volume_share: float = 0.03    # IEX prints ~3% of US volume; used to estimate real volume
     scanner: ScannerConfig = field(default_factory=ScannerConfig)
     watch_interval_seconds: float = 15  # how often code checks watchlist charts for setups
     setup_timeframe: str = "1m"

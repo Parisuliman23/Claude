@@ -19,6 +19,9 @@ log = logging.getLogger("trader.scanner")
 REJECT_WORDS = ("merger", "to merge", "merge with", "to be acquired", "acquired by", "agreement to acquire",
                 "will acquire all", "buyout", "buy-out", "take private", "take-private", "go-private",
                 "going private", "tender offer", "per share in cash")
+# Bankruptcy / restructuring: Ross avoids stocks with bankruptcy risk
+DISTRESS_WORDS = ("chapter 11", "bankruptcy", "restructuring support agreement", "transaction support agreement",
+                  "recapitalization", "going concern", "delisting", "debt-for-equity", "debt for equity")
 # Dilution red flags: allowed, but Claude is warned
 DILUTION_WORDS = ("offering", "priced", "warrants", "registered direct", "private placement",
                   "shelf", "atm program", "at-the-market", "reverse split")
@@ -68,6 +71,11 @@ class Scanner:
             sym, chg, price = row["symbol"], row.get("percent_change"), row.get("price")
             if price is None or chg is None:
                 continue
+            # skip warrants / units / rights (e.g. ABCDW, ABCDU, ABCDR): not common stock
+            if stocks and len(sym) == 5 and sym[-1] in "WUR":
+                continue
+            if stocks and any(ch in sym for ch in "./"):
+                continue
             # cheap filters first, so we only pay API calls for real candidates
             if chg < s.min_gain_pct:
                 continue
@@ -90,6 +98,11 @@ class Scanner:
                     rvol = base_vol / avg if avg else None
                 c["relative_volume"] = round(rvol, 2) if rvol else None
                 c["day_volume"] = day_vol
+                if stocks and self.cfg.stocks_data_feed == "iex" and day_vol:
+                    # free IEX feed sees only a slice of trading: estimate the real total
+                    c["day_volume_iex"] = day_vol
+                    c["day_volume"] = day_vol / self.cfg.iex_volume_share
+                    c["day_volume_is_estimate"] = True
                 min_rvol = s.min_rvol if stocks else s.crypto_min_rvol
                 p["relative_volume"] = bool(rvol and rvol >= min_rvol)
             except Exception as e:
@@ -106,6 +119,9 @@ class Scanner:
                 if any(w in text for w in REJECT_WORDS):
                     p["not_buyout_or_merger"] = False
                     c["flags"].append("buyout/merger/acquisition news: price pinned, Ross avoids")
+                if any(w in text for w in DISTRESS_WORDS):
+                    p["no_bankruptcy_risk"] = False
+                    c["flags"].append("bankruptcy/restructuring/delisting news: Ross avoids bankruptcy risk")
                 if any(w in text for w in DILUTION_WORDS):
                     c["flags"].append("possible dilution (offering/warrants/reverse split) in the news")
                 if not news:
@@ -165,6 +181,8 @@ class Scanner:
                 failed.append("exchange_listed")
             if p.get("not_buyout_or_merger") is False:
                 failed.append("not_buyout_or_merger")
+            if p.get("no_bankruptcy_risk") is False:
+                failed.append("no_bankruptcy_risk")
             # size factor: Ross reduces size on no-news and thin-volume names
             sf = 1.0
             if stocks and not p.get("news_catalyst"):
