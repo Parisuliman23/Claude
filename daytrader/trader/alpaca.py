@@ -166,6 +166,19 @@ class AlpacaMarket:
             raise RuntimeError(f"No price for {symbol}")
         return float(p)
 
+    def last_trade_age_s(self, symbol: str) -> float | None:
+        """Seconds since the last trade print (a long gap on an active stock suggests a halt)."""
+        t = ((self.snapshots([symbol]).get(symbol) or {}).get("latestTrade") or {}).get("t")
+        if not t:
+            return None
+        import re
+        m = re.match(r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d)(?:\.(\d+))?", t)
+        if not m:
+            return None
+        frac = (m.group(2) or "0")[:6].ljust(6, "0")
+        ts = datetime.fromisoformat(f"{m.group(1)}.{frac}+00:00")
+        return (datetime.now(timezone.utc) - ts).total_seconds()
+
     def ticker(self, symbol: str) -> dict:
         snap = self.snapshots([symbol]).get(symbol) or {}
         day, prev = snap.get("dailyBar") or {}, snap.get("prevDailyBar") or {}

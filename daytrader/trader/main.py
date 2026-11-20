@@ -102,6 +102,37 @@ def guard(broker: BaseBroker, risk: RiskManager, journal: Journal, check_candles
                     and pos.max_price < pos.entry_price + _min_move(r, kind, pos.entry_price)):
                 reason = (f"breakout or bailout: no follow-through within {held_min:.1f} min "
                           f"(high since entry {pos.max_price}, entry {pos.entry_price})")
+            if not reason and check_candles:
+                from .halts import exit_signal
+                try:
+                    hs = exit_signal(broker.market, symbol, pos, r)
+                except Exception as e:
+                    hs = None
+                    log.debug("halt check %s failed: %s", symbol, e)
+                if hs and hs[0] == "all":
+                    reason = f"halt risk: {hs[1]}"
+                elif hs and hs[0] == "half":
+                    rec = broker.reduce(symbol, r.scale_out_fraction or 0.5, f"auto: halt risk: {hs[1]}")
+                    journal.log("sell_partial", **rec)
+                    if symbol in broker.positions:
+                        p = broker.positions[symbol]
+                        p.scaled_out = True
+                        if r.move_stop_to_breakeven:
+                            p.stop_loss = max(p.stop_loss or 0, p.entry_price)
+                        broker.save()
+                    continue
+                age_fn = getattr(broker.market, "last_trade_age_s", None)
+                if age_fn and r.halt_protection:
+                    try:
+                        age = age_fn(symbol)
+                        from .halts import luld_active
+                        if age is not None and age > 60 and luld_active()[0] and not pos.halt_alerted:
+                            pos.halt_alerted = True
+                            broker.save()
+                            journal.log("error", message=f"{symbol}: no trades for {age:.0f}s, possibly HALTED. "
+                                        "Orders can't fill until it reopens; stop stays in place.")
+                    except Exception:
+                        pass
             if not reason and check_candles and r.exit_on_new_low_candle:
                 try:
                     if new_low_candle(broker, symbol, pos.opened_at, r.exit_candle_timeframe):

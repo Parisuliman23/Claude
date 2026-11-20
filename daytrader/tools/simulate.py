@@ -68,7 +68,7 @@ class SimMarket:
     def candles(self, sym, tf, limit):
         pts = self._upto(sym)
         out, cur = [], None
-        for t, p, v in pts:
+        for t, p, v, *_ in pts:
             m = int(t // 60 * 60 * 1000)
             if cur is None or cur[0] != m:
                 if cur:
@@ -84,8 +84,10 @@ class SimMarket:
         return {"last": self.price(sym)}
 
     def order_book(self, sym, depth=20):
-        p = self.price(sym)
-        return {"best_bid": p - 0.01, "best_ask": p + 0.01}
+        pts = self._upto(sym)
+        p, sp = pts[-1][1], (pts[-1][3] if len(pts[-1]) > 3 else 0.4)
+        half = p * sp / 200
+        return {"best_bid": p - half, "best_ask": p + half}
 
     def session_start_ms(self):
         return None
@@ -95,7 +97,7 @@ class SimMarket:
 
 
 SCENARIOS = ["continuation", "stall", "fail", "gap_down", "whipsaw", "spike_dump", "grind_up",
-             "heavy_pullback", "halt_up", "chop"]
+             "heavy_pullback", "halt_up", "chop", "bids_pulled", "limit_up_squeeze", "wide_spread"]
 
 
 def make_path(rng: random.Random, t0: float, scenario: str):
@@ -103,11 +105,12 @@ def make_path(rng: random.Random, t0: float, scenario: str):
     p = rng.uniform(1.5, 18.0)
     pts, t = [], t0
 
-    def step(n, drift, vol, noise=0.002):
+    def step(n, drift, vol, noise=0.002, spread=None):
         nonlocal p, t
         for _ in range(n):
             p = max(0.05, p * (1 + drift + rng.gauss(0, noise)))
-            pts.append((t, round(p, 4), vol * rng.uniform(0.7, 1.3)))
+            pts.append((t, round(p, 4), vol * rng.uniform(0.7, 1.3),
+                        spread if spread is not None else rng.uniform(0.2, 0.8)))
             t += TICK
 
     step(4 * 35, 0.0, 500, 0.0008)                               # quiet base (35 min)
@@ -134,6 +137,13 @@ def make_path(rng: random.Random, t0: float, scenario: str):
         step(4 * 1, 0.002, 4000); p *= rng.uniform(1.10, 1.30); step(4 * 15, 0.0, 6000, 0.003)
     elif scenario == "heavy_pullback":
         step(4 * 20, rng.uniform(-0.002, 0.004), 4000)
+    elif scenario == "bids_pulled":
+        step(4 * 1, 0.002, 4000); step(4 * 1, 0.0, 2000, 0.001, spread=rng.uniform(4, 8))  # warning
+        p *= rng.uniform(0.75, 0.88); step(4 * 12, -0.001, 8000, spread=3.0)
+    elif scenario == "limit_up_squeeze":
+        step(4 * 2, 0.002, 5000); step(4 * 3, 0.018, 15000); step(4 * 10, -0.006, 9000)
+    elif scenario == "wide_spread":
+        step(4 * 20, rng.uniform(-0.001, 0.003), 3000, spread=rng.uniform(2.5, 5))
     elif scenario == "chop":
         for _ in range(8):
             step(4 * 2, rng.choice([0.004, -0.004]), 4000)
@@ -201,9 +211,13 @@ class Checker:
 # ---------------------------------------------------------------------------
 # One simulated trading session
 # ---------------------------------------------------------------------------
-def run_session(rng: random.Random, n_symbols: int, starter_fraction: float):
+def run_session(rng: random.Random, n_symbols: int, starter_fraction: float, rth: bool | None = None):
     tmp = Path(tempfile.mkdtemp(prefix="sim_"))
-    today = datetime.now(timezone.utc).replace(hour=13, minute=0, second=0, microsecond=0)
+    rth = rng.random() < 0.5 if rth is None else rth
+    today = datetime.now(timezone.utc).replace(hour=15 if rth else 12, minute=0, second=0, microsecond=0)
+    import trader.halts as H
+    from zoneinfo import ZoneInfo
+    H.luld_active = lambda now=None: (rth, 1.0) if now is None else H.__dict__["_real_active"](now)
     clock = Clock(today.timestamp())
     _time.time = clock  # every module calls time.time(); drive them all from the sim clock
 
@@ -252,7 +266,7 @@ def run_session(rng: random.Random, n_symbols: int, starter_fraction: float):
             guard(broker, risk, journal, check_candles=True)
             for rec in broker.realized[n_closed:]:
                 rec["_scenario"] = scen.get(rec["symbol"], "") + (" gap" if scen.get(rec["symbol"]) in
-                                                                   ("gap_down", "spike_dump") else "")
+                                                                   ("gap_down", "spike_dump", "bids_pulled") else "")
                 chk.trade_closed(rec, None)
             chk.tick(clock.t)
         except Exception:

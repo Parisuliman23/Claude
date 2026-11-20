@@ -28,6 +28,8 @@ class Position:
     realized_usd: float = 0.0     # P&L already banked from partial sells
     initial_qty: float = 0.0
     max_price: float = 0.0        # highest price seen since entry (bailout check)
+    entry_spread_pct: float | None = None  # bid/ask spread when bought (spread-spike exit)
+    halt_alerted: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)

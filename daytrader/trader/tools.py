@@ -332,6 +332,11 @@ class Toolbox:
     def t_open_long(self, symbol: str, usd_amount: float, stop_loss: float,
                     reason: str, take_profit: float | None = None) -> dict:
         symbol = self._symbol(symbol)
+        from .halts import entry_block, spread_pct
+        hb = entry_block(self.market, symbol, self.cfg.risk)
+        if hb:
+            self.journal.log("order_rejected", symbol=symbol, usd=usd_amount, why=hb)
+            return {"status": "rejected", "reason": hb}
         d = self.risk.check_open(symbol, float(usd_amount), stop_loss, take_profit,
                                  allowed=self.scanner.approved_symbols(),
                                  size_factor=self.scanner.size_factor(symbol),
@@ -339,7 +344,14 @@ class Toolbox:
         if not d.ok:
             self.journal.log("order_rejected", symbol=symbol, usd=usd_amount, why=d.reason)
             return {"status": "rejected", "reason": d.reason}
+        try:
+            entry_spread = spread_pct(self.market.order_book(symbol))
+        except Exception:
+            entry_spread = None
         fill = self.broker.open_long(symbol, d.usd, stop_loss, take_profit)
+        if symbol in self.broker.positions:
+            self.broker.positions[symbol].entry_spread_pct = entry_spread
+            self.broker.save()
         self.risk.record_trade()
         self.journal.log("open", symbol=symbol, usd=d.usd, qty=fill.qty, price=fill.price,
                          stop=stop_loss, tp=take_profit, reason=reason, mode=self.cfg.mode)

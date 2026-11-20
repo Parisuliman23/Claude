@@ -50,6 +50,14 @@ class RiskConfig:
     # "The exit indicator is the first candle that makes a new low."
     exit_on_new_low_candle: bool = True
     exit_candle_timeframe: str = "1m"
+    # --- Halt / gap protection (Level 1 proxies) ---
+    halt_protection: bool = True
+    max_entry_spread_pct: float = 2.0        # don't buy if bid/ask spread is wider than this
+    luld_entry_buffer_pct: float = 3.0       # don't buy within 3% of a LULD halt band
+    luld_exit_buffer_pct: float = 2.0        # sell all within 2% of the limit-DOWN band
+    luld_upper_scale_pct: float = 1.5        # sell half within 1.5% of the limit-UP band
+    spread_spike_mult: float = 3.0           # sell if spread is 3x wider than at entry...
+    spread_spike_min_pct: float = 3.0        # ...and at least 3% wide
     trade_window: str | None = None          # "07:00-11:00" (in trade_window_tz); null = always
     trade_window_tz: str = "America/New_York"
 

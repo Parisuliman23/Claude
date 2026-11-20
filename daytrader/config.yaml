@@ -76,6 +76,14 @@ risk:
   breakout_or_bailout_minutes: 1.5  # Ross: should move up ~10 cents within a minute, or get out
   bailout_min_move: 0.10        # $ per share
   exit_on_new_low_candle: true  # Ross: "the exit indicator is the first candle that makes a new low"
+  # Halt / gap protection (Level 1 proxies; Alpaca has no Level 2 or halt feed)
+  halt_protection: true
+  max_entry_spread_pct: 2.0     # skip buys when the bid/ask spread is wider than 2%
+  luld_entry_buffer_pct: 3.0    # skip buys within 3% of a LULD halt band (9:30-4:00 only)
+  luld_exit_buffer_pct: 2.0     # sell everything within 2% of the limit-DOWN band
+  luld_upper_scale_pct: 1.5     # sell half within 1.5% of the limit-UP band (Ross keeps the rest)
+  spread_spike_mult: 3.0        # sell if the spread is 3x wider than when bought...
+  spread_spike_min_pct: 3.0     # ...and at least 3%
   min_order_usd: 50
   require_stop_loss: true
   max_stop_distance_pct: 0.10

@@ -468,3 +468,39 @@ def test_monte_carlo_sessions_hold_all_invariants():
     finally:
         _t.time = real
     assert problems == [], problems[:5]
+
+
+def test_halt_protection_exits_and_entry_blocks():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from trader.halts import entry_block, exit_signal, luld_bands, luld_pct
+    from trader.broker import Position
+    ET_ = ZoneInfo("America/New_York")
+    assert luld_pct(5) == 0.10 and luld_pct(2) == 0.20
+    c = [[0, 5, 5.1, 4.9, 5, 100]] * 5
+    assert luld_bands(c, datetime(2026, 11, 18, 8, 0, tzinfo=ET_)) is None          # premarket: no bands
+    b = luld_bands(c, datetime(2026, 11, 18, 10, 30, tzinfo=ET_))
+    assert round(b["lower"], 2) == 4.5 and round(b["upper"], 2) == 5.5
+    r = RiskConfig()
+
+    class M:
+        def __init__(self, price, bid, ask):
+            self.p, self.b, self.a = price, bid, ask
+        def price(self, s): return self.p
+        def candles(self, s, tf, n): return c
+        def order_book(self, s): return {"best_bid": self.b, "best_ask": self.a}
+
+    import trader.halts as H
+    real = H.luld_active
+    H.luld_active = lambda now=None: (True, 1.0)
+    try:
+        pos = Position("X", 100, 5.0, 4.8, None, 0, 500, entry_spread_pct=0.4)
+        assert exit_signal(M(4.55, 4.54, 4.56), "X", pos, r)[0] == "all"         # near limit-down
+        assert exit_signal(M(5.45, 5.44, 5.46), "X", pos, r)[0] == "half"        # near limit-up: take half
+        assert exit_signal(M(5.0, 4.90, 5.10), "X", pos, r)[0] == "all"          # spread blew out (4%)
+        assert exit_signal(M(5.0, 4.99, 5.01), "X", pos, r) is None              # normal
+        assert "spread" in entry_block(M(5.0, 4.94, 5.06), "X", r)               # 2.4% spread: don't buy
+        assert "limit-up" in entry_block(M(5.4, 5.39, 5.41), "X", r)             # right under the band
+        assert entry_block(M(5.0, 4.99, 5.01), "X", r) is None
+    finally:
+        H.luld_active = real
