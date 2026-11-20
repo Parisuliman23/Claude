@@ -425,3 +425,29 @@ def test_rules_mode_does_not_need_anthropic_key(tmp_path, monkeypatch):
     from trader.config import load_config
     cfg = load_config()
     assert cfg.decision_mode == "rules"
+
+
+def test_account_size_makes_100k_paper_behave_like_10k(tmp_path):
+    from trader.alpaca import AlpacaBroker
+
+    class FakeClient:
+        def __init__(self):
+            self.eq, self.cash = 100_000.0, 100_000.0
+
+        def trade(self, path, **kw):
+            assert path == "/v2/account"
+            return {"equity": str(self.eq), "cash": str(self.cash)}
+
+    class FakeMkt:
+        def __init__(self, c):
+            self.client = c
+
+    c = FakeClient()
+    b = AlpacaBroker(FakeMkt(c), tmp_path / "s.json", account_size=10_000)
+    assert b.equity() == 10_000 and b.cash() == 10_000
+    c.eq += 450                                   # agent made $450 on the real account
+    assert b.equity() == 10_450
+    b2 = AlpacaBroker(FakeMkt(c), tmp_path / "s.json", account_size=10_000)  # restart keeps baseline
+    assert b2.equity() == 10_450
+    b3 = AlpacaBroker(FakeMkt(c), tmp_path / "x.json", account_size=None)
+    assert b3.equity() == 100_450                 # no override = real balance

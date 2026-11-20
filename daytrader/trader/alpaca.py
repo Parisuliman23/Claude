@@ -249,22 +249,47 @@ class AlpacaBroker(BaseBroker):
     """Long-only stock orders. Marketable limit orders so they also work premarket
     (Alpaca only accepts limit orders with extended_hours)."""
 
-    def __init__(self, market: AlpacaMarket, state_path, limit_buffer: float = 0.003):
+    def __init__(self, market: AlpacaMarket, state_path, limit_buffer: float = 0.003,
+                 account_size: float | None = None):
         super().__init__(market, state_path)
         self.client = market.client
         self.limit_buffer = limit_buffer
+        # account_size: trade as if the account held exactly this much (plus/minus the
+        # agent's own P&L since then). Lets a $100k paper account behave like $10k, and
+        # caps how much of a real account the agent can ever use.
+        self.account_size = account_size
+        self.baseline_equity: float | None = None
+        self.baseline_size: float | None = None
         self.load()
+        if account_size and (self.baseline_equity is None or self.baseline_size != account_size):
+            self.baseline_equity = self._real_equity()
+            self.baseline_size = account_size
+            self.save()
+
+    def _extra_state(self) -> dict:
+        return {"baseline_equity": self.baseline_equity, "baseline_size": self.baseline_size}
+
+    def _load_extra(self, data: dict) -> None:
+        self.baseline_equity = data.get("baseline_equity")
+        self.baseline_size = data.get("baseline_size")
 
     def account(self) -> dict:
         return self.client.trade("/v2/account")
 
+    def _real_equity(self) -> float:
+        return float(self.account().get("equity") or 0)
+
     def cash(self) -> float:
-        a = self.account()
-        # cash accounts: only settled cash; margin accounts: cash
-        return float(a.get("cash") or 0)
+        real_cash = float(self.account().get("cash") or 0)
+        if self.account_size and self.baseline_equity is not None:
+            return max(0.0, min(real_cash, self.equity() - self.exposure()))
+        return real_cash
 
     def equity(self) -> float:
-        return float(self.account().get("equity") or 0)
+        real = self._real_equity()
+        if self.account_size and self.baseline_equity is not None:
+            return self.account_size + (real - self.baseline_equity)
+        return real
 
     def _qty_held(self, symbol: str) -> float:
         try:

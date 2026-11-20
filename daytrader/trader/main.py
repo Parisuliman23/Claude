@@ -30,7 +30,8 @@ def build(cfg: Config):
     if cfg.market == "stocks":
         from .alpaca import AlpacaBroker, AlpacaClient, AlpacaMarket
         market = AlpacaMarket(AlpacaClient(live=cfg.is_live, feed=cfg.stocks_data_feed))
-        broker: BaseBroker = AlpacaBroker(market, cfg.state_dir / f"stocks_{cfg.mode}_positions.json")
+        broker: BaseBroker = AlpacaBroker(market, cfg.state_dir / f"stocks_{cfg.mode}_positions.json",
+                                          account_size=cfg.account_size)
     else:
         from .broker import LiveBroker
         from .market import MarketData, make_exchange

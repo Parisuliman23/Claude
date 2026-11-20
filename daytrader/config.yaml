@@ -13,6 +13,10 @@ market: stocks
 decision_mode: rules
 
 # ---- stocks (Alpaca) ----
+# Trade as if the account held this much, whatever the real balance (Alpaca paper accounts
+# start with $100k). Sizes, risk limits and P&L all use it. null = use the real balance.
+account_size: 10000
+
 # Paper mode uses your Alpaca PAPER account; live uses your real Alpaca account.
 stocks_data_feed: iex         # iex = free data; sip = full market data (paid Alpaca plan, better volume)
 iex_volume_share: 0.03        # free IEX data sees ~3% of real volume; used to estimate the real total
