@@ -6,6 +6,7 @@
 #   t claude PASTE    save Anthropic key          t status  account + results
 #   t update          get the latest version      t logs    live log (Ctrl+C to exit)
 #   t setup           asks for the keys, tests, and turns trading on
+#   t dash            link to the live viewing screen
 D=/opt/daytrader/daytrader
 cd "$D" || exit 1
 save() { "$D/deploy/set_keys.sh" "$1" "$2"; }
@@ -19,6 +20,11 @@ case "$1" in
   status)  .venv/bin/python -m trader.main status ;;
   start)   systemctl restart daytrader && echo "Trading is ON. Check your phone for 'Agent started'." ;;
   stop)    systemctl stop daytrader && echo "Trading is OFF." ;;
+  dash)
+    tok=$(grep -E "^DASHBOARD_TOKEN=" .env | tail -1 | cut -d= -f2)
+    ip=$(curl -s --max-time 3 http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address || hostname -I | cut -d" " -f1)
+    if [ -z "$tok" ]; then echo "Start the agent first (t start), then run t dash again."; else
+      echo "Open this on your phone (keep it private):"; echo; echo "  http://$ip:8080/?token=$tok"; fi ;;
   logs)    journalctl -u daytrader -f -n 50 ;;
   update)  git -C /opt/daytrader pull --ff-only && .venv/bin/pip install -q -r requirements.txt && echo "Updated." ;;
   setup)
@@ -34,5 +40,5 @@ case "$1" in
     else
       echo; echo "The test failed (see above). Run 't setup' again and re-paste the Alpaca keys."
     fi ;;
-  *)       sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' ;;
+  *)       sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' ;;
 esac

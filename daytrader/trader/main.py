@@ -26,6 +26,15 @@ from .tools import Journal, Toolbox
 log = logging.getLogger("trader")
 
 
+def make_market(cfg: Config):
+    """A fresh market-data client (the dashboard uses its own, separate from trading)."""
+    if cfg.market == "stocks":
+        from .alpaca import AlpacaClient, AlpacaMarket
+        return AlpacaMarket(AlpacaClient(live=cfg.is_live, feed=cfg.stocks_data_feed))
+    from .market import MarketData, make_exchange
+    return MarketData(make_exchange(cfg))
+
+
 def build(cfg: Config):
     if cfg.market == "stocks":
         from .alpaca import AlpacaBroker, AlpacaClient, AlpacaMarket
@@ -267,6 +276,14 @@ def cmd_run(cfg: Config, once: bool) -> None:
         agent = TradingAgent(cfg, toolbox, journal)
         log.info("Decision mode: CLAUDE (%s)", cfg.model)
     watcher = SetupWatcher(toolbox)
+    if cfg.dashboard_port and not once:
+        try:
+            from .config import ROOT
+            from .dashboard import Dashboard, ensure_token
+            Dashboard(toolbox, lambda: make_market(cfg), ensure_token(ROOT / ".env"),
+                      cfg.dashboard_port).start()
+        except Exception:
+            log.exception("dashboard failed to start (trading continues)")
     if cfg.is_live:
         log.warning("LIVE MODE: real orders. Ctrl-C to stop, or create state/KILL to block new trades.")
     else:

@@ -82,6 +82,7 @@ class Config:
     mode: str = "paper"
     market: str = "crypto"            # crypto | stocks
     account_size: float | None = None  # stocks: trade as if the account had this much
+    dashboard_port: int = 8080           # live viewing screen; 0 = off
     decision_mode: str = "rules"      # rules (no Claude, free) | claude (needs ANTHROPIC_API_KEY)
     stocks_data_feed: str = "iex"     # iex (free) | sip (paid Alpaca data plan)
     iex_volume_share: float = 0.03    # IEX prints ~3% of US volume; used to estimate real volume
