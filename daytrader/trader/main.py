@@ -186,6 +186,11 @@ def cmd_status(cfg: Config) -> None:
         print(f"\nTrades: {len(done)}  accuracy: {len(wins)/len(done)*100:.0f}%  "
               f"avg win ${avg_w:,.2f} / avg loss ${avg_l:,.2f}"
               f"{f'  (P/L ratio {avg_w/avg_l:.2f})' if avg_l else ''}  total ${sum(pnl):,.2f}")
+        acc = len(wins) / len(done)
+        plr = (avg_w / avg_l) if avg_l else float("inf")
+        ok = sum(pnl) > 0 and acc >= 0.60 and plr > 1
+        print("Ross's bar for going live (after 10+ days of one trade a day): net profit > 0, "
+              "accuracy >= 60%, P/L ratio > 1:1 -> " + ("MET" if ok else "not met yet"))
     if isinstance(broker, PaperBroker):
         print(f"Paper return since start: {(broker.equity()/broker.starting_cash-1)*100:+.2f}%")
 

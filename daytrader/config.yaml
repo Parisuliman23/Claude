@@ -60,7 +60,8 @@ risk:
   giveback_pct_of_peak: 0.5     # done for the day after giving back half the day's peak profit
   giveback_min_peak_pct: 0.005
   starter_size_fraction: 0.25   # 1/4 size until the day is green by the cushion
-  cushion_pct: 0.005
+  cushion_per_share: 0.20       # stocks: 1/4 size until up 20c/share on that starter size (Ross)
+  cushion_pct: 0.005            # crypto only
   scale_out_fraction: 0.5       # sell half at the target, stop to break-even on the rest
   move_stop_to_breakeven: true
   breakout_or_bailout_minutes: 1.5  # Ross: should move up ~10 cents within a minute, or get out

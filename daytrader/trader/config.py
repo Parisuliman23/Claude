@@ -40,7 +40,8 @@ class RiskConfig:
     giveback_pct_of_peak: float = 0.5        # stop after giving back 50% of the day's peak profit
     giveback_min_peak_pct: float = 0.005     # ...once the peak was at least 0.5% of equity
     starter_size_fraction: float = 0.25      # trade 1/4 size until the day has a cushion
-    cushion_pct: float = 0.005               # cushion = day P&L >= 0.5% of equity
+    cushion_pct: float = 0.005               # crypto cushion: day P&L >= 0.5% of equity
+    cushion_per_share: float = 0.20          # stocks (Ross): 1/4 size "until I have made 20 cents per share"
     scale_out_fraction: float = 0.5          # sell half at the first target...
     move_stop_to_breakeven: bool = True      # ...and move the stop to break-even
     # "Breakout or bailout" (Ross): price should move up at least 10 cents within ~1 minute.

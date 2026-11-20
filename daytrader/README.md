@@ -50,7 +50,7 @@ every 5 s    ─► Code guard (no AI):
 |---|---|
 | Trade window | 7:00-11:00 ET; positions closed when it ends |
 | Max loss per trade | 1% of equity (orders are sized to fit) |
-| Starter size | ¼ size until the day is up 0.5%, then full size |
+| Starter size | ¼ size until up 20¢/share on it, then full size (Ross's fix that gave him 45 green days in a row) |
 | 3 losers in a row | done for the day |
 | Max daily loss | −2%: done, everything sold |
 | Give back half the day's peak profit | done for the day |
@@ -97,10 +97,13 @@ Block new trades any time without stopping it: `touch state/KILL`.
 - **Claude API cost:** a cycle every 5 minutes for 4 hours, plus setup alerts, is roughly
   50-80 calls a morning. Check your usage after day one.
 
-## Going live (only after weeks of paper results)
+## Going live: Ross's rule
 
-1. Use your live Alpaca keys and fund with money you can afford to lose.
-2. Set `mode: live`. Keep the default risk limits at first.
+1. Paper trade **one trade a day** for at least 10 days (`max_trades_per_day: 1`).
+2. `python -m trader.main status` shows whether you met his bar: **net profit above zero,
+   accuracy 60% or more, average win bigger than average loss.**
+3. Only then: live Alpaca keys, `mode: live`, and **tiny size** for another 10 days. Losses
+   should feel like nothing. Then raise share size before raising the number of trades.
 
 ## Tests
 

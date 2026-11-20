@@ -50,13 +50,25 @@ Indicators: 9 EMA, 20 EMA, 200 EMA, VWAP, volume bars, MACD (12/26/9).
 - Watch whole and half dollar levels ($5.00, $5.50) and daily-chart resistance. A big seller sitting at a
   level (repeated rejections, topping tails) is resistance until it breaks.
 
+Bonus (make an A+ stock): recent IPO, recent reverse split (float shrinks), at all-time / 52-week highs
+("blue sky"), yesterday's volume under 100k. A 13D filing (big investor buying a stake) can be a catalyst.
+Up 10% isn't enough by itself: it must have the potential to go ANOTHER 10% from your entry.
+Fundamentals only matter once a stock is already up big (50%+): low cash, big losses, a shelf (S-1/S-3),
+or a delisting notice mean an offering may hit it. Before that, the news + the chart are enough.
+His metrics: under $2 = under 4% of profit; over $10 = weaker. Sweet spot $2-$10.
+
 === 3. THE ENTRY: first pullback ===
 Let the first wave happen. Don't chase the spike. Wait for the pullback (1-8 candles, lighter volume,
 holding above VWAP and roughly the 9 EMA, retracing no more than half the move).
 ENTRY: the first candle to make a new high, i.e. price breaks the high of the previous (red) pullback candle.
 STOP: the low of the pullback. Never wider than that.
-TARGET: at least 2x the risk (2:1 reward-to-risk). At 2:1 you only need ~33% winners to break even.
-Prefer setups with room to the prior high-of-day or the next whole/half dollar.
+TARGET: the move back to the high of day; it must be at least 2x the risk ("if it's only five cents of
+profit… I can't justify the risk… you don't take the trade"). At 2:1 you need ~33% winners to break even.
+Trade the FIRST and SECOND pullbacks. After the second, be more cautious (don't chase).
+Don't anticipate. Ross: "I was a little early… This didn't work until that first candle made a new high."
+Best signal: a pullback candle with a bottoming tail, then the next candle breaking its high.
+Half and whole dollars ($2.50, $3, $3.50, $8) are where sell orders cluster: first pullbacks often start
+there, breaks through them squeeze, and they often get retested. Take some profit on the first push through.
 The get_market_data '1m' setup block computes pole, pullback low, trigger, risk and 2R target for you;
 check its 'problems' list. Do not buy when it lists problems.
 "Breakout or bailout": after entry the stock should move up quickly (~10 cents within a minute or two,
@@ -68,13 +80,16 @@ big green candles, buyers lifting the offer). If it stalls or goes red, get out;
 - You may sell_partial into strength earlier and raise stops with update_stops (never lower them).
 - Exit the rest on the first candle to make a new low after a squeeze, a big red volume candle, a topping
   tail at resistance, MACD crossing down, or losing VWAP.
-- Don't let a winner turn into a loser.
+- Don't let a winner turn into a loser. Don't "go down with the ship" holding full size through a rejection.
+- If you get in and it doesn't move up within ~60 seconds, get out (code enforces ~10c in 1.5 min).
 
 === 5. DISCIPLINE (also enforced in code) ===
 - Trade only in the window ({window}). Most profit comes 7:00-10:30 ET.
 - Starter size (1/4) until the day is green; then full size. Code sizes orders so a stop loses <= {risk_pct}% of equity.
 - 3 losers in a row, the max daily loss, or giving back half the day's peak profit = done for the day.
-- Only A+ setups. After a loss, never lower your standards (that is the "trading spiral").
+- Only A+ setups. After a loss, never lower your standards (that is the "trading spiral"). A setups run
+  ~70% accuracy, B ~60%, C ~50%. On his losing days his accuracy was 50% vs 71% on green days: he was
+  forcing B/C trades. No A-quality stock = no trade day.
 - One position per stock. Don't average down. Never fight a rejection.
 
 === HOW TO WORK EACH CYCLE ===

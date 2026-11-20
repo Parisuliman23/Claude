@@ -15,8 +15,10 @@ from .config import Config
 log = logging.getLogger("trader.scanner")
 
 # Ross: "no to catalysts such as mergers, buyouts, or acquisitions"
-REJECT_WORDS = ("merger", "to merge", "acquisition", "to acquire", "acquired by", "buyout", "buy-out",
-                "to be acquired", "definitive agreement", "take private", "go-private", "tender offer")
+# (A 13D "acquisition of X shares" by an investor is NOT a buyout: Ross treats it as a positive catalyst.)
+REJECT_WORDS = ("merger", "to merge", "merge with", "to be acquired", "acquired by", "agreement to acquire",
+                "will acquire all", "buyout", "buy-out", "take private", "take-private", "go-private",
+                "going private", "tender offer", "per share in cash")
 # Dilution red flags: allowed, but Claude is warned
 DILUTION_WORDS = ("offering", "priced", "warrants", "registered direct", "private placement",
                   "shelf", "atm program", "at-the-market", "reverse split")
@@ -80,6 +82,7 @@ class Scanner:
                 t = self.market.ticker(sym)
                 day_vol = t.get("day_volume") or t.get("quote_volume_24h")
                 avg = self.market.avg_daily_volume(sym)
+                self._bonus(sym, price, c)
                 if stocks:
                     rvol = (t.get("day_volume") or 0) / avg if avg else None
                 else:
@@ -152,8 +155,14 @@ class Scanner:
                 sf *= s.thin_volume_size_factor
                 c["flags"].append(f"thin volume (<{s.thin_volume_shares:,.0f} shares): reduced size")
             c["size_factor"] = sf
+            if stocks and price < 2:
+                sf *= 0.5
+                c["flags"].append("under $2: under 4% of Ross's profit came from these; half size")
+            c["size_factor"] = sf
             if stocks and 5 <= price <= 10:
                 c["flags"].append("$5-$10: Ross's sweet spot")
+            if stocks and price > 10:
+                c["flags"].append("over $10: Ross's metrics are weaker here; be pickier")
             c["passes"] = not failed
             c["failed_pillars"] = sorted(set(failed))
             c["score"] = (len(required) - len(set(failed))) * 100 + (c.get("relative_volume") or 0) + chg / 10
@@ -167,6 +176,30 @@ class Scanner:
         n_pass = sum(c["passes"] for c in self.last)
         self.market_temperature = "hot" if n_pass >= 3 else "normal" if n_pass >= 1 else "cold"
         return self.last
+
+    def _bonus(self, sym: str, price: float, c: dict) -> None:
+        """Ross's bonus criteria: yesterday's volume <100k, at/near 52-week (≈all-time) highs.
+        (Recent IPO / reverse split show up in the news and daily chart; Claude checks.)"""
+        try:
+            daily = self.market.candles(sym, "1d", 260)
+        except Exception:
+            return
+        if len(daily) < 2:
+            c["flags"].append("bonus: very little trading history (recent IPO?)")
+            return
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).date()
+        past = [b for b in daily if datetime.fromtimestamp(b[0] / 1000, timezone.utc).date() < today]
+        if past:
+            prev_vol = past[-1][5]
+            c["prev_day_volume"] = prev_vol
+            if prev_vol < 100_000:
+                c["flags"].append("bonus: yesterday's volume <100k (surprise demand)")
+            hi = max(b[2] for b in past)
+            if price >= hi * 0.98:
+                c["flags"].append("bonus: at/near 52-week high: blue sky, no overhead resistance")
+            if len(past) < 60:
+                c["flags"].append("bonus: under ~3 months of trading history (recent IPO?)")
 
     def size_factor(self, symbol: str) -> float:
         for c in self.last:

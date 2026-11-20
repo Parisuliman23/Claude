@@ -8,19 +8,11 @@ Study notes, organized as a trading rulebook, from these videos:
 | How to Pick the BEST Stocks for Trading (with ZERO experience) | wlH8zKZ8vXA |
 | Reading Candlestick Charts Was HARD Until I Learned This 3 Step Trick | 4Pc_von1wS4 |
 
-> **Verified so far:** "Reading Candlestick Charts… 3 Step Trick" (4Pc_von1wS4) and
-> "How to Pick the BEST Stocks" (wlH8zKZ8vXA) (sections 11-12)
-> was transcribed in full from the video file and its frames were checked.
-> Section 11 holds what he says in that video, with timestamps. Where it
-> differs from the summaries below, section 11 wins.
->
-> **Source caveat (other videos).** YouTube blocked automated access to the videos and their
-> captions, so these notes come from third-party AI summaries of the three
-> videos (Podwise, youtubesummary.com) and from published descriptions of his
-> "5 pillars". Where sources disagree, the notes show both. A few figures
-> are unverified and are marked **[unverified]**. To check every detail
-> against his own words, paste the transcripts (YouTube → "…more" → "Show
-> transcript" → copy) and these notes can be corrected line by line.
+> **All three videos verified.** Each was downloaded, transcribed word for word
+> (≈52,000 words total) and checked frame by frame (a frame every 20-30 seconds).
+> Sections 11-13 quote what he actually says, with timestamps. Sections 0-9 are
+> the condensed rulebook, corrected to match the transcripts. Section 10 covers
+> crypto, which is not used.
 
 ---
 
@@ -44,10 +36,10 @@ number one." *First the stock, then the chart.*
 
 | # | Pillar | Rule | Notes |
 |---|---|---|---|
-| 1 | **Price** | **$2-$20** (some versions $1-$20) | Most active **$1-$10**, sweet spot **$5-$10**. $1-$5 workable but fewer trades; $10-$20 fewer trades and profits. Reason: a $3→$6 move is easier than $30→$60. |
+| 1 | **Price** | **$1-$20**, sweet spot **$2-$20** | Peak **$5-$10**. Under $2 = under 4% of his $13M profit (sub-$1 trades in 1/100ths of a cent and moves slowly). Over $10 = weaker in his metrics. A $3→$6 move is easier than $30→$60. |
 | 2 | **% change** | **Up ≥10% on the day** | Scanner may start at +4% sorted by gain, but he prefers far bigger (+50% names). Stocks moving within ±4% are "not moving enough." |
 | 3 | **Relative volume** | **≥5×** average | Today's volume vs average (sources cite 30-day or 50-day average). Best profits come around 5× and above. |
-| 4 | **News catalyst** | **Must have fresh news** | Best: earnings, FDA approval, clinical-trial results, new contracts (pharma/tech/AI). No discernible catalyst means caution. Technical-only breakouts and short squeezes work but are less preferred. |
+| 4 | **News catalyst** | **Preferred** | Best: earnings, FDA approval, clinical-trial results, new contracts (pharma/tech/AI), a 13D stake. No news = "trade with caution" (technical breakout / short squeeze). Never buyouts / mergers. |
 | 5 | **Float** | **<20M shares**, prefer **<10M** | Tighten to <10M in cold markets. Sub-5M = "rocket fuel." Key idea is **float turnover**: e.g. float 1.5M trading 12M volume = 8× turnover, which often leads to the biggest moves. |
 
 **Bonus signals:** recent IPO, recent reverse split, at/near all-time
@@ -193,7 +185,7 @@ a big run plus a red candle on high volume is a first exit warning.
 | **Max daily loss** | Set it before the open; stop trading when hit. |
 | **3 losers in a row → done for the day** | Prevents the "trading spiral". |
 | **Protect half of the day's profit** | Once green, stop if you give back 50% of the day's high P&L. |
-| **Start small each day** | **Trade ¼ size until up ~$0.20/share (a "cushion")**, then go full size. He credits this with far fewer red days (45 green days in a row **[unverified]**). |
+| **Start small each day** | **Trade ¼ size until up ~$0.20/share (a "cushion")**, then go full size. He credits this with a 45-day green streak (stated in the 3-hour video). |
 | **Start with 1 trade a day** | When learning: one setup, one trade. |
 | **Scale share size before trade count** | Grow position size gradually; don't increase frequency first. |
 | **Only A+ setups** | After a loss, the urge to take B/C setups is the start of the spiral. |
@@ -221,14 +213,14 @@ profitable, then go live small.
   accounts. Mentions Roth IRA day trading (tax-free growth) and mark-to-market
   election. Ask a tax professional.
 - His results are **"not typical."** Reported numbers (≈$583 start
-  account; $232k July / $171k August months; ≈$800k YTD) are **[unverified]**
+  account; $232k July / $171k August months; ≈$800k YTD) are his own statements in the 3-hour video
   self-reports.
 
 ---
 
 ## 9. Rules for the agent (checklist form)
 
-**Selection (all required):** price $2-$20 · up ≥10% · rel-vol ≥5× ·
+**Selection:** price $1-$20 (best $2-$10) · up ≥10% with room for another 10% · rel-vol ≥5× ·
 fresh news catalyst · float <20M (prefer <10M) · no shelf/dilution red flags ·
 not a buyout · not OTC.
 
@@ -456,3 +448,235 @@ Transcribed from the full 55-minute video (frames checked). Timestamps are mm:ss
 | 7:00 until ~10:30-11 | `trade_window: 07:00-11:00` |
 | Hot vs cold days | scanner reports market temperature; zero trades on cold days is fine |
 | No shorting | long-only |
+
+
+---
+
+## 13. Verified from the video: "27 Years of Trading Knowledge in 3hrs and 5mins"
+
+Transcribed from the full 3h05m video (~43,000 words); a frame checked every 30 seconds. Timestamps are minutes.
+
+### Purpose and the "3 Ds" (0-10m)
+- Funded $583.15 → over $10M of "verified and independently audited trading profits" (later "$13 million gross
+  profit"). "My results are not typical." The day he recorded: +$3,740.04 in under 90 minutes.
+- You need **dedication, discipline and drive**. "The hardest easy job in the world": you can spend years
+  struggling to make $10/day until you have a **consistent process**. Then you scale it: 10 shares →
+  100 → 1,000 → 10,000.
+- Money is "a byproduct of a successful process": (1) stock selection criteria, (2) risk management,
+  (3) rules for technical analysis. His purpose was **freedom and time**. Print A+ chart examples and put them
+  around your desk.
+
+### Winning mindset and the spiral (10-24m)
+- Traders who don't need the money trade with emotional detachment: smooth equity curve. Desperate traders
+  ride emotional highs and lows: erratic equity curve.
+- Pressure to hit a monthly number → he **lowers his quality threshold**. **A setups ≈70% accuracy, B ≈60%,
+  C ≈50%, lower 30-50%.** More trades at lower quality = bigger losses. A seasoned trader accepts the smaller
+  month instead.
+- **The spiral:** (1) big unexpected loss → revenge trading with B/C setups → (2) secondary losses →
+  (3) average losers grow, accuracy falls (70% → 60%) → (4) total losses grow → (5) lost confidence and
+  account (a $5,000 account down to $2,500 needs +100% to recover).
+- **Positive feedback loop:** high accuracy → strong P/L ratio → confidence → bigger size → bigger profits.
+- "Being a really good winner requires you to be an amazing loser": cut losses fast; don't let emotional
+  hijack set in ("I just took 11 losses in a row. What happened? I wasn't even thinking.").
+- Train in a **simulator** until exiting on exit indicators is instinct. Then go live with tiny size (10-50
+  shares) and step up: 50 → 100 → 200 → 500 → 1,000 → … → 20,000.
+
+### Two causes of failure, and his biggest discovery (26-38m)
+1. No strategy (pandemic "beginner's luck" ran out in the 2022 bear market).
+2. A strategy but no discipline to follow it ("I would turn a small loss into a snowball").
+- A student with a $1.5M badge: "I just slowly started to suck a little bit less." Red days got further apart.
+- **His metrics:** winning days $16M total, avg +$10,000/day, **71% accuracy**; average winning trade $1,300,
+  average loser $1,000. **Losing days: avg −$8,000, accuracy only 50%** → "there is no doubt that on my losing
+  days, I deviate from my strategy."
+- **The fix (June): "trade with a max position of one quarter of full size… 250 shares until I have made
+  20 cents per share of profit, which in the case here would be 50 dollars. And then once I'm up 50 dollars,
+  then and only then, will I start trading with my full size."** Small early losses never get deep enough to
+  compromise him: "I just had three losses in a row for my first three trades. Today is not the day to push it."
+- Result: **~45 consecutive green days** (July, August, early September); July $232,000, August $171,000;
+  ~$800,000 year to date. "It's designed to help me be a great loser… it helps me reduce the red days and the
+  drawdown."
+
+### Starting with little money (36-46m)
+- At 13 he was told "come back when you've got more money" (commissions $50 each way). His first $1,000 in
+  household names (AEP, Exxon, Pfizer, Caterpillar) went nowhere: "The problem was that I didn't know the right
+  type of stocks I should be trading based on the amount of money I had."
+- Tiny accounts can't grow meaningfully, but they're **proof of concept**. Use the simulator ($1,000-$3,000
+  pretend), keep a side income, save, and deploy cash only once results are consistent.
+- A big loss forced his own re-examination. Large accounts are dangerous: "rock bottom is a long ways away."
+  Everyone starts the same way: simulator, then small size.
+- Find a mentor whose account size and risk match yours (Buffett's 10%/year is useless on $5,000). He keeps his
+  trading account "perpetually" small and aims for base hits: "15%, 20% winner, lock it up."
+- Small-account challenge: Thinkorswim cash account, **one trade per day**, goal $25,000. Same strategy as his
+  $100-150k main account, which takes 10-15 trades on a good day.
+
+### The 5 pillars, with his audited data (48-74m)
+"If a stock doesn't meet the criteria for each of these… **I will not trade it.**"
+1. **Price under $20.** Profit buckets: $2-$5, $5-$10, $10-$20. $2 stocks have gone to $8 in a day; biggest
+   move seen ~3,000-4,000% in one day. Small-account challenge: under $10. **Under $2 = under 4% of profit
+   (~$400k of $13M).** Sub-$1 stocks trade in 1/100ths of a cent, so moves take ~1,000 increments; big sellers
+   sit there. "**Sweet spot… over two dollars, less than 20.**"
+2. **% change: "99 percent of my profit… comes from stocks that are up at least 10 percent."** And: "If a stock
+   does not have the potential to go up 10 percent from my entry, I should not even trade it." (Bank of America
+   at $39 can't; ONCO $5 → $5.50 → $6 can.)
+3. **Relative volume ≥5×** (today ÷ normal). Examples on his scanner: 16×, 7×, **273×** (ONCO), 21×, 1,510×
+   (5M shares today vs 6,000 yesterday).
+4. **News.** Being first to breaking news doesn't help: "you don't know if the news is good or bad" (a $30M
+   DoD contract can tank a stock that was negotiating $300M). "Being the first one to see a stock squeezing up
+   right now… that's something I can work with." Friday-afternoon spikes with no news on light volume: "Nah, I
+   don't think it's going to work." Companies release good news early in the week.
+5. **Float under 20M**, "lower is better": 1-2M fine, 10M good, 15-19M "getting a little high", above 20M "not as
+   interesting". Exceptions: GameStop 36M (2021), ONCO 23M ("right at the cusp").
+- He sets scanner filters **a little looser** to "cast a wider net" and then filters by hand.
+- On algorithms: quant firms "employ some of the smartest people in the world"; they avoid stocks that move
+  50% a day, which is exactly where a small account should trade. He trades manually. (This agent automates
+  his rules with Claude making the calls.)
+- **Bonus criteria** (not required; "make that setup that much better"):
+  1. **Recent IPO**: initial pop, pullback, then often a squeeze to all-time highs (Facebook, Alibaba, Airbnb).
+  2. **Recent reverse split**: e.g. 20:1 turns 10M shares into 500k. "Every time a company does a reverse
+     split, the float drops."
+  3. **All-time highs ("blue sky")**: no resistance above.
+  4. **Yesterday's volume under 100,000 shares**: today's surge means a huge relative volume.
+- "My biggest winners come from the **top three to four percentage gainers** in the market."
+
+### Fundamental analysis, kept brief (74-94m)
+- ONCO's catalyst: a **Schedule 13D**: an investor reported buying 2.69M shares ("a big vote of confidence").
+  It went $3 → $4.45 right after 4:06 PM, later $3 → nearly $24 in a day. PRTG next day $4 → $20 → $10 → $24.
+- "When it rains, it pours": one hot stock means dozens more are hot; cold spreads too.
+- Filings he checks (via BamSEC): **10-Q/10-K** (cash, current assets, liabilities, revenue, net loss),
+  **13D/13G**, **Form 4**, **S-1/S-3 shelf registrations** (up to 3 years; e.g. a $100M shelf on a 23M float at
+  $5 = could double the float).
+- **When:** "I don't go into the filings at all" on the first trades. Only once it's up 50%+ and he asks "is
+  this going to go 100, 200, 300%… or… crash?" Low cash plus big losses means they'll need to sell shares
+  (dilution); a **delisting notice** means repeated reverse splits.
+- "As an active day trader, you could get away with doing zero fundamental analysis… but you'll definitely be
+  better off" understanding supply/demand and offerings.
+
+### Technical analysis: candles (94-108m)
+- Charts: **10-second, 1-minute, 5-minute and daily** side by side.
+- The "alphabet": long-body green (very bullish), long-body red (very bearish), small bodies (less decisive),
+  **doji / spinning top / long-legged doji / gravestone / dragonfly** = indecision, **hanging man** (top of
+  trend = weakness), **hammer** (bottom = "hammering out the base"), **shooting star**.
+- In an uptrend: long bodies → smaller bodies (exhaustion) → doji (indecision) → red. A **topping tail** at
+  highs is bearish ("sellers pulled it back down"). A **bottoming tail** is strength ("buyers bought it back up").
+- **The pattern (7 AM biotech with great trial results):** first huge green candles hit the scanners, too
+  extended to buy. Wait for the reversal / first pullback ("profit taking"). If it keeps making red candles, no
+  trade. Watch each pullback candle for a **bottoming tail**; then **"as soon as this next candle makes a new
+  high… breaking the high of that candle"** (e.g. $7.30) with green orders on Level 2, buy. **Max loss = low of
+  the pullback** (e.g. $7.10 → 20¢ risk). **"I'd like my profit potential to be 40 cents"** (double); if the
+  room is only 5¢, skip. If it's $8 (70¢), "that's a trade I'm definitely going to take every single day."
+- "The pattern is important but the quality of the stock is number one."
+- Warrior Pro curriculum, Chapter 8, long setup 1: **buying the first and second pullback.** Example entry
+  $4.24, max loss $4.18 (6¢), target the high ~$4.50 (25¢) = **4:1**. "A more aggressive trader may buy as
+  soon as this candle closes in the green. A more conservative trader… wait[s]… the following one breaks the
+  high."
+- The biggest beginner challenge is telling a stock that can go 20-30%+ from one that will stall. That comes
+  back to the 5 pillars and bonus criteria.
+
+### Live trade walkthrough (110-120m)
+- Stock up 85-104%, **#2 then #1 gainer**, **float 326,000 shares**, relative volume **1,600×+**, recent reverse
+  split, catalyst. "Very closely meets an A quality setup so I'm being more aggressive."
+- **"I like buying the first pullback and I like buying the second pullback and usually after the second
+  pullback I start to get a little more cautious."**
+- 10-second chart gives the early bottoming tail; then a burst of green on time & sales.
+- **First entry $5.51 (sic, ~$7.51 area): out at break-even. "I was a little early… I tried to anticipate…
+  This didn't work until that first candle made a new high."** Re-entered at the same price once the candle
+  broke ~$7.72: $7.85, $7.88, $8.00, **2,500 shares, +50¢, then +75¢ (~10% in one minute).**
+- Took profit as it broke the high of day and **squeezed through the whole dollar ($8)**: sold some at
+  $8.23-8.26, then it came back to retest $8.
+- "If this is the only setup you trade… once a day… you should be able to maintain good accuracy."
+- **One-trade-per-day challenge** for a full month: goal ≥60% accuracy, 70% target.
+
+### Indicators (120-134m)
+- **9 / 20 / 200 EMA** (gray / blue / purple) on every chart; "especially valid" on 5-minute and daily. Price
+  above = support, below = resistance. "I primarily trade when a stock is above these moving averages… on
+  the one minute and the five minute."
+- **VWAP** (orange): "true equilibrium point." Stocks below VWAP "struggle to get back up above it." "A dip off
+  the VWAP can be a nice buying opportunity, but if it breaks the VWAP and it can't get above it, then that's
+  resistance usually for the rest of the day."
+- **Volume bars** in a separate pane: high-volume buying, light-volume selling. Failed example: popped on light
+  volume, then **heavy selling, no first candle to make a new high = no entry** (float 34M; another with a 1.45M
+  float failed the same way). "Even if you weren't using level two… just relying on the first candle to make a
+  new high… would be fine."
+- He mouses over the candle to read its exact high (e.g. $5.41) and buys the break. "Getting in one penny early
+  is not really a big deal, but getting in 15-20 cents early could be a little riskier."
+- **MACD:** "my best trades are on the first leg of a move up before these moving averages converge… I like to
+  do as much of my trading as I can on the front side of the move when the MACD is open before it crosses
+  over." MACD crossed over, volume declining, choppy = "not a setup."
+- No RSI. "Keep it simple."
+
+### Exit indicators (134-142m)
+- Want: **price up within 60 seconds**, green on the tape, green candles, no big sellers on Level 2 (2,000
+  shares = fine; **50,000 = concerning**). Big buyers are a plus.
+- Don't want: an immediate drop, red on the tape, a red candle, big sellers.
+- **Half and whole dollars:** profit-target orders cluster at $2.50, $3, $3.50, $4. First pullbacks start there;
+  breaks squeeze to the next level; then it often **retests** the level ("straddling a half dollar"). "If I get in
+  at $2.75 and it goes to $3.10, I'm going to take some off the table because I know it's probably going to come
+  back and test three."
+- "If the price is just squeezing higher, if I don't see any obvious exit indicator, I'm going to hold as long as
+  I can… But if it starts to stall out or it breaks through… the half dollar, whole dollar, then… book some
+  profit."
+
+### Risk management (142-160m)
+- He's "very risk averse": it's easier to predict 5-10 minutes than 5-10 days, so he holds briefly.
+- **Risk tools in order:** (1) the simulator, (2) **stock selection** ("your first level of risk management"),
+  (3) **avoid overtrading / one trade per day**, (4) measure **net profit, accuracy, P/L ratio**.
+- **Going live:** 10 days of one trade a day in the sim. If **net profit > 0, accuracy ≥60%, P/L ratio > 1:1**,
+  do 10 days with real money at a size where losing feels like nothing ("cut it in half"). Fail → back to the sim.
+- **Real risk = entry minus the pullback low**, not the position value ($7.50 entry, $7.30 max loss = 20¢/share).
+  Account for slippage (planned $2.99 exit filling at $2.85).
+- **Biggest drawdown ever ≈3% of his account**, e.g. −$30k over two days in March.
+- "We're not here to gamble." Annie Duke (*Thinking in Bets*): as a beginner, play only the best hands. His
+  beginner hand is **the first pullback (micro pullback) setup**.
+- **Overtrading** = a slot machine. One trade a day at 20¢/share: 100 shares = $20/day; 1,000 shares =
+  $200/day ≈ $50,000/year. 5,000-6,000 shares = $500-$1,000/day.
+- **Guardrails:** a **cash account** limits trades automatically (e.g. $3,000: 1,000 shares of a $3 stock, buy
+  $2.90, sell $3.10 = $200, then done until settlement). After a big loss: "stop the bleeding" (back to one
+  trade a day), then bail the boat out slowly.
+
+### When to quit for the day (160-162m)
+1. **Max daily loss** (his broker locks his account at −$5,000).
+2. **Three red trades in a row**, if they're sizable: "three strikes, you're out."
+3. **Giving back half the day's profit** (e.g. up $1,000 → back to $500: walk away). "The glass is half full."
+- Only two days matter in a career: the biggest green and the biggest red. Everything else is "little green,
+  little red."
+
+### Metrics review (162-174m)
+- **Profit trifecta: accuracy, P/L ratio, consistency.** Example August: 70% accuracy, avg win $516 vs avg loss
+  $283 (≈2:1), all four weeks green.
+- His September mistakes from the data: **(1) higher-priced stocks lost money, (2) afternoon trading
+  (power hour) lost money.** "If you had stopped trading right here, 11 AM every day, you would have been better
+  off." A loss at 3 PM after a green morning hits harder and triggers revenge trading.
+- March: weak on stocks **over $10** → April he traded only **$2-$10**: +$45,000, much more disciplined.
+- Write a **business plan**: trade times, price range, entries, exits, scanning, risk, accounting, taxes.
+
+### Scaling, retirement, taxes (174-185m)
+- Scale **share size first, number of trades second**. Max out size on one trade a day (aim for 10-20¢/share)
+  before adding a second trade. Move from cash to margin only then.
+- **Roth IRA day trading:** $18,000 of contributions grown to over $7M of audited profit (one trade a day until
+  over $25k). Tax-free; locked until age 59½. Keeps $100-150k in the trading account and rolls the excess to a
+  long-term IRA (target ~8%/year). Keeping the trading account small caps his maximum possible loss.
+- Average position over the $583 → $10M run: **8,000 shares**. Scale is limited: 80,000-share traders have
+  $300-400k red days.
+- **Mark-to-market accounting** removes wash-sale problems. Treat trading as a business: deduct equipment, data,
+  subscriptions and education. Get a good CPA.
+
+### How the agent applies this video
+| Ross | Agent |
+|---|---|
+| Quarter size until up 20¢/share on it | `starter_size_fraction: 0.25`, `cushion_per_share: 0.20` |
+| 3 strikes, max loss, give back half → quit | `max_consecutive_losses: 3`, `max_daily_loss_pct`, `giveback_pct_of_peak: 0.5` |
+| Target ≥2× risk, room back to the high | setup refuses <2:1 room to the high of day |
+| First and second pullbacks only | in Claude's instructions |
+| Don't anticipate; wait for the new-high candle | the watcher triggers only on a break of the prior candle's high |
+| Bottoming tail, then the next candle breaking its high | in Claude's instructions; detector uses the last pullback candle's high |
+| Half and whole dollar levels | setup shows `next_half_dollar_above`; Claude told to take some profit on the first push through |
+| Price up within ~60s, or out | `breakout_or_bailout_minutes: 1.5`, `bailout_min_move: 0.10` |
+| Under $2 weak, over $10 weaker | under-$2 names get half size; over-$10 flagged |
+| Potential for another 10% from entry | in Claude's instructions |
+| Bonus: IPO, reverse split, ATH, yesterday <100k volume | scanner flags (52-week high, yesterday's volume, short history) |
+| 13D stake = catalyst; buyouts never | buyout filter no longer blocks 13D stake news |
+| Fundamentals only when up 50%+ | in Claude's instructions (shelf / cash / delisting) |
+| Stop at 11 AM; avoid afternoons | `trade_window: 07:00-11:00`, positions closed at 11 |
+| Go-live bar: >0 net, ≥60% accuracy, P/L >1 over 10 days | `status` prints whether the bar is met |
+| One trade a day challenge | set `max_trades_per_day: 1` to run it |
+| Level 2 / tape (big sellers, green prints) | **not available** on Alpaca's free data |

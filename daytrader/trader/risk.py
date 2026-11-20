@@ -141,10 +141,18 @@ class RiskManager:
         self.roll_day()
         return max(self.r.max_trades_per_day - self.state["trades_today"], 0)
 
-    def has_cushion(self) -> bool:
-        pnl, _ = self.day_pnl()
+    def cushion_usd(self, price: float | None = None) -> float:
         start = self.state["day_start_equity"] or self.broker.equity()
-        return pnl >= self.r.cushion_pct * start
+        if self.cfg.market == "stocks":
+            # Ross: full size 1,000 sh -> trade 250 sh until up 20c/share on them ($50)
+            px = price or 5.0
+            full_shares = self.r.max_position_pct * start / px
+            return self.r.cushion_per_share * full_shares * self.r.starter_size_fraction
+        return self.r.cushion_pct * start
+
+    def has_cushion(self, price: float | None = None) -> bool:
+        pnl, _ = self.day_pnl()
+        return pnl >= self.cushion_usd(price)
 
     # -- order checks ------------------------------------------------------
     def check_open(self, symbol: str, usd: float, stop: float | None, tp: float | None,
@@ -188,10 +196,10 @@ class RiskManager:
         equity = self.broker.equity()
         notes = []
         size_mult = 1.0
-        if self.r.starter_size_fraction < 1 and not self.has_cushion():
+        if self.r.starter_size_fraction < 1 and not self.has_cushion(price):
             size_mult = self.r.starter_size_fraction
-            notes.append(f"starter size x{size_mult} until the day is up "
-                         f"{self.r.cushion_pct*100:.2f}% (Ross: 1/4 size until you have a cushion)")
+            notes.append(f"starter size x{size_mult} until the day is up ${self.cushion_usd(price):,.2f} "
+                         "(Ross: 1/4 size until up 20 cents/share)")
         if size_factor < 1:
             size_mult *= size_factor
             notes.append(f"size x{size_factor} (no news catalyst and/or thin volume)")

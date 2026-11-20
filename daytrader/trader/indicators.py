@@ -131,7 +131,8 @@ def session_vwap(candles: list[list[float]], session_start_ms: int | None) -> fl
 
 
 def analyze_setup(candles: list[list[float]], live_price: float | None = None,
-                  vwap_value: float | None = None, lookback: int = 30) -> dict:
+                  vwap_value: float | None = None, lookback: int = 30,
+                  min_room_r: float = 2.0) -> dict:
     """Detect the first-pullback / bull-flag structure on short-timeframe candles.
 
     Pole = run from the lowest low to the swing high in the lookback window.
@@ -194,6 +195,7 @@ def analyze_setup(candles: list[list[float]], live_price: float | None = None,
         "risk_pct": round(risk / trigger * 100, 2) if risk else None,
         "target_2r": _r(trigger + 2 * risk, 6) if risk else None,
         "room_to_swing_high_r": round((swing_high - trigger) / risk, 2) if risk else None,
+        "next_half_dollar_above": round((int(trigger * 2) + 1) / 2, 2),
     })
 
     problems = []
@@ -205,6 +207,9 @@ def analyze_setup(candles: list[list[float]], live_price: float | None = None,
         problems.append("pullback volume not lighter than the pole: sellers in control")
     if not out["above_vwap"]:
         problems.append("below VWAP")
+    if risk and swing_high and (swing_high - trigger) / risk < min_room_r:
+        problems.append(f"less than {min_room_r:g}:1 room back to the high (Ross: profit should be at least "
+                        "double the risk)")
     if not out["macd_open"]:
         problems.append("MACD below signal (red light)")
     if e9 and e20 and e9 <= e20:

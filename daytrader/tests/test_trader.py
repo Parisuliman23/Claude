@@ -169,8 +169,9 @@ def bull_flag(trigger_now: bool = True):
         c.append([t, p, p + 0.02, p - 0.02, p + 0.005, 1000]); t += 60_000
     for _ in range(8):   # pole: +~0.15/candle, heavy volume
         c.append([t, p, p + 0.17, p - 0.01, p + 0.15, 20000]); p += 0.15; t += 60_000
-    for _ in range(3):   # pullback: small red candles, light volume
-        c.append([t, p, p + 0.02, p - 0.08, p - 0.06, 4000]); p -= 0.06; t += 60_000
+    # pullback: red candles on light volume, last one with a bottoming tail
+    for o, h, l, cl in ([6.20, 6.21, 6.08, 6.10], [6.10, 6.11, 5.98, 6.00], [6.00, 6.01, 5.92, 5.98]):
+        c.append([t, o, h, l, cl, 4000]); t += 60_000
     return c
 
 
@@ -182,6 +183,10 @@ def test_analyze_setup_detects_first_pullback():
     assert st["stop"] == min(x[3] for x in candles[-3:])
     assert st["pullback_vol_vs_pole"] < 1
     assert st["target_2r"] > st["entry_trigger"]
+    assert st["room_to_swing_high_r"] >= 2
+    # a shallow setup with less than 2:1 room back to the high is refused
+    shallow = analyze_setup(candles, live_price=candles[-1][2] + 0.01, vwap_value=5.3, min_room_r=3.0)
+    assert any("room" in p for p in shallow["problems"])
     # below the trigger it is only forming
     assert analyze_setup(candles, live_price=trigger - 0.05, vwap_value=5.3)["state"] == "setup_forming"
     # below VWAP: rejected
@@ -267,6 +272,8 @@ class FakeStockMarket:
             "NONEWS": dict(price=4.0, chg=25.0, vol=9e6, avg=1e6, news=[]),
             "PRICEY": dict(price=55.0, chg=20.0, vol=9e6, avg=1e6, news=[{"headline": "x"}]),
             "SLOW": dict(price=6.0, chg=12.0, vol=2e6, avg=1e6, news=[{"headline": "x"}]),
+            "THIRTEEND": dict(price=4.45, chg=48.0, vol=8e6, avg=0.5e6,
+                              news=[{"headline": "Schedule 13D: investor reports acquisition of 2.69 million shares"}]),
             "BUYOUT": dict(price=7.9, chg=60.0, vol=20e6, avg=1e6,
                            news=[{"headline": "XYZ to be acquired by MegaCorp for $8.00 per share"}]),
         }
@@ -299,8 +306,9 @@ def test_scanner_five_pillars(tmp_path):
     assert not res["BUYOUT"]["passes"] and "not_buyout_or_merger" in res["BUYOUT"]["failed_pillars"]
     assert not res["SLOW"]["passes"] and "relative_volume" in res["SLOW"]["failed_pillars"]
     assert "PRICEY" not in res                      # filtered out by price band
-    assert sc.approved_symbols() == {"WISA", "NONEWS"}
-    assert list(res)[0] == "WISA"                    # passing names rank first, by % gain
+    assert res["THIRTEEND"]["passes"]                # 13D stake = catalyst, not a buyout
+    assert sc.approved_symbols() == {"WISA", "NONEWS", "THIRTEEND"}
+    assert list(res)[0] == "THIRTEEND"               # passing names rank first, by % gain (leader = #1)
 
 
 def test_watcher_wakes_on_trigger(setup):
