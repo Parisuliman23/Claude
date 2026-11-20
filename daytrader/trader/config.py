@@ -58,12 +58,17 @@ class ScannerConfig:
     universe_size: int = 50          # top gainers pulled from the market each scan
     max_candidates: int = 10
     # stocks (Ross's 5 pillars)
-    price_min: float = 2.0
+    price_min: float = 1.0
     price_max: float = 20.0
     min_gain_pct: float = 10.0
     min_rvol: float = 5.0
     max_float: float = 20_000_000
-    require_news: bool = True
+    require_news: bool = False       # Ross: catalyst "preferred"; no-news movers = trade with caution
+    no_news_size_factor: float = 0.5 # ...so they get half size
+    thin_volume_shares: float = 500_000      # below this day volume = thin liquidity
+    thin_volume_size_factor: float = 0.5     # Ross: "I mitigate the risk by reducing my share size"
+    max_pct_of_day_volume: float = 0.02      # never buy more than 2% of the day's volume
+    cold_market_max_float: float = 10_000_000  # Ross: float cutoff drops to 10M when the market is cold
     require_float_known: bool = False
     news_max_age_hours: float = 24
     # crypto adaptation

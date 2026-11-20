@@ -224,7 +224,7 @@ def cmd_run(cfg: Config, once: bool) -> None:
         run_cycle_safely(agent)
         return
 
-    next_cycle = next_watch = next_candle_check = 0.0
+    next_cycle = next_watch = next_candle_check = last_mark_cycle = 0.0
     idle_logged = False
     while True:
         try:
@@ -244,7 +244,12 @@ def cmd_run(cfg: Config, once: bool) -> None:
             continue
         idle_logged = False
 
-        if now >= next_cycle:
+        # extra cycle ~1 minute after each :00 / :30 (Ross: headlines drop at the top/bottom of the hour)
+        lt = time.localtime(now)
+        half_hour_mark = lt.tm_min in (1, 31) and now - last_mark_cycle > 120
+        if now >= next_cycle or half_hour_mark:
+            if half_hour_mark:
+                last_mark_cycle = now
             run_cycle_safely(agent)
             next_cycle = time.time() + cfg.decision_interval_minutes * 60
         elif now >= next_watch and toolbox.watchlist:

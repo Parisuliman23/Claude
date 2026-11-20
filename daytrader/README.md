@@ -31,10 +31,10 @@ every 5 s    ─► Code guard (no AI):
 ### The 5 pillars (scanner)
 | Pillar | Rule |
 |---|---|
-| Price | $2-$20 |
+| Price | $1-$20 (sweet spot $5-$10) |
 | % change | up ≥10% today |
 | Relative volume | ≥5× the average |
-| Catalyst | fresh news headline |
+| Catalyst | news preferred; no-news movers get half size; buyouts/mergers skipped |
 | Float | <20M shares (needs a free FMP key to check) |
 
 ### Entry, stop, exit

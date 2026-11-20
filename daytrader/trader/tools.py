@@ -81,10 +81,11 @@ TOOL_DEFS = [
     },
     {
         "name": "scan_momentum",
-        "description": "Run the 5-pillar momentum scanner (Ross Cameron): price $2-$20, up >=10% on "
-                       "the day, relative volume >=5x, fresh news catalyst, float <20M (stocks; crypto "
-                       "uses an adapted version). Returns ranked candidates with each pillar pass/fail, "
-                       "headlines, float rotation and red flags. Only symbols that PASS can be traded.",
+        "description": "Run the 5-pillar momentum scanner (Ross Cameron): price $1-$20, up >=10% on "
+                       "the day, relative volume >=5x vs the 50-day average, news catalyst (preferred), "
+                       "float <20M; buyouts/mergers excluded. Returns candidates ranked by % gain (the "
+                       "leader is #1) with each pillar, headlines, float rotation, size factor, flags, "
+                       "and a market temperature (hot/normal/cold). Only symbols that PASS can be traded.",
         "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
@@ -284,7 +285,8 @@ class Toolbox:
             note = "Nothing meets the criteria right now. Ross: no stock, no trade."
         elif self.market.kind == "crypto":
             note = "Crypto adaptation: no float or news data; relative volume uses 24h vs 30-day average."
-        return {"candidates": cands, "note": note}
+        return {"market_temperature": self.scanner.market_temperature,
+                "candidates": cands, "note": note}
 
     def t_get_news(self, symbol: str) -> dict:
         symbol = self._symbol(symbol)
@@ -322,7 +324,9 @@ class Toolbox:
                     reason: str, take_profit: float | None = None) -> dict:
         symbol = self._symbol(symbol)
         d = self.risk.check_open(symbol, float(usd_amount), stop_loss, take_profit,
-                                 allowed=self.scanner.approved_symbols())
+                                 allowed=self.scanner.approved_symbols(),
+                                 size_factor=self.scanner.size_factor(symbol),
+                                 day_volume=self.scanner.day_volume(symbol))
         if not d.ok:
             self.journal.log("order_rejected", symbol=symbol, usd=usd_amount, why=d.reason)
             return {"status": "rejected", "reason": d.reason}

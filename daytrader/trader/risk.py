@@ -148,7 +148,8 @@ class RiskManager:
 
     # -- order checks ------------------------------------------------------
     def check_open(self, symbol: str, usd: float, stop: float | None, tp: float | None,
-                   allowed: set[str] | None = None) -> Decision:
+                   allowed: set[str] | None = None, size_factor: float = 1.0,
+                   day_volume: float | None = None) -> Decision:
         if (h := self.new_trade_block()):
             return Decision(False, reason=h)
         allowed_set = set(self.cfg.symbols) if self.cfg.symbols else (allowed or set())
@@ -191,12 +192,17 @@ class RiskManager:
             size_mult = self.r.starter_size_fraction
             notes.append(f"starter size x{size_mult} until the day is up "
                          f"{self.r.cushion_pct*100:.2f}% (Ross: 1/4 size until you have a cushion)")
+        if size_factor < 1:
+            size_mult *= size_factor
+            notes.append(f"size x{size_factor} (no news catalyst and/or thin volume)")
         fee_buf = 2 * self.cfg.paper_fee_rate if self.cfg.market == "crypto" else 0.002
         caps = {
             "max_position_pct": self.r.max_position_pct * equity * size_mult,
             "max_total_exposure_pct": self.r.max_total_exposure_pct * equity - self.broker.exposure(),
             "available_cash": self.broker.cash() * 0.99,
         }
+        if self.cfg.market == "stocks" and day_volume:
+            caps["max_pct_of_day_volume"] = self.cfg.scanner.max_pct_of_day_volume * day_volume * price
         if stop_dist:
             caps["risk_per_trade_pct"] = (self.r.risk_per_trade_pct * equity * size_mult
                                           / (stop_dist + fee_buf))

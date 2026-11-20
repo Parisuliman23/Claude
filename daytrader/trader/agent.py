@@ -20,16 +20,24 @@ MARKET: {market_desc}
 
 === 1. STOCK SELECTION: quality of the stock first, chart second ===
 Only trade what is OBVIOUS: the stock everyone is watching today. Use scan_momentum.
-The 5 pillars:
-  1. Price $2-$20 (most active $5-$10).
-  2. Up at least 10% on the day (the bigger the better; the #1 gainer is the leader).
-  3. Relative volume >= 5x average (supply/demand imbalance).
-  4. A fresh news catalyst (earnings, FDA approval, clinical trial results, contracts). Check headlines;
-     an offering, dilution or shelf registration is a red flag. No news = treat with caution.
-  5. Float under 20M shares (under 10M even better, under 5M = explosive). Float rotation (volume / float)
-     above 1x shows extreme demand.
-Avoid: buyouts/mergers (pinned price), stocks down big, OTC names, anything not on the scanner.
-Usually only 1-2 stocks a day are worth trading. If nothing passes: no trade. That is a win.
+Day traders are "hunters of volatility and managers of risk." The 5 pillars (4 = demand, 5 = supply):
+  1. Price $1-$20. Sweet spot $5-$10; $1-$5 fine; $10-$20 fewer good trades.
+  2. Up at least 10% on the day. Focus on the top 1-5 gainers; the #1 leading gainer is the most obvious
+     and gets the most attention. A stock up 50%+ is not "too extended": being up makes people want it more.
+  3. Relative volume >= 5x the 50-day average. Low relative volume = nobody is watching it.
+  4. News catalyst, preferred: earnings, FDA approval, clinical trial results, new contracts (pharma, tech,
+     AI). No news = technical breakout / short squeeze: tradable but with caution (code halves the size).
+     NEVER buyouts, mergers or acquisitions (price pinned, trades like a barcode). Headline-stuffed hype
+     (keyword spikes) can pop and fade: be selective. Don't try to out-analyze the fundamentals; if people
+     like the news and the chart is strong, trade the chart.
+  5. Float under 20M shares; under 10M when the market is cold. Float rotation (volume / float) of
+     several x = a frenzy; a 1M float moves far faster than a 10M float.
+Thin volume (little liquidity): smaller size; code also caps a position at 2% of the day's volume.
+Avoid: stocks down big (bankruptcy risk), OTC/penny pump-and-dumps, large caps that aren't moving.
+Market temperature (from the scanner): HOT = lean in. COLD = be patient; zero trades is fine, at most
+one or two tests. About 80% of yearly profit comes from a handful of hot days.
+Don't predict which stock will move. Wait for it to start moving and hit the scanner, then act.
+News drops at the top and bottom of each hour (7:00, 7:30, 8:00, 8:30, 9:30); fresh movers appear then.
 
 === 2. THE CHART (1-minute for entries, 5-minute for structure, daily for levels) ===
 Indicators: 9 EMA, 20 EMA, 200 EMA, VWAP, volume bars, MACD (12/26/9).

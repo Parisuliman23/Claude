@@ -8,7 +8,8 @@ Study notes, organized as a trading rulebook, from these videos:
 | How to Pick the BEST Stocks for Trading (with ZERO experience) | wlH8zKZ8vXA |
 | Reading Candlestick Charts Was HARD Until I Learned This 3 Step Trick | 4Pc_von1wS4 |
 
-> **Verified so far:** "Reading Candlestick Charts… 3 Step Trick" (4Pc_von1wS4)
+> **Verified so far:** "Reading Candlestick Charts… 3 Step Trick" (4Pc_von1wS4) and
+> "How to Pick the BEST Stocks" (wlH8zKZ8vXA) (sections 11-12)
 > was transcribed in full from the video file and its frames were checked.
 > Section 11 holds what he says in that video, with timestamps. Where it
 > differs from the summaries below, section 11 wins.
@@ -353,3 +354,105 @@ Transcribed from the full 48-minute video; frames checked every 20 seconds. Time
 | First candle to make a new low = exit | `exit_on_new_low_candle: true` (1-minute candles) |
 | Relative volume ≥5× vs 50-day, up ≥10%, news, $2-$20 | scanner (50-day average, like his metrics) |
 | Level 2 / tape (green on the tape) | **not available** from Alpaca; candles and quotes stand in |
+
+---
+
+## 12. Verified from the video: "How to Pick the BEST Stocks for Trading (with ZERO experience)"
+
+Transcribed from the full 55-minute video (frames checked). Timestamps are mm:ss.
+
+### What to trade (00:45-06:42)
+- "Day traders are hunters of volatility and managers of risk." Goal example: buy at $5, sell at $5.50
+  (10%) "in maybe 15 minutes."
+- 99% of stocks are not good to trade. On any day only "one or maybe even two stocks… are bucking the trend."
+- Large caps (Apple, Netflix, Tesla) move 0.5-1% a day, so you'd need leverage and big downside risk. He tried
+  for years; it didn't work.
+- Penny/OTC stocks: "a disaster", often pump-and-dumps ("you never know when the insiders are going to start
+  dumping shares").
+- Edge = stocks "going up because they have a real reason to move."
+- ~99% of stocks stay within about ±4% a day. **Down** big (−10%, −50%) usually means bad news / bankruptcy
+  risk, so he avoids them.
+- "I'd like to focus on the stock that's in the number one position of being the leading gainer." Leaders have
+  "the cleanest price action." A stock up 50% isn't too extended: "the fact that the stock is up that much
+  only makes people want to buy it even more" (Tesla 2020-22 psychology). (05:46-06:42)
+
+### The scan (06:44-16:23)
+- Scanner: everything up >4%, usually 30-40 names → **sort by % gain (change from close), look at the top
+  5-10** ("like page one of Google search").
+- Brokers advertise the top gainers (payment for order flow), so attention goes there.
+- Example: CFRX +97%, $2.61 (prior close $1.30). 10,000 shares at $1.30 = $13,000 position, +$13,000 in a day.
+- **Price $1-$20**: "$1 as my minimum cutoff and about $20". **Sweet spot $1-$10, peak $5-$10**; $1-$5 fewer
+  trades; $10-$20 fewer trades and profits. "Easier for a stock to go from three to six than from 30 to 60."
+  (10:53-13:43)
+- Sector cycles: Chinese stocks → pharma → AI. After one runs 100-500%, traders chase "the next one", so a
+  similar stock gets extra attention. Know the sentiment. (15:00-16:20)
+
+### Catalyst (16:58-27:53)
+- Click the symbol → news window. **Blank news = "no discernible catalyst… I always will trade with
+  caution."** No-news movers are **technical breakouts** (often off a long selloff: "the first candle that
+  makes a new high") or **short squeezes**. "I don't mind trading that." (17:14-18:06)
+- Shorting: "not an adequate strategy" for beginners. Short 1,000 at $20: max gain $20,000; a squeeze to $500
+  = −$480,000. "Negative profit to loss ratio." (18:36-22:52)
+- **Good catalysts:** clinical trial results, FDA approvals, earnings (small caps posting e.g. +400% YoY),
+  new contracts (pharma, tech, AI). (23:11-25:41)
+- **Never: mergers, acquisitions, buyouts.** "The value is now fixed… it basically just looks like a barcode."
+  Mergers can bring dilution and are "too complicated… I avoid it completely." (24:02-25:26)
+- Keyword-stuffed hype headlines (the "ChatGPT" era) pop on algorithm buying and fade: "be a little bit
+  selective." (25:35-26:28)
+- "Don't try to be an expert at reading the fundamentals. I'm not Warren Buffett." Good news can sell off, weak
+  news can rip. "If the chart pattern is strong… that's all that I really need to know… Trade the technicals."
+  (26:28-27:53)
+
+### The 5 criteria (29:46-37:11)
+1. **Up at least 10%** ("bare minimum is 4%… we'd like to see 50% or even higher"; top 1-5 gainers).
+2. **Catalyst**: "we'd prefer that… there's certain situations where it's okay we don't."
+3. **Price $1-$20.**
+4. **Relative volume ≥5×** (today's volume ÷ the stock's average; e.g. 1M average, 5M today = 5×). Big movers
+   often had almost no volume the day before (5,000 → 12M shares). Low relative volume = "not a lot of eyes
+   on the stock."
+- 1-4 are **demand**. Number 5 is **supply**:
+5. **Float < 20M shares**, cut to **10M in a colder market**. CFRX: 1.5M float, 12M volume (relative volume
+   11) → "float rotation"; "10 times float rotation… a crazy, frenzied amount of trading." A 1M float moves far
+   faster than a 10M float. Big floats mean sellers keep supplying shares into the move.
+
+### Volume and liquidity (37:43-39:25)
+- He'll trade a fast mover even on light volume (stocks have gone up 50-100% on <100k shares), **but "I
+  mitigate the risk by reducing my share size."** Buying 20,000 shares when the move happened on 200,000 =
+  10% of volume, which may be hard to exit. No risk control possible = no trade.
+- He doesn't watch the "relative volume last 5 minutes" column much.
+
+### Schedule (40:58-54:32)
+- Premarket 4:00-9:30 ET, regular 9:30-16:00, after-hours 16:00-20:00. Most brokers open at **7:00**.
+  "Trading really begins when the brokers turn their lights on."
+- His routine: check the gap/top-gainer scan on his phone in bed (top 3-4: price, float, catalyst, sector,
+  sentiment), at his desk by 7:00.
+- **"Rather than searching for stocks that have a news headline, I'm searching for stocks that are moving up
+  right now"**, with audio alerts when a stock in his price/float range starts squeezing. "I wait for the stock
+  to start to move. And then I get in." "Before they're moving, they're nothing."
+- **Headlines drop at the top and bottom of the hour: 7:00, 7:30, 8:00, 8:30, 9:30.** Companies rarely put out
+  market-moving news after 9:30.
+- Patience: "I spend more time sitting and waiting than I actually spend in a trade." Skip low relative volume
+  or high float.
+- **Window: 7:00 until momentum cools, usually done by 10:30-11:00** (he's done well "from about 7 a.m. to
+  10 a.m."). He stays later only if a pre-market stock is still very strong. "Better to be early and to leave
+  early than to trade late." Lunch is dead; power hour is 3-4 PM; after-hours is risky.
+- **"About 80% of my profits will come from just a small handful of days each month."** Hot market: "dig deep."
+  Cold market: "okay with having zero trades or maybe taking one or two trades, testing the water."
+- The ideal: the **leading % gainer, float <10M, price $5-$10, good catalyst**. "That's when things can get
+  really, really exciting." (54:18-54:32)
+
+### How the agent applies this video
+| Ross | Agent |
+|---|---|
+| $1-$20, sweet spot $5-$10 | scanner `price_min: 1`; flags the $5-$10 sweet spot |
+| Top 1-5 gainers, the leader is most obvious | candidates ranked by % gain, `rank` field |
+| Catalyst preferred; no news = caution | `require_news: false`, no-news names at **half size** |
+| No buyouts / mergers / acquisitions | news keyword filter rejects them |
+| Dilution worries | offering/warrants/reverse-split headlines flagged |
+| Relative volume ≥5× | scanner (50-day average) |
+| Float <20M, 10M when cold | scanner; Claude told to tighten on cold days |
+| Thin volume → smaller size | half size under 500k shares; position ≤2% of day volume |
+| Headlines at :00/:30 | an extra Claude cycle a minute after each half hour |
+| 7:00 until ~10:30-11 | `trade_window: 07:00-11:00` |
+| Hot vs cold days | scanner reports market temperature; zero trades on cold days is fine |
+| No shorting | long-only |

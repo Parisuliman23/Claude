@@ -267,6 +267,8 @@ class FakeStockMarket:
             "NONEWS": dict(price=4.0, chg=25.0, vol=9e6, avg=1e6, news=[]),
             "PRICEY": dict(price=55.0, chg=20.0, vol=9e6, avg=1e6, news=[{"headline": "x"}]),
             "SLOW": dict(price=6.0, chg=12.0, vol=2e6, avg=1e6, news=[{"headline": "x"}]),
+            "BUYOUT": dict(price=7.9, chg=60.0, vol=20e6, avg=1e6,
+                           news=[{"headline": "XYZ to be acquired by MegaCorp for $8.00 per share"}]),
         }
 
     def top_gainers(self, top):
@@ -291,11 +293,14 @@ def test_scanner_five_pillars(tmp_path):
     res = {c["symbol"]: c for c in sc.scan()}
     assert res["WISA"]["passes"] and res["WISA"]["float_rotation_x"] == 4.0
     assert not res["BIG"]["passes"] and "float" in res["BIG"]["failed_pillars"]
-    assert not res["NONEWS"]["passes"] and "news_catalyst" in res["NONEWS"]["failed_pillars"]
+    # Ross: catalyst preferred, not required -> passes at half size, flagged
+    assert res["NONEWS"]["passes"] and res["NONEWS"]["size_factor"] == 0.5
+    assert any("no news" in f for f in res["NONEWS"]["flags"])
+    assert not res["BUYOUT"]["passes"] and "not_buyout_or_merger" in res["BUYOUT"]["failed_pillars"]
     assert not res["SLOW"]["passes"] and "relative_volume" in res["SLOW"]["failed_pillars"]
     assert "PRICEY" not in res                      # filtered out by price band
-    assert sc.approved_symbols() == {"WISA"}
-    assert list(res)[0] == "WISA"                    # passing names rank first
+    assert sc.approved_symbols() == {"WISA", "NONEWS"}
+    assert list(res)[0] == "WISA"                    # passing names rank first, by % gain
 
 
 def test_watcher_wakes_on_trigger(setup):
