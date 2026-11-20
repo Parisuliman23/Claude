@@ -18,7 +18,8 @@ log = logging.getLogger("trader.scanner")
 # (A 13D "acquisition of X shares" by an investor is NOT a buyout: Ross treats it as a positive catalyst.)
 REJECT_WORDS = ("merger", "to merge", "merge with", "to be acquired", "acquired by", "agreement to acquire",
                 "will acquire all", "buyout", "buy-out", "take private", "take-private", "go-private",
-                "going private", "tender offer", "per share in cash")
+                "going private", "tender offer", "per share in cash", "takeover", "take-over",
+                "acquisition of the company", "offer to acquire")
 # Bankruptcy / restructuring: Ross avoids stocks with bankruptcy risk
 DISTRESS_WORDS = ("chapter 11", "bankruptcy", "restructuring support agreement", "transaction support agreement",
                   "recapitalization", "going concern", "delisting", "debt-for-equity", "debt for equity")
@@ -90,15 +91,24 @@ class Scanner:
                 t = self.market.ticker(sym)
                 day_vol = t.get("day_volume") or t.get("quote_volume_24h")
                 avg = self.market.avg_daily_volume(sym)
-                self._bonus(sym, price, c)
                 if stocks:
                     rvol = (t.get("day_volume") or 0) / avg if avg else None
                 else:
                     base_vol = (t.get("quote_volume_24h") or 0) / price if price else 0
                     rvol = base_vol / avg if avg else None
+                sipv = self.market.sip_volume(sym) if stocks and hasattr(self.market, "sip_volume") else None
+                if sipv and sipv["avg"]:
+                    # full-market volume (15-min delayed) - IEX real-time is a lower bound, take the larger
+                    real_today = max(sipv["today"], float(t.get("day_volume") or 0))
+                    rvol = real_today / sipv["avg"]
+                    day_vol = real_today
+                    c["volume_source"] = "full market (SIP, up to 15 min delayed)"
+                    c["avg_daily_volume"] = round(sipv["avg"])
+                    c["prev_day_volume"] = sipv["prev"]
+                self._bonus(sym, price, c, sipv)
                 c["relative_volume"] = round(rvol, 2) if rvol else None
                 c["day_volume"] = day_vol
-                if stocks and self.cfg.stocks_data_feed == "iex" and day_vol:
+                if stocks and self.cfg.stocks_data_feed == "iex" and day_vol and not sipv:
                     # free IEX feed sees only a slice of trading: estimate the real total
                     c["day_volume_iex"] = day_vol
                     c["day_volume"] = day_vol / self.cfg.iex_volume_share
@@ -213,7 +223,7 @@ class Scanner:
         self.market_temperature = "hot" if n_pass >= 3 else "normal" if n_pass >= 1 else "cold"
         return self.last
 
-    def _bonus(self, sym: str, price: float, c: dict) -> None:
+    def _bonus(self, sym: str, price: float, c: dict, sipv: dict | None = None) -> None:
         """Ross's bonus criteria: yesterday's volume <100k, at/near 52-week (≈all-time) highs.
         (Recent IPO / reverse split show up in the news and daily chart; Claude checks.)"""
         try:
@@ -227,7 +237,7 @@ class Scanner:
         today = datetime.now(timezone.utc).date()
         past = [b for b in daily if datetime.fromtimestamp(b[0] / 1000, timezone.utc).date() < today]
         if past:
-            prev_vol = past[-1][5]
+            prev_vol = sipv["prev"] if sipv else past[-1][5]
             c["prev_day_volume"] = prev_vol
             if prev_vol < 100_000:
                 c["flags"].append("bonus: yesterday's volume <100k (surprise demand)")

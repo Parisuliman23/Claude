@@ -509,3 +509,10 @@ def test_halt_protection_exits_and_entry_blocks():
         assert entry_block(M(5.0, 4.99, 5.01), "X", r) is None
     finally:
         H.luld_active = real
+
+
+def test_setup_rejects_stop_that_is_too_tight():
+    candles = bull_flag()
+    candles[-1] = [candles[-1][0], 5.99, 5.995, 5.99, 5.993, 3000]   # flat last candle: trigger ~= low
+    st = analyze_setup(candles, live_price=6.2, vwap_value=5.3)
+    assert any("too tight" in p for p in st["problems"]) or st["state"] != "triggered"

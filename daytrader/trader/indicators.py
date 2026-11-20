@@ -207,6 +207,8 @@ def analyze_setup(candles: list[list[float]], live_price: float | None = None,
         problems.append("pullback volume not lighter than the pole: sellers in control")
     if not out["above_vwap"]:
         problems.append("below VWAP")
+    if not risk or risk < max(0.02, trigger * 0.005):
+        problems.append("stop too tight (under 2c / 0.5%): noise would stop it out")
     if risk and swing_high and (swing_high - trigger) / risk < min_room_r:
         problems.append(f"less than {min_room_r:g}:1 room back to the high (Ross: profit should be at least "
                         "double the risk)")

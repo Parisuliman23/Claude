@@ -235,6 +235,32 @@ class AlpacaMarket:
                 self._assets[symbol] = {}
         return self._assets[symbol]
 
+    def sip_volume(self, symbol: str, days: int = 50) -> dict | None:
+        """Full-market (SIP) daily volume: today so far, previous day, 50-day average.
+        The free plan allows SIP data older than 15 minutes, which is fine for volume. The free
+        IEX feed only sees a small, very uneven slice of small-cap volume, so it can't be used
+        for Ross's relative-volume rule."""
+        from datetime import timedelta as _td
+        try:
+            end = (datetime.now(timezone.utc) - _td(minutes=16)).isoformat()
+            start = (datetime.now(timezone.utc) - _td(days=days * 2 + 10)).isoformat()
+            data = self.client.data(f"/v2/stocks/{symbol}/bars", timeframe="1Day", start=start, end=end,
+                                    limit=days + 5, feed="sip", adjustment="split", sort="desc")
+        except Exception:
+            return None
+        bars = list(reversed((data or {}).get("bars") or []))  # newest first from the API -> oldest first
+        if not bars:
+            return None
+        today = datetime.now(ET).date()
+        def day(b):
+            return datetime.fromisoformat(b["t"].replace("Z", "+00:00")).astimezone(ET).date()
+        past = [b for b in bars if day(b) < today][-days:]
+        today_v = sum(b["v"] for b in bars if day(b) == today)
+        if not past:
+            return None
+        return {"today": float(today_v), "prev": float(past[-1]["v"]),
+                "avg": sum(b["v"] for b in past) / len(past), "days": len(past)}
+
     def avg_daily_volume(self, symbol: str, days: int = 50) -> float | None:
         bars = self.candles(symbol, "1d", days + 1)
         today = datetime.now(ET).date()
