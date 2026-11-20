@@ -22,7 +22,11 @@ class Position:
     stop_loss: float | None
     take_profit: float | None
     opened_at: float
-    cost_usd: float  # total paid incl. fees
+    cost_usd: float  # cost basis of the shares still held, incl. fees
+    initial_stop: float | None = None
+    scaled_out: bool = False      # half already sold at the first target
+    realized_usd: float = 0.0     # P&L already banked from partial sells
+    initial_qty: float = 0.0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -105,32 +109,53 @@ class BaseBroker:
             take_profit=tp,
             opened_at=fill.ts,
             cost_usd=fill.value_usd + fill.fee_usd,
+            initial_stop=stop,
+            initial_qty=fill.qty,
         )
         self.save()
         return fill
 
-    def close(self, symbol: str, reason: str) -> dict:
+    def reduce(self, symbol: str, fraction: float, reason: str) -> dict:
+        """Sell part (or all, fraction=1) of a position. Returns a trade record."""
         pos = self.positions.get(symbol)
         if not pos:
             raise ValueError(f"No open position in {symbol}")
-        fill = self._sell(symbol, pos.qty)
+        fraction = max(0.0, min(1.0, fraction))
+        qty = pos.qty if fraction >= 0.999 else pos.qty * fraction
+        fill = self._sell(symbol, qty)
+        sold_frac = min(fill.qty / pos.qty, 1.0) if pos.qty else 1.0
+        cost_part = pos.cost_usd * sold_frac
         proceeds = fill.value_usd - fill.fee_usd
-        pnl = proceeds - pos.cost_usd
+        pnl = proceeds - cost_part
+        pos.qty -= fill.qty
+        pos.cost_usd -= cost_part
+        pos.realized_usd += pnl
+        full_close = pos.qty <= 1e-9 or sold_frac >= 0.999
         record = {
             "symbol": symbol,
-            "qty": pos.qty,
+            "qty": fill.qty,
             "entry_price": pos.entry_price,
             "exit_price": fill.price,
             "pnl_usd": round(pnl, 2),
-            "pnl_pct": round(pnl / pos.cost_usd * 100, 3) if pos.cost_usd else 0,
+            "pnl_pct": round(pnl / cost_part * 100, 3) if cost_part else 0,
             "opened_at": pos.opened_at,
             "closed_at": fill.ts,
             "reason": reason,
+            "partial": not full_close,
         }
-        del self.positions[symbol]
+        if full_close:
+            record["trade_total_pnl_usd"] = round(pos.realized_usd, 2)
+            del self.positions[symbol]
         self.realized.append(record)
         self.save()
         return record
+
+    def close(self, symbol: str, reason: str) -> dict:
+        return self.reduce(symbol, 1.0, reason)
+
+    def completed_trades(self) -> list[dict]:
+        """Final records of fully closed trades (P&L includes earlier partial sells)."""
+        return [r for r in self.realized if not r.get("partial")]
 
 
 class PaperBroker(BaseBroker):

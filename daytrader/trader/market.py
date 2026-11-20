@@ -29,6 +29,8 @@ def make_exchange(cfg: Config) -> ccxt.Exchange:
 class MarketData:
     """Thin wrapper with a short price cache so tools and the monitor don't hammer the API."""
 
+    kind = "crypto"
+
     def __init__(self, exchange: ccxt.Exchange, cache_seconds: float = 5.0):
         self.ex = exchange
         self.cache_seconds = cache_seconds
@@ -94,3 +96,27 @@ class MarketData:
             if bid_val + ask_val
             else None,
         }
+
+    def session_start_ms(self) -> int | None:
+        """Crypto has no session: VWAP uses the candles requested."""
+        return None
+
+    def top_gainers(self, top: int = 50) -> list[dict]:
+        """24h top gainers among the exchange's pairs in the quote currency."""
+        self._load()
+        tickers = self.ex.fetch_tickers()
+        rows = []
+        for s, t in tickers.items():
+            if t.get("percentage") is None or not t.get("last"):
+                continue
+            rows.append({"symbol": s, "percent_change": t["percentage"], "price": t["last"],
+                         "quote_volume_24h": t.get("quoteVolume")})
+        rows.sort(key=lambda r: r["percent_change"], reverse=True)
+        return rows[:top]
+
+    def avg_daily_volume(self, symbol: str, days: int = 30) -> float | None:
+        bars = self.candles(symbol, "1d", days + 1)[:-1]
+        return sum(b[5] for b in bars) / len(bars) if bars else None
+
+    def news(self, symbol: str, limit: int = 5, hours: int = 36) -> list[dict]:
+        return []  # no free crypto news feed wired in; Claude is told so

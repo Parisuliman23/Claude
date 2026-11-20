@@ -1,47 +1,77 @@
-# ---- Day-trading agent config ----
+# ---- Day-trading agent config (Ross Cameron momentum style) ----
+# Strategy notes behind these numbers: strategy/ross_cameron_playbook.md
 
 # paper = simulated money with real market prices. live = real orders.
 mode: paper
 
-# Any ccxt exchange id: coinbase, kraken, binanceus, okx, bybit, ...
+# stocks = Ross's actual market (small-cap US stocks via Alpaca)
+# crypto = the same rules adapted to coins (via a ccxt exchange)
+market: stocks
+
+# ---- stocks (Alpaca) ----
+# Paper mode uses your Alpaca PAPER account; live uses your real Alpaca account.
+stocks_data_feed: iex         # iex = free data; sip = full market data (paid Alpaca plan, better volume)
+
+# ---- crypto (ccxt) ----
 exchange: coinbase
 quote_currency: USD
+paper_starting_cash: 10000    # crypto paper account only (Alpaca paper has its own balance)
+paper_fee_rate: 0.006
+paper_slippage: 0.0005
 
-# Coins the agent is allowed to trade. It can't touch anything else.
-symbols:
-  - BTC/USD
-  - ETH/USD
-  - SOL/USD
+# Leave empty to trade whatever the scanner finds (Ross's way).
+# Or list symbols to restrict trading to only those.
+symbols: []
 
-# Paper account starting balance (in quote currency)
-paper_starting_cash: 10000
-paper_fee_rate: 0.006      # 0.6% taker fee per fill (Coinbase-like)
-paper_slippage: 0.0005     # 0.05% slippage per fill
+# ---- Scanner: the 5 pillars ----
+scanner:
+  price_min: 2                # pillar 1: price $2-$20
+  price_max: 20
+  min_gain_pct: 10            # pillar 2: up at least 10% on the day
+  min_rvol: 5                 # pillar 3: 5x relative volume
+  require_news: true          # pillar 4: fresh news catalyst
+  news_max_age_hours: 24
+  max_float: 20000000         # pillar 5: float under 20M shares (needs FMP_API_KEY to check)
+  require_float_known: false  # true = skip stocks whose float can't be looked up
+  crypto_min_rvol: 3
+  crypto_min_quote_volume: 1000000
+  max_candidates: 10
 
-# How often Claude looks at the market and decides (minutes)
-decision_interval_minutes: 15
-# How often code checks stop-loss / take-profit between decisions (seconds)
-monitor_interval_seconds: 20
+# ---- Timing ----
+decision_interval_minutes: 5  # Claude scans + reviews every 5 min inside the trade window
+watch_interval_seconds: 15    # code checks watchlist charts for a pullback trigger this often
+monitor_interval_seconds: 5   # code checks stops / targets this often
+setup_timeframe: 1m           # chart used for pullback entries
 
 # ---- Hard risk limits: enforced in code, Claude cannot override ----
 risk:
-  max_position_pct: 0.20        # max 20% of equity in any one coin
-  max_total_exposure_pct: 0.60  # max 60% of equity in positions overall
-  risk_per_trade_pct: 0.01      # max 1% of equity lost if a stop-loss hits
-  max_daily_loss_pct: 0.02      # stop trading for the day after -2%
-  max_trades_per_day: 10
-  min_order_usd: 10
+  trade_window: "07:00-11:00" # Ross's morning window, US Eastern. null = trade any time
+  trade_window_tz: America/New_York
+  max_position_pct: 0.25
+  max_total_exposure_pct: 0.50
+  risk_per_trade_pct: 0.01      # lose at most 1% of equity if a stop hits
+  max_daily_loss_pct: 0.02      # stop for the day at -2%
+  max_trades_per_day: 6
+  max_consecutive_losses: 3     # 3 losers in a row = done for the day
+  giveback_pct_of_peak: 0.5     # done for the day after giving back half the day's peak profit
+  giveback_min_peak_pct: 0.005
+  starter_size_fraction: 0.25   # 1/4 size until the day is green by the cushion
+  cushion_pct: 0.005
+  scale_out_fraction: 0.5       # sell half at the target, stop to break-even on the rest
+  move_stop_to_breakeven: true
+  breakout_or_bailout_minutes: 5  # if it hasn't worked in 5 min (still below entry), get out
+  min_order_usd: 50
   require_stop_loss: true
-  max_stop_distance_pct: 0.08   # stop can't be more than 8% from entry
-  flatten_at_utc: null          # e.g. "23:55" closes everything daily; null = hold overnight allowed
+  max_stop_distance_pct: 0.10
+  flatten_at_utc: null          # stocks: positions are also flattened at the end of the trade window
 
 # ---- Claude ----
 model: claude-opus-5-5
-effort: high                  # low | medium | high | xhigh | max
-max_tool_rounds: 12           # max tool calls per decision cycle
+effort: high                  # for scheduled scan/review cycles
+alert_effort: medium          # when woken by a live setup (faster answer)
+max_tool_rounds: 14
 
-# Your own trading instructions for Claude (style, preferences)
+# Your own extra instructions for Claude
 strategy_notes: |
-  Intraday momentum and mean-reversion on liquid coins.
-  Prefer trading with the 1h trend. Avoid chasing big candles.
-  Doing nothing is a valid decision - only trade clear setups.
+  Follow the Ross Cameron playbook strictly. Quality of the stock first, chart second.
+  Only A+ setups. Doing nothing is a valid decision.

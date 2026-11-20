@@ -11,9 +11,21 @@ from pathlib import Path
 
 from .broker import BaseBroker
 from .config import Config
-from .indicators import summarize
+from .indicators import analyze_setup, macd, session_vwap, summarize
 from .market import TIMEFRAMES
 from .risk import RiskManager
+from .scanner import Scanner
+
+TF_MS = {"1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000,
+         "1d": 86_400_000}
+
+
+def closed_candles(candles: list[list[float]], timeframe: str, now_ms: float | None = None) -> list:
+    """Drop the still-forming last candle (Ross reads patterns on completed candles)."""
+    now_ms = now_ms or time.time() * 1000
+    if candles and candles[-1][0] + TF_MS.get(timeframe, 60_000) > now_ms:
+        return candles[:-1]
+    return candles
 
 
 class Journal:
@@ -49,10 +61,13 @@ TOOL_DEFS = [
     },
     {
         "name": "get_market_data",
-        "description": "Candle summary for one symbol and timeframe: last price, EMA 9/21/50, RSI 14, "
-                       "ATR 14, VWAP over the window, volume vs average, window high/low, and the "
-                       "most recent candles as [open, high, low, close, volume]. Also includes the "
-                       "24h ticker. Call it for several timeframes to see the bigger trend.",
+        "description": "Chart read for one symbol and timeframe: last price, EMA 9/20/200, MACD "
+                       "(open = above signal), VWAP (session VWAP for stocks), RSI, ATR, volume vs "
+                       "average, recent candles [open, high, low, close, volume], the ticker, and on "
+                       "1m/5m a 'setup' block that detects the first-pullback/bull-flag: pole, "
+                       "pullback low (stop), entry trigger (first candle to make a new high), "
+                       "risk per share, 2R target and any problems. Use 1m/5m for entries and 1d for "
+                       "daily levels/resistance.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -61,6 +76,37 @@ TOOL_DEFS = [
                 "limit": {"type": "integer", "description": "Candles to analyze, 30-300. Default 100."},
             },
             "required": ["symbol", "timeframe"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "scan_momentum",
+        "description": "Run the 5-pillar momentum scanner (Ross Cameron): price $2-$20, up >=10% on "
+                       "the day, relative volume >=5x, fresh news catalyst, float <20M (stocks; crypto "
+                       "uses an adapted version). Returns ranked candidates with each pillar pass/fail, "
+                       "headlines, float rotation and red flags. Only symbols that PASS can be traded.",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "get_news",
+        "description": "Recent headlines for a symbol (catalyst check: earnings, FDA, trial results, "
+                       "contracts; watch for offerings/dilution).",
+        "input_schema": {
+            "type": "object",
+            "properties": {"symbol": {"type": "string"}},
+            "required": ["symbol"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "set_watchlist",
+        "description": "Choose up to 5 symbols for code to watch on the 1-minute chart between your "
+                       "cycles. When one forms a first-pullback trigger (first candle to make a new "
+                       "high, above VWAP, MACD open), you are woken immediately to decide.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"symbols": {"type": "array", "items": {"type": "string"}}},
+            "required": ["symbols"],
             "additionalProperties": False,
         },
     },
@@ -107,6 +153,21 @@ TOOL_DEFS = [
         },
     },
     {
+        "name": "sell_partial",
+        "description": "Sell part of a position (e.g. 0.5 = half into strength). Ross scales out half "
+                       "on the first push and lets the rest ride with a break-even stop.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string"},
+                "fraction": {"type": "number", "description": "0-1 portion of the shares held"},
+                "reason": {"type": "string"},
+            },
+            "required": ["symbol", "fraction", "reason"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "update_stops",
         "description": "Move the stop-loss and/or take-profit of an open position. Stops can only be "
                        "raised (tightened), never lowered.",
@@ -146,6 +207,8 @@ class Toolbox:
         self.risk = risk
         self.journal = journal
         self.market = broker.market
+        self.scanner = Scanner(cfg, self.market)
+        self.watchlist: list[str] = []
 
     def run(self, name: str, args: dict) -> str:
         fn = getattr(self, f"t_{name}", None)
@@ -170,28 +233,70 @@ class Toolbox:
                 "stop_loss": p.stop_loss,
                 "take_profit": p.take_profit,
                 "held_minutes": round((time.time() - p.opened_at) / 60, 1),
+                "r_multiple": round((price - p.entry_price) / (p.entry_price - p.initial_stop), 2)
+                if p.initial_stop and p.entry_price > p.initial_stop else None,
+                "already_scaled_out": p.scaled_out,
+                "partial_profit_banked_usd": round(p.realized_usd, 2),
             })
         return {
             "mode": self.cfg.mode,
             "cash": round(self.broker.cash(), 2),
             "equity": round(self.broker.equity(), 2),
             "positions": positions,
-            "allowed_symbols": self.cfg.symbols,
+            "market": self.cfg.market,
+            "tradable_symbols": self.cfg.symbols or sorted(self.scanner.approved_symbols()),
+            "watchlist": self.watchlist,
             **self.risk.snapshot(),
         }
 
     def _symbol(self, symbol: str) -> str:
         symbol = symbol.upper().strip()
-        if symbol not in self.cfg.symbols:
+        if self.cfg.symbols and symbol not in self.cfg.symbols and symbol not in self.broker.positions:
             raise ToolError(f"{symbol} is not an allowed symbol. Allowed: {self.cfg.symbols}")
         return symbol
 
     def t_get_market_data(self, symbol: str, timeframe: str, limit: int = 100) -> dict:
         symbol = self._symbol(symbol)
         limit = max(30, min(int(limit), 300))
-        candles = self.market.candles(symbol, timeframe, limit)
-        return {"symbol": symbol, "timeframe": timeframe, "ticker_24h": self.market.ticker(symbol),
-                **summarize(candles)}
+        candles = closed_candles(self.market.candles(symbol, timeframe, limit), timeframe)
+        out = {"symbol": symbol, "timeframe": timeframe, "ticker": self.market.ticker(symbol),
+               **summarize(candles)}
+        closes = [c[4] for c in candles]
+        m = macd(closes)
+        out["macd_12_26_9"] = {k: (round(v, 6) if isinstance(v, float) else v)
+                               for k, v in m.items()} if m else None
+        if timeframe in ("1m", "5m"):
+            out["setup"] = self.setup(symbol, timeframe, candles)
+        return out
+
+    def setup(self, symbol: str, timeframe: str = "1m", candles: list | None = None) -> dict:
+        if candles is None:
+            candles = closed_candles(self.market.candles(symbol, timeframe, 120), timeframe)
+        vw = session_vwap(candles, self.market.session_start_ms())
+        return analyze_setup(candles, live_price=self.market.price(symbol), vwap_value=vw)
+
+    def t_scan_momentum(self) -> dict:
+        cands = self.scanner.scan()
+        self.journal.log("scan", passing=[c["symbol"] for c in cands if c["passes"]],
+                         candidates=len(cands))
+        note = None
+        if not cands:
+            note = "Nothing meets the criteria right now. Ross: no stock, no trade."
+        elif self.market.kind == "crypto":
+            note = "Crypto adaptation: no float or news data; relative volume uses 24h vs 30-day average."
+        return {"candidates": cands, "note": note}
+
+    def t_get_news(self, symbol: str) -> dict:
+        symbol = self._symbol(symbol)
+        news = self.market.news(symbol, limit=8, hours=72)
+        return {"symbol": symbol, "news": news,
+                "note": None if news or self.market.kind == "stocks"
+                else "No crypto news feed is connected; judge the catalyst from price/volume."}
+
+    def t_set_watchlist(self, symbols: list[str]) -> dict:
+        self.watchlist = [self._symbol(s) for s in symbols][:5]
+        self.journal.log("watchlist", symbols=self.watchlist)
+        return {"watchlist": self.watchlist}
 
     def t_get_order_book(self, symbol: str) -> dict:
         return self.market.order_book(self._symbol(symbol))
@@ -201,14 +306,23 @@ class Toolbox:
         notes = self.journal.tail(min(limit, 10), {"cycle_summary"})
         return {
             "closed_trades": self.broker.realized[-limit:],
+            "win_rate_pct": self._win_rate(),
             "recent_cycle_notes": [{"ts": n["ts"], "summary": n.get("summary")} for n in notes],
         }
+
+    def _win_rate(self) -> float | None:
+        done = self.broker.completed_trades()
+        if not done:
+            return None
+        wins = [t for t in done if t.get("trade_total_pnl_usd", t["pnl_usd"]) > 0]
+        return round(len(wins) / len(done) * 100, 1)
 
     # -- trading -----------------------------------------------------------
     def t_open_long(self, symbol: str, usd_amount: float, stop_loss: float,
                     reason: str, take_profit: float | None = None) -> dict:
         symbol = self._symbol(symbol)
-        d = self.risk.check_open(symbol, float(usd_amount), stop_loss, take_profit)
+        d = self.risk.check_open(symbol, float(usd_amount), stop_loss, take_profit,
+                                 allowed=self.scanner.approved_symbols())
         if not d.ok:
             self.journal.log("order_rejected", symbol=symbol, usd=usd_amount, why=d.reason)
             return {"status": "rejected", "reason": d.reason}
@@ -228,6 +342,14 @@ class Toolbox:
         rec = self.broker.close(symbol, f"agent: {reason}")
         self.journal.log("close", **rec)
         return {"status": "closed", **rec}
+
+    def t_sell_partial(self, symbol: str, fraction: float, reason: str) -> dict:
+        symbol = self._symbol(symbol)
+        if symbol not in self.broker.positions:
+            return {"status": "rejected", "reason": f"No open position in {symbol}"}
+        rec = self.broker.reduce(symbol, float(fraction), f"agent: {reason}")
+        self.journal.log("sell_partial", **rec)
+        return {"status": "sold", **rec}
 
     def t_update_stops(self, symbol: str, reason: str, stop_loss: float | None = None,
                        take_profit: float | None = None) -> dict:

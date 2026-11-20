@@ -35,11 +35,46 @@ class RiskConfig:
     require_stop_loss: bool = True
     max_stop_distance_pct: float = 0.08
     flatten_at_utc: str | None = None
+    # --- Ross Cameron discipline rules ---
+    max_consecutive_losses: int = 3          # 3 losers in a row = done for the day
+    giveback_pct_of_peak: float = 0.5        # stop after giving back 50% of the day's peak profit
+    giveback_min_peak_pct: float = 0.005     # ...once the peak was at least 0.5% of equity
+    starter_size_fraction: float = 0.25      # trade 1/4 size until the day has a cushion
+    cushion_pct: float = 0.005               # cushion = day P&L >= 0.5% of equity
+    scale_out_fraction: float = 0.5          # sell half at the first target...
+    move_stop_to_breakeven: bool = True      # ...and move the stop to break-even
+    breakout_or_bailout_minutes: float | None = 5  # exit if still below entry after N min
+    trade_window: str | None = None          # "07:00-11:00" (in trade_window_tz); null = always
+    trade_window_tz: str = "America/New_York"
+
+
+@dataclass
+class ScannerConfig:
+    universe_size: int = 50          # top gainers pulled from the market each scan
+    max_candidates: int = 10
+    # stocks (Ross's 5 pillars)
+    price_min: float = 2.0
+    price_max: float = 20.0
+    min_gain_pct: float = 10.0
+    min_rvol: float = 5.0
+    max_float: float = 20_000_000
+    require_news: bool = True
+    require_float_known: bool = False
+    news_max_age_hours: float = 24
+    # crypto adaptation
+    crypto_min_rvol: float = 3.0
+    crypto_min_quote_volume: float = 1_000_000
 
 
 @dataclass
 class Config:
     mode: str = "paper"
+    market: str = "crypto"            # crypto | stocks
+    stocks_data_feed: str = "iex"     # iex (free) | sip (paid Alpaca data plan)
+    scanner: ScannerConfig = field(default_factory=ScannerConfig)
+    watch_interval_seconds: float = 15  # how often code checks watchlist charts for setups
+    setup_timeframe: str = "1m"
+    alert_effort: str = "medium"        # Claude effort when woken by a live setup (faster)
     exchange: str = "coinbase"
     quote_currency: str = "USD"
     symbols: list[str] = field(default_factory=lambda: ["BTC/USD", "ETH/USD"])
@@ -64,9 +99,13 @@ def load_config(path: str | Path = ROOT / "config.yaml") -> Config:
     load_dotenv()
     raw = yaml.safe_load(Path(path).read_text()) or {}
     risk = RiskConfig(**(raw.pop("risk", None) or {}))
-    cfg = Config(risk=risk, **raw)
+    scanner = ScannerConfig(**(raw.pop("scanner", None) or {}))
+    cfg = Config(risk=risk, scanner=scanner, **raw)
+    cfg.symbols = cfg.symbols or []
     if cfg.mode not in ("paper", "live"):
         raise ValueError(f"mode must be 'paper' or 'live', got {cfg.mode!r}")
+    if cfg.market not in ("crypto", "stocks"):
+        raise ValueError(f"market must be 'crypto' or 'stocks', got {cfg.market!r}")
     cfg.state_dir = Path(cfg.state_dir)
     cfg.state_dir.mkdir(parents=True, exist_ok=True)
     return cfg
