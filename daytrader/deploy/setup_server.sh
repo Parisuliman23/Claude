@@ -7,8 +7,10 @@ APP=/opt/daytrader
 
 echo "== Installing system packages"
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
-apt-get install -y git python3-venv python3-pip nano unattended-upgrades
+# On a brand-new server Ubuntu may still be running its own updates: wait for the lock
+APT="apt-get -o DPkg::Lock::Timeout=600"
+$APT update -y
+$APT install -y git python3-venv python3-pip nano unattended-upgrades
 
 echo "== Downloading the agent"
 if [ -d "$APP/.git" ]; then git -C "$APP" pull --ff-only; else git clone -b "$BRANCH" https://github.com/Parisuliman23/Claude.git "$APP"; fi
@@ -47,6 +49,7 @@ systemctl enable daytrader >/dev/null
 
 echo
 echo "Done. Next:"
+echo "  (setup log, if this ran as a startup script: /var/log/daytrader-setup.log)"
 echo "  1. nano $APP/daytrader/.env      (add your keys, Ctrl+O Enter Ctrl+X)"
 echo "  2. cd $APP/daytrader && .venv/bin/python -m trader.main scan     (check it works)"
 echo "  3. systemctl start daytrader     (runs every trading morning from now on)"
