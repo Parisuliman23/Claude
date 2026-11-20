@@ -56,30 +56,69 @@ class AlpacaClient:
         self.http.delete(f"{self.trade_url}/v2/orders/{oid}")
 
 
+SEC_UA = "daytrader-agent research-bot"  # SEC rejects some formats (e.g. with parentheses)
+
+
 class FloatLookup:
-    """Shares float via Financial Modeling Prep (optional). Cached for the day."""
+    """Share float for pillar 5. Cached per run.
+
+    1. Financial Modeling Prep float (FMP_API_KEY). The free plan only covers large
+       companies, so small caps usually fall through to step 2.
+    2. SEC EDGAR shares outstanding (free, no key). Outstanding >= float, so it is an
+       upper bound: outstanding under the limit means the float is too.
+    """
 
     def __init__(self, http: httpx.Client | None = None):
         self.key = os.environ.get("FMP_API_KEY")
         self.http = http or httpx.Client(timeout=10)
-        self.cache: dict[str, float | None] = {}
+        self.cache: dict[str, dict] = {}
+        self._ciks: dict[str, int] | None = None
 
-    def get(self, symbol: str) -> float | None:
+    def _fmp(self, symbol: str) -> float | None:
         if not self.key:
             return None
-        if symbol in self.cache:
-            return self.cache[symbol]
-        val = None
         try:
             r = self.http.get("https://financialmodelingprep.com/stable/shares-float",
                               params={"symbol": symbol, "apikey": self.key})
             rows = r.json() if r.status_code == 200 else []
             if rows and isinstance(rows, list):
-                val = rows[0].get("floatShares")
+                return rows[0].get("floatShares")
         except Exception:
-            val = None
-        self.cache[symbol] = val
-        return val
+            pass
+        return None
+
+    def _sec_outstanding(self, symbol: str) -> float | None:
+        try:
+            if self._ciks is None:
+                r = self.http.get("https://www.sec.gov/files/company_tickers.json",
+                                  headers={"User-Agent": SEC_UA})
+                self._ciks = {v["ticker"].upper(): v["cik_str"] for v in r.json().values()}
+            cik = self._ciks.get(symbol.upper())
+            if not cik:
+                return None
+            r = self.http.get(
+                f"https://data.sec.gov/api/xbrl/companyconcept/CIK{cik:010d}/dei/"
+                "EntityCommonStockSharesOutstanding.json", headers={"User-Agent": SEC_UA})
+            if r.status_code != 200:
+                return None
+            rows = (r.json().get("units") or {}).get("shares") or []
+            if not rows:
+                return None
+            latest = max(rows, key=lambda x: (x.get("filed", ""), x.get("end", "")))
+            return float(latest["val"])
+        except Exception:
+            return None
+
+    def info(self, symbol: str) -> dict:
+        if symbol not in self.cache:
+            flt = self._fmp(symbol)
+            out = None if flt else self._sec_outstanding(symbol)
+            self.cache[symbol] = {"float": flt, "outstanding": out,
+                                  "source": "fmp" if flt else ("sec_outstanding" if out else None)}
+        return self.cache[symbol]
+
+    def get(self, symbol: str) -> float | None:
+        return self.info(symbol)["float"]
 
 
 def session_start_ms(now: datetime | None = None) -> int:

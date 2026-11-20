@@ -35,7 +35,7 @@ every 5 s    ─► Code guard (no AI):
 | % change | up ≥10% today |
 | Relative volume | ≥5× the average |
 | Catalyst | news preferred; no-news movers get half size; buyouts/mergers skipped |
-| Float | <20M shares (needs a free FMP key to check) |
+| Float | <20M shares (free SEC data, no key; FMP's paid plan gives exact float) |
 
 ### Entry, stop, exit
 - **Entry:** first pullback after the first move up. Buy when a green candle breaks
@@ -63,7 +63,9 @@ every 5 s    ─► Code guard (no AI):
 
 1. Make a free account at **alpaca.markets** and open the **Paper Trading**
    dashboard. Generate API keys there.
-2. Optional: free API key at **financialmodelingprep.com** for float data.
+2. Float data needs nothing: small caps are checked against free SEC data (shares
+   outstanding, a slight overestimate of float). An FMP key is optional; its free plan only
+   covers big companies, so it only helps on a paid plan.
 3. Install and configure:
    ```bash
    cd daytrader

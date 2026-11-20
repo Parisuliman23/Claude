@@ -115,14 +115,32 @@ class Scanner:
                     age = _hours_since(news[0].get("time"))
                     c["latest_news_hours_ago"] = round(age, 1) if age is not None else None
 
-                flt = self.market.floats.get(sym)
+                fl = self.market.floats
+                info = fl.info(sym) if hasattr(fl, "info") else {"float": fl.get(sym), "outstanding": None}
+                flt, outstanding = info.get("float"), info.get("outstanding")
                 c["float_shares"] = flt
-                if flt is None:
+                if flt is None and outstanding:
+                    c["shares_outstanding"] = outstanding
+                    if outstanding <= s.max_float:
+                        p["float"] = True   # float <= outstanding <= limit
+                        flt = outstanding   # upper bound, good enough for rotation
+                        c["flags"].append(f"float from SEC shares outstanding ({outstanding/1e6:.1f}M, "
+                                          "an upper bound)")
+                    elif outstanding > 2 * s.max_float:
+                        p["float"] = False  # float almost certainly over the limit
+                        c["flags"].append(f"{outstanding/1e6:.0f}M shares outstanding: float almost "
+                                          "certainly too big")
+                    else:
+                        p["float"] = None
+                        c["flags"].append(f"{outstanding/1e6:.1f}M shares outstanding: float probably near "
+                                          "the 20M limit, check it")
+                elif flt is None:
                     p["float"] = None  # unknown
-                    c["flags"].append("float unknown (set FMP_API_KEY to check it)")
+                    c["flags"].append("float unknown")
                 else:
                     p["float"] = flt <= s.max_float
-                    if c.get("day_volume") and flt:
+                if flt:
+                    if c.get("day_volume"):
                         c["float_rotation_x"] = round(c["day_volume"] / flt, 2)
                     if flt <= 5_000_000:
                         c["flags"].append("sub-5M float: 'rocket fuel' but extremely volatile")

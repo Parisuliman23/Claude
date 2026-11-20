@@ -342,3 +342,15 @@ def test_exit_on_first_candle_making_new_low(setup):
         tools_mod.time.time = real
     assert "ETH/USD" not in broker.positions
     assert "new low" in broker.realized[-1]["reason"]
+
+
+def test_scanner_uses_sec_shares_outstanding_when_float_missing(tmp_path):
+    m = FakeStockMarket()
+    sec = {"WISA": 3e6, "BIG": 90e6, "NONEWS": 30e6}
+    m.floats = type("F", (), {"info": lambda self, s: {"float": None, "outstanding": sec.get(s)}})()
+    cfg = Config(market="stocks", symbols=[], state_dir=tmp_path, scanner=ScannerConfig())
+    res = {c["symbol"]: c for c in Scanner(cfg, m).scan()}
+    assert res["WISA"]["pillars"]["float"] is True          # 3M outstanding -> float < 20M
+    assert res["BIG"]["pillars"]["float"] is False          # 90M outstanding -> too big
+    assert res["NONEWS"]["pillars"]["float"] is None        # 30M: near the line, flagged not blocked
+    assert any("check it" in f for f in res["NONEWS"]["flags"])
