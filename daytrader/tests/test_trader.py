@@ -451,3 +451,20 @@ def test_account_size_makes_100k_paper_behave_like_10k(tmp_path):
     assert b2.equity() == 10_450
     b3 = AlpacaBroker(FakeMkt(c), tmp_path / "x.json", account_size=None)
     assert b3.equity() == 100_450                 # no override = real balance
+
+
+def test_monte_carlo_sessions_hold_all_invariants():
+    """Quick version of tools/simulate.py: 60 randomized sessions through the real agent code."""
+    import random, sys, time as _t
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import simulate as S
+    real = _t.time
+    try:
+        rng = random.Random(42)
+        problems = []
+        for i in range(60):
+            res = S.run_session(rng, 1 if i % 2 == 0 else rng.randint(2, 5), rng.choice([0.25, 1.0]))
+            problems += res["violations"]
+    finally:
+        _t.time = real
+    assert problems == [], problems[:5]
