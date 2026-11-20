@@ -22,6 +22,11 @@ case "$1" in
   stop)    systemctl stop daytrader && echo "Trading is OFF." ;;
   dash)
     tok=$(grep -E "^DASHBOARD_TOKEN=" .env | tail -1 | cut -d= -f2)
+    if [ -z "$tok" ]; then  # create it here instead of waiting for the agent
+      tok=$(.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(18))")
+      printf '\nDASHBOARD_TOKEN=%s\n' "$tok" >> .env
+      systemctl restart daytrader; sleep 3
+    fi
     ip=$(curl -s --max-time 3 http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address || hostname -I | cut -d" " -f1)
     if [ -z "$tok" ]; then echo "Start the agent first (t start), then run t dash again."; else
       echo "Open this on your phone (keep it private):"; echo; echo "  http://$ip:8080/?token=$tok"; fi ;;
