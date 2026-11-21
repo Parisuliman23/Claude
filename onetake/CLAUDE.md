@@ -96,6 +96,10 @@ Run `python3 -m engine` with no arguments for the full list.
      Videos) and carry on with white panels/graphics instead. Name searches by what's literally on screen ("red stock
      ticker falling"). **Real archival footage** (old trading floors, newsreels, a crash): `archive-find "stock
      exchange"` → `archive-preview ID` (look at it) → `archive-clip ID --start 95 --dur 6` (public domain only).
+   - **Real photos of places, companies and people** (the NYSE floor, the Fed, a company's HQ/fab, a CEO): `commons-find
+     "Jensen Huang" --n 2` (Wikimedia Commons, no key, commercial-OK licences only) → `library/images/`. Show people as a
+     full-screen or split photo + name label (STYLE.md reference). Many need a credit: after the edit run `credits NAME` and
+     put the lines in your summary so the user pastes them into the caption. (Commons video downloads are usually refused.)
    - **Check every clip before you place it**: `python3 -m engine broll-check library/broll/a.mp4 …` makes one contact
      sheet; Read it and use only clips that clearly show what's being said (drop vague, off-topic or watermarked ones).
    - **Real stock charts**: when a stock's price, a crash or a run-up is mentioned, `price-fetch NVDA 1y` then the

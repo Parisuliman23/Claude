@@ -49,6 +49,9 @@
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  commons-find "NYSE trading floor" [--n 3] [--json '{"type": "video"}']   real photos/videos (Wikimedia Commons, no key):
+                            places, company HQs, CEOs. Photos -> library/images, videos -> library/broll (commercial-OK licences only)
+  credits NAME              the credit lines a reel needs (Commons CC BY files), ready to paste into the caption
   variants NAME [STYLE ...] make extra versions of an edit (default: class + the style-pick), each its own project
   list                      list projects
 """
@@ -316,6 +319,21 @@ WantedBy=default.target
         except stock.NoKey as e:
             raise SystemExit(str(e))
         print("\n".join(got) or "Nothing found. Try simpler words.")
+        return
+    if c == "commons-find":  # real photos / videos from Wikimedia Commons (no key)
+        from . import commons
+        kind = (json.loads(a.json) if a.json else {}).get("type", "photo")
+        got = commons.search(" ".join(args), a.n or 3, "video" if kind == "video" else "photo")
+        msg = "Nothing usable found (or only non-commercial licences). Try other words."
+        if kind == "video" and not got:
+            msg += (" Note: Wikimedia often refuses video downloads from apps without contact details (HTTP 429);"
+                    " use archive-find / broll-find for footage and commons-find for photos.")
+        print("\n".join(got) or msg)
+        return
+    if c == "credits":  # credit lines this reel needs (CC BY photos/videos)
+        from . import commons
+        lines = commons.reel_credits(project.load(args[0]))
+        print("\n".join(lines) if lines else "No credits needed for this reel.")
         return
     if c == "style-pick":  # which editing style fits this video (notebook / motion / mix)
         from . import stylepick
