@@ -100,6 +100,10 @@ Run `python3 -m engine` with no arguments for the full list.
      "Jensen Huang" --n 2` (Wikimedia Commons, no key, commercial-OK licences only) → `library/images/`. Show people as a
      full-screen or split photo + name label (STYLE.md reference). Many need a credit: after the edit run `credits NAME` and
      put the lines in your summary so the user pastes them into the caption. (Commons video downloads are usually refused.)
+   - **B-roll must SHOW the words** (user, Nov 22 2026: no random construction/factory clips). Rules + the TSMC practice run:
+     `lookbook/style/09-broll-relevance.md`. Search the library by what clips really show: `broll-index "chips wafer"`
+     (`library/broll/index.json`; never trust a filename). Specific beats generic: logos, real photos (`commons-find`),
+     charts; a white panel with the words beats a vague clip. Describe every new clip after checking it: `broll-describe`.
    - **Check every clip before you place it**: `python3 -m engine broll-check library/broll/a.mp4 …` makes one contact
      sheet; Read it and use only clips that clearly show what's being said (drop vague, off-topic or watermarked ones).
    - **Real stock charts**: when a stock's price, a crash or a run-up is mentioned, `price-fetch NVDA 1y` then the

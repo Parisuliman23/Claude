@@ -105,7 +105,9 @@ def search(query, n=5, max_secs=30, fetch=_get):
         f = best_file(h)
         if not f:
             continue
-        dest = out_dir / f"{slug(query)}-{h['id']}.mp4"
+        # neutral name: the search words are NOT what's in the clip (Pixabay results are often off-topic), so a
+        # filename must never pass for a description. What it really shows goes in library/broll/index.json.
+        dest = out_dir / f"pixabay-{h['id']}.mp4"
         if not dest.exists():
             req = urllib.request.Request(f["url"], headers={"User-Agent": "OneTakeStudio/1.0"})
             tmp = dest.with_suffix(".part")
@@ -119,7 +121,52 @@ def search(query, n=5, max_secs=30, fetch=_get):
         credits[dest.name] = {"by": h.get("user"), "url": h.get("pageURL"), "source": "Pixabay", "search": query}
         got.append(config.rel(dest))
     cf.write_text(json.dumps(credits, indent=1))
+    index_unchecked([config.absolute(g).name for g in got], query)
     return got
+
+
+def index_file():
+    return config.LIBRARY / "broll" / "index.json"
+
+
+def load_index():
+    f = index_file()
+    return json.loads(f.read_text()) if f.exists() else {}
+
+
+def index_unchecked(names, query):
+    """New clips go in the index as NOT CHECKED until someone has looked at them (broll-check) and written what they
+    really show with `broll-describe`."""
+    idx = load_index()
+    for n in names:
+        idx.setdefault(n, {"shows": None, "searched_for": query, "checked": False})
+    index_file().write_text(json.dumps(idx, indent=1))
+
+
+def describe(name, shows, use_for=(), not_for=(), avoid=False):
+    idx = load_index()
+    e = idx.setdefault(name, {})
+    e.update({"shows": shows, "use_for": list(use_for), "not_for": list(not_for), "checked": True})
+    if avoid:
+        e["avoid"] = True
+    else:
+        e.pop("avoid", None)
+    index_file().write_text(json.dumps(idx, indent=1))
+
+
+def find_in_index(words):
+    """Clips whose real description / uses match the words (checked, not 'avoid'), best first."""
+    ws = [w for w in re.split(r"\W+", words.lower()) if len(w) > 2]
+    out = []
+    for name, e in load_index().items():
+        if name.startswith("_") or not isinstance(e, dict) or e.get("avoid") or not e.get("shows"):
+            continue
+        text = " ".join([e.get("shows", "")] + list(e.get("use_for", []))).lower()
+        bad = " ".join(e.get("not_for", [])).lower()
+        score = sum(w in text for w in ws) - 2 * sum(w in bad for w in ws) - (0.5 if e.get("weak") else 0)
+        if score > 0:
+            out.append((score, name, e))
+    return sorted(out, key=lambda x: -x[0])
 
 
 IMG_API = "https://pixabay.com/api/"

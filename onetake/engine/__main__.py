@@ -49,6 +49,8 @@
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  broll-index "chips factory"  find B-roll by what clips REALLY show (library/broll/index.json); lists unchecked clips
+  broll-describe FILE --json '{"shows": "...", "use_for": [...], "not_for": [...]}'   write what a clip shows (after broll-check)
   commons-find "NYSE trading floor" [--n 3] [--json '{"type": "video"}']   real photos/videos (Wikimedia Commons, no key):
                             places, company HQs, CEOs. Photos -> library/images, videos -> library/broll (commercial-OK licences only)
   credits NAME              the credit lines a reel needs (Commons CC BY files), ready to paste into the caption
@@ -319,6 +321,23 @@ WantedBy=default.target
         except stock.NoKey as e:
             raise SystemExit(str(e))
         print("\n".join(got) or "Nothing found. Try simpler words.")
+        return
+    if c == "broll-index":  # search the library by what clips REALLY show (library/broll/index.json)
+        from . import stock
+        if args:
+            hits = stock.find_in_index(" ".join(args))
+            for sc, name, e in hits[:12]:
+                print(f"  library/broll/{name}  ({sc:g})  {e['shows']}" + ("  [weak]" if e.get("weak") else ""))
+            print("" if hits else "No checked clip shows that. Try broll-find / commons-find / archive-find.")
+        unchecked = [n for n, e in stock.load_index().items() if isinstance(e, dict) and not e.get("shows")]
+        if unchecked:
+            print("NOT CHECKED yet (look at them with broll-check, then broll-describe):", ", ".join(unchecked))
+        return
+    if c == "broll-describe":  # broll-describe FILE --json '{"shows": "...", "use_for": [...], "not_for": [...], "avoid": false}'
+        from . import stock
+        j = json.loads(a.json or "{}")
+        stock.describe(Path(args[0]).name, j["shows"], j.get("use_for", []), j.get("not_for", []), j.get("avoid", False))
+        print("Saved.")
         return
     if c == "commons-find":  # real photos / videos from Wikimedia Commons (no key)
         from . import commons

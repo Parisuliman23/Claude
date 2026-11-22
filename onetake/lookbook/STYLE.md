@@ -262,4 +262,11 @@ their style; they override the Notebook/Class looks unless the user asks for tho
 - Video quality comes from filming, not filters: no filter by default. After every import, tell me the footage-check tips (daylight on my face, background with depth, back camera, HDR off). Guide: `lookbook/style/06-clear-footage.md`.
 - Re-filmed script (a new take of an earlier reel): edit it FRESH, like a brand-new video, with style-pick and my current preferences. Don't copy the old reel's edit unless I ask (Nov 17, 2026: I didn't like the copied version).
 - One version per reel for now, in my reference style (the Chromebook can't handle two). Back to two on a new laptop.
+- When I say **"I got a new laptop"**: resume everything paused for the Chromebook (two versions per reel again, heavier work OK).
+- Lists/checklists get footage too: when a list pops in (e.g. "TSMC makes chips for: data centers, phones, PCs, cars"),
+  give EACH item its own split-screen B-roll clip that cuts in on the same word the item appears (`"at": [{"w": …}]` on the
+  list = the cut-away's `w0`). Pick darker clips so the white list text stays readable on top.
+- B-roll must show EXACTLY what I'm saying: no random construction / factory / office clips for a specific claim. Named
+  company = its logo, real photo of its factory/product, or chart; chips = chips/wafers/fabs; AI = data centers/GPUs.
+  If nothing specific exists, use a panel with the words instead of a vague clip (`lookbook/style/09-broll-relevance.md`).
 - (Claude adds preferences here as it learns them.)
