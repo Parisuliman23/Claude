@@ -49,3 +49,19 @@ Fixed: new downloads are named `pixabay-<id>.mp4`, and `library/broll/index.json
 | data center | a data center |
 | a price, a run-up, a crash, "investors love this stock" | a real chart: `price-fetch TICKER 1y` + `stock_chart` |
 | cars / phones / electronics | that product clearly in shot |
+
+## Simulation 1 (practice reel, Nov 22 2026): what changed
+| Said | Before | After | Why |
+|---|---|---|---|
+| "somebody's gotta make them" | textile production line | aerial chip-fab campus (photo) | category: chip factory |
+| "manufacture a ton of these" | KUKA robot arms | yellow chip clean room (photo) | chips are made in clean rooms |
+| "with extreme precision" | biology lab | silicon wafer close-up (photo) | precision = the wafer itself |
+| "TSMC operates … a semiconductor foundry" | textile line | **TSMC's own fab** (photo) | exact company first |
+| "TSMC are the ones manufacturing the chips" | worker under heavy machinery | clean-room worker in a bunny suit (photo) | category: chip making |
+| "guess which AI application wins" | blurry car dashboard | no clip: the "NO NEED TO GUESS" title on the speaker | nothing in the library shows guessing; better none than wrong |
+| "AI" (list) | robot arms | data-center aisle (photo) | AI = data centers |
+| "cars" (list) | empty street, tiny car | car driving across a desert | the car clearly in shot |
+Kept (already right): chip close-ups, server-room clip, money bundles, logos, TSM chart, white panels.
+Credits this edit needs: 4 photo credit lines (`credits NAME`).
+Library gap found: nothing for "guessing / gambling / which one wins" — the weekly routine should look for a real
+slot machine, roulette or dice clip.

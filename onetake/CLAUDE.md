@@ -168,6 +168,15 @@ Run `python3 -m engine` with no arguments for the full list.
 9. Don't render the final reel yourself unless asked — that's the user's "lock in" moment.
    (If they ask: `python3 -m engine render NAME`.)
 
+## The user's cloned voice (ElevenLabs)
+
+The user's own voice is cloned in ElevenLabs (professional clone, 30 min of audio). The key is ONLY in `settings.json`
+(`elevenlabs_key`; never commit, print or send it anywhere else). `voice-say "text"` makes a line in their voice;
+`voice-add NAME --json '{"text": "...", "w": 120}'` puts it in a reel at a word (its own full-volume track, `voiceovers`).
+Use it to fix a misspoken word or add a line: cut the original words and cover that moment with a cut-away/split screen
+so lips aren't visible; or for voiceover-only reels. Only the user's own voice, only when they ask. Each call is capped at
+1,200 characters and counted (`elevenlabs_chars`).
+
 ## Studio requests
 
 The studio sends requests to you ("make a count-up look", "write my carousel", "make it spin in").

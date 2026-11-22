@@ -307,6 +307,16 @@ def _audio(p, segs, T, out):
                       f"adelay={ms}:all=1[fx{k}]")
             mix.append(f"[fx{k}]")
             n_in += 1
+    if p.get("voiceovers"):  # lines in the user's cloned voice (engine/voice.py), at full volume, on their word
+        from . import sfx
+        for k, (vo, t) in enumerate(sfx.times({**p, "sfx": p["voiceovers"]}, segs)):
+            path = config.absolute(vo["src"]) if vo.get("src") else None
+            if vo.get("muted") or not path or not path.exists() or t >= T:
+                continue
+            cmd += ["-i", str(path)]
+            fl.append(f"[{n_in}:a]aresample=48000,volume={float(vo.get('volume', 1.0)):.3f},adelay={int(t * 1000)}:all=1[vo{k}]")
+            mix.append(f"[vo{k}]")
+            n_in += 1
     if len(mix) > 1:
         fl.append("".join(mix) + f"amix=inputs={len(mix)}:normalize=0:duration=first[out]")
     else:

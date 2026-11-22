@@ -16,7 +16,7 @@ answer questions; decide yourself. Work in this order and keep it small (the Chr
    floor; red market crash screen; green rising stock chart screen; AI data center / GPU racks; chip clean room / wafer;
    bank / Federal Reserve; cash / paying bills / debt; real estate / houses; inflation / grocery prices; big tech HQs
    (Apple, Microsoft, Amazon, Google, Tesla, NVIDIA); famous CEOs and investors (Jensen Huang, Elon Musk, Tim Cook,
-   Satya Nadella, Warren Buffett, Jerome Powell); oil / energy; crypto / bitcoin; electric cars; smartphones;
+   Satya Nadella, Warren Buffett, Jerome Powell); gambling / guessing (a REAL slot machine, roulette wheel or dice: the library has none); oil / energy; crypto / bitcoin; electric cars; smartphones;
    US MARKETS: the NYSE building and trading floor; the Nasdaq MarketSite tower in Times Square; Wall Street sign and
    Charging Bull; S&P 500 and Nasdaq (index funds, 'the market', ticker boards); for their price moves use real charts
    (price-fetch ^GSPC / ^IXIC / SPY / QQQ + the stock_chart look) rather than footage.

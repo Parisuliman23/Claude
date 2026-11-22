@@ -49,6 +49,8 @@
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  voice-say "text"          make a line in the user's cloned voice (ElevenLabs; key only in settings.json) -> library/voice/
+  voice-add NAME --json '{"text": "...", "w": 120}'   put a line in their voice into a reel at a word (full volume)
   broll-cloud status | push FILE… [--keep] | pull FILE…   the checked B-roll library in Google Drive (One Take/B-roll Library)
   learned [N]               what the user changed after Claude's edits (learned taste); read it before every edit
   broll-index "chips factory"  find B-roll by what clips REALLY show (library/broll/index.json); lists unchecked clips
@@ -323,6 +325,22 @@ WantedBy=default.target
         except stock.NoKey as e:
             raise SystemExit(str(e))
         print("\n".join(got) or "Nothing found. Try simpler words.")
+        return
+    if c == "voice-say":  # a line in the user's cloned voice (ElevenLabs) -> library/voice/*.mp3
+        from . import voice
+        print(voice.say(" ".join(args)))
+        print(voice.usage())
+        return
+    if c == "voice-add":  # voice-add NAME --json '{"text": "...", "w": 120, "offset": 0, "volume": 1.0}'
+        from . import voice
+        j = json.loads(a.json)
+        mp3 = voice.say(j["text"])
+        entry = {"src": config.rel(mp3), "anchor": {"w": int(j["w"])}, "offset": float(j.get("offset", 0)),
+                 "volume": float(j.get("volume", 1.0)), "text": j["text"], "id": project.new_id("v")}
+        project.update(args[0], lambda p: (p.setdefault("voiceovers", []).append(entry),
+                                           p.update({"edit_rev": p.get("edit_rev", 0) + 1})))
+        print(f"Added your voice saying \"{j['text']}\" at word {j['w']} ({entry['id']}). {voice.usage()}")
+        print("Tip: cut the original words there (cut NAME A-B) and cover the spot with a cut-away so lips aren't seen.")
         return
     if c == "broll-cloud":  # broll-cloud status | push FILE… [--keep] | pull FILE…
         from . import cloudlib
