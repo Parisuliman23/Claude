@@ -50,6 +50,7 @@
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
   voice-say "text"          make a line in the user's cloned voice (ElevenLabs; key only in settings.json) -> library/voice/
+  voice-swap VIDEO [OUT]    re-voice a finished video in the user's cloned voice, same timing (ElevenLabs Speech to Speech)
   voice-add NAME --json '{"text": "...", "w": 120}'   put a line in their voice into a reel at a word (full volume)
   broll-cloud status | push FILE… [--keep] | pull FILE…   the checked B-roll library in Google Drive (One Take/B-roll Library)
   learned [N]               what the user changed after Claude's edits (learned taste); read it before every edit
@@ -330,6 +331,22 @@ WantedBy=default.target
         from . import voice
         print(voice.say(" ".join(args)))
         print(voice.usage())
+        return
+    if c == "voice-swap":  # voice-swap VIDEO [OUT]: re-voice a finished video in the user's cloned voice (same timing)
+        import tempfile
+        from . import voice
+        src = Path(args[0])
+        out = Path(args[1]) if len(args) > 1 else config.LIBRARY / "voice" / f"{src.stem[:40]}-my-voice.mp4"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory() as td:
+            a_in, a_out = Path(td) / "in.mp3", Path(td) / "out.mp3"
+            subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-vn", "-ac", "1", "-ar", "44100",
+                            "-b:a", "192k", str(a_in)], check=True)
+            voice.convert(a_in, a_out)
+            subprocess.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(src), "-i", str(a_out), "-map", "0:v:0",
+                            "-map", "1:a:0", "-c:v", "copy", "-af", "loudnorm=I=-14:TP=-1.5:LRA=11", "-c:a", "aac", "-b:a", "192k",
+                            "-ar", "48000", "-shortest", "-movflags", "+faststart", str(out)], check=True)
+        print("Saved", config.rel(out), "(the original's background music is not kept: only the voice is re-done)")
         return
     if c == "voice-add":  # voice-add NAME --json '{"text": "...", "w": 120, "offset": 0, "volume": 1.0}'
         from . import voice

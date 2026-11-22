@@ -82,3 +82,25 @@ def say(text, out=None, voice=None, stability=0.5, similarity=0.85, style=0.2):
 def usage():
     st = _settings()[1]
     return f"Characters used by One Take so far: {st.get('elevenlabs_chars', 0)}"
+
+
+def convert(audio_in, out, voice=None, model="eleven_multilingual_sts_v2", remove_noise=False):
+    """Speech to Speech: re-voice an existing recording as the user (same timing, pauses and emphasis)."""
+    import uuid
+    from pathlib import Path
+    vid = voice or default_voice()
+    data = Path(audio_in).read_bytes()
+    b = uuid.uuid4().hex
+    parts = []
+    for k, v in (("model_id", model), ("remove_background_noise", "true" if remove_noise else "false"),
+                 ("voice_settings", json.dumps({"stability": 0.5, "similarity_boost": 0.9, "style": 0.0,
+                                                "use_speaker_boost": True}))):
+        parts.append(f'--{b}\r\nContent-Disposition: form-data; name="{k}"\r\n\r\n{v}\r\n'.encode())
+    parts.append(f'--{b}\r\nContent-Disposition: form-data; name="audio"; filename="in.mp3"\r\n'
+                 f'Content-Type: audio/mpeg\r\n\r\n'.encode() + data + b"\r\n")
+    parts.append(f"--{b}--\r\n".encode())
+    req = urllib.request.Request(f"{API}/speech-to-speech/{vid}?output_format=mp3_44100_192", data=b"".join(parts),
+                                 headers={"xi-api-key": key(), "Content-Type": f"multipart/form-data; boundary={b}"})
+    with urllib.request.urlopen(req, timeout=600) as r:
+        Path(out).write_bytes(r.read())
+    return out
