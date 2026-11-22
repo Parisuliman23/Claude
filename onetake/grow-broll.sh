@@ -17,6 +17,9 @@ answer questions; decide yourself. Work in this order and keep it small (the Chr
    bank / Federal Reserve; cash / paying bills / debt; real estate / houses; inflation / grocery prices; big tech HQs
    (Apple, Microsoft, Amazon, Google, Tesla, NVIDIA); famous CEOs and investors (Jensen Huang, Elon Musk, Tim Cook,
    Satya Nadella, Warren Buffett, Jerome Powell); oil / energy; crypto / bitcoin; electric cars; smartphones;
+   US MARKETS: the NYSE building and trading floor; the Nasdaq MarketSite tower in Times Square; Wall Street sign and
+   Charging Bull; S&P 500 and Nasdaq (index funds, 'the market', ticker boards); for their price moves use real charts
+   (price-fetch ^GSPC / ^IXIC / SPY / QQQ + the stock_chart look) rather than footage.
    CANADIAN INVESTING (the user is in Canada, teach-style reels): opening an investment account on a phone or laptop;
    TFSA (tax-free savings); RRSP (retirement saving, older couple planning); FHSA (first home: young couple, keys, house);
    RESP (saving for a child's education: kids, school, graduation); ETFs / index investing; dividends; compound growth;
