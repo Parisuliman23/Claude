@@ -107,6 +107,11 @@ Run `python3 -m engine` with no arguments for the full list.
      `lookbook/style/09-broll-relevance.md`. Search the library by what clips really show: `broll-index "chips wafer"`
      (`library/broll/index.json`; never trust a filename). Specific beats generic: logos, real photos (`commons-find`),
      charts; a white panel with the words beats a vague clip. Describe every new clip after checking it: `broll-describe`.
+   - **Cloud B-roll library** (Google Drive "One Take/B-roll Library"): checked clips and photos live there so the Chromebook
+     stays light. `broll-index` searches it too (results marked `cloud:`); `add-broll`/`add-overlay`/renders copy a cloud file
+     down automatically, or `broll-cloud pull FILE`. Move checked, unused clips up with `broll-cloud push FILE…`.
+     `grow-broll.sh` runs every Sunday 19:47 (systemd user timer `onetake-broll.timer`): Claude adds checked clips/photos on
+     4 weak topics by itself; log in `projects/.grow-broll.log`. It skips when a reel is being edited or disk is low.
    - **Check every clip before you place it**: `python3 -m engine broll-check library/broll/a.mp4 …` makes one contact
      sheet; Read it and use only clips that clearly show what's being said (drop vague, off-topic or watermarked ones).
    - **Real stock charts**: when a stock's price, a crash or a run-up is mentioned, `price-fetch NVDA 1y` then the

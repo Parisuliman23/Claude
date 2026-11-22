@@ -162,8 +162,14 @@ def find_in_index(words):
     items = [(n, e, "broll") for n, e in load_index().items()]
     if imgs.exists():
         items += [(n, e, "images") for n, e in json.loads(imgs.read_text()).items()]
+    try:  # the cloud library in Google Drive (pull before use)
+        from . import cloudlib
+        local = {n for n, e, _ in items if isinstance(e, dict) and not e.get("in_cloud")}
+        items += [(n, e, "cloud") for n, e in cloudlib.load().items() if n not in local]
+    except Exception:  # noqa: BLE001
+        pass
     for name, e, folder in items:
-        if name.startswith("_") or not isinstance(e, dict) or e.get("avoid") or not e.get("shows"):
+        if name.startswith("_") or not isinstance(e, dict) or e.get("avoid") or not e.get("shows") or e.get("in_cloud"):
             continue
         text = " ".join([e.get("shows", "")] + list(e.get("use_for", []))).lower()
         bad = " ".join(e.get("not_for", [])).lower()

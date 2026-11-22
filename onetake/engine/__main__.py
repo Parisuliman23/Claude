@@ -49,6 +49,7 @@
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  broll-cloud status | push FILE… [--keep] | pull FILE…   the checked B-roll library in Google Drive (One Take/B-roll Library)
   learned [N]               what the user changed after Claude's edits (learned taste); read it before every edit
   broll-index "chips factory"  find B-roll by what clips REALLY show (library/broll/index.json); lists unchecked clips
   broll-describe FILE --json '{"shows": "...", "use_for": [...], "not_for": [...]}'   write what a clip shows (after broll-check)
@@ -323,6 +324,15 @@ WantedBy=default.target
             raise SystemExit(str(e))
         print("\n".join(got) or "Nothing found. Try simpler words.")
         return
+    if c == "broll-cloud":  # broll-cloud status | push FILE… [--keep] | pull FILE…
+        from . import cloudlib
+        sub = args[0] if args else "status"
+        if sub == "push":
+            print("Moved to the cloud:", ", ".join(cloudlib.push(args[1:], keep_local=a.keep)) or "nothing")
+        elif sub == "pull":
+            print("\n".join(cloudlib.pull(args[1:])) or "Nothing pulled.")
+        print(cloudlib.status())
+        return
     if c == "learned":  # what One Take has learned from the user's own studio changes
         from . import learn
         print(learn.summary(int(args[0]) if args else 40))
@@ -332,7 +342,7 @@ WantedBy=default.target
         if args:
             hits = stock.find_in_index(" ".join(args))
             for sc, name, e in hits[:12]:
-                print(f"  library/{name}  ({sc:g})  {e['shows']}" + ("  [weak]" if e.get("weak") else ""))
+                print(f"  {'cloud:' + name.split('/', 1)[1] + '  (pull it first)' if name.startswith('cloud/') else 'library/' + name}  ({sc:g})  {e['shows']}" + ("  [weak]" if e.get("weak") else ""))
             print("" if hits else "No checked clip shows that. Try broll-find / commons-find / archive-find.")
         unchecked = [n for n, e in stock.load_index().items() if isinstance(e, dict) and not e.get("shows")]
         if unchecked:
@@ -393,6 +403,9 @@ WantedBy=default.target
         def fn(p):
             if c == "add-overlay":
                 ov = json.loads(a.json)
+                if ov.get("src") and not config.absolute(ov["src"]).exists():  # photo in the Google Drive library
+                    from . import cloudlib
+                    cloudlib.pull([ov["src"]])
                 ov.setdefault("id", project.new_id())
                 for k, d in (("x", 0.5), ("y", 0.4), ("scale", 1.0 if ov.get("kind") == "look" else 0.45),
                              ("anim_in", "snap"), ("anim_out", "none"), ("min_dur", 1.2)):
@@ -516,6 +529,9 @@ WantedBy=default.target
         b.setdefault("w1", b["w0"])
         b.setdefault("clip_start", 0)
         b.setdefault("layout", "full")
+        if b.get("src") and not config.absolute(b["src"]).exists():  # in the Google Drive library? copy it down first
+            from . import cloudlib
+            cloudlib.pull([b["src"]])
         if b.get("src") and config.absolute(b["src"]).suffix.lower() in config.VIDEO_EXT and "clip_start" not in json.loads(a.json):
             from . import analyze
             p0 = project.load(args[0])

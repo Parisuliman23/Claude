@@ -106,6 +106,12 @@ def _reader(src):
     if not src:
         return None  # a plain colour panel
     path = config.absolute(src)
+    if not path.exists():  # moved to the Google Drive B-roll library: copy it back for this render
+        try:
+            from . import cloudlib
+            cloudlib.pull([src])
+        except Exception:  # noqa: BLE001
+            pass
     return StillReader(path) if path.suffix.lower() in config.IMAGE_EXT else FrameReader(path)
 
 
