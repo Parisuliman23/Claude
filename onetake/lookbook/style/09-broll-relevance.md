@@ -32,3 +32,14 @@ Fixed: new downloads are named `pixabay-<id>.mp4`, and `library/broll/index.json
    specific exists, use a white panel with the key words, a logo or a chart instead of a vague clip.
 5. **Industry words**: chips / semiconductors / foundry / wafers → chip or wafer macro shots, a fab or clean-room
    PHOTO, never a generic production line. AI → data centers / GPUs / servers, not industrial robots.
+
+## Same CATEGORY is enough (user, Nov 22 2026)
+"It doesn't have to be the exact TSMC factory, another chipmaker's factory is fine, just keep it similar."
+| They say… | Show |
+|---|---|
+| a chipmaker (TSMC, Intel fabs, Samsung…) / "manufacture the chips" / foundry | any chip fab, clean room, wafer, lithography machine |
+| AI | AI factories / data centers / GPU racks |
+| compute | servers, GPUs, data-center racks |
+| data center | a data center |
+| a price, a run-up, a crash, "investors love this stock" | a real chart: `price-fetch TICKER 1y` + `stock_chart` |
+| cars / phones / electronics | that product clearly in shot |

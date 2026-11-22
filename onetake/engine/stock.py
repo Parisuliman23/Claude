@@ -158,14 +158,18 @@ def find_in_index(words):
     """Clips whose real description / uses match the words (checked, not 'avoid'), best first."""
     ws = [w for w in re.split(r"\W+", words.lower()) if len(w) > 2]
     out = []
-    for name, e in load_index().items():
+    imgs = config.LIBRARY / "images" / "index.json"  # real photos (commons-find) count too
+    items = [(n, e, "broll") for n, e in load_index().items()]
+    if imgs.exists():
+        items += [(n, e, "images") for n, e in json.loads(imgs.read_text()).items()]
+    for name, e, folder in items:
         if name.startswith("_") or not isinstance(e, dict) or e.get("avoid") or not e.get("shows"):
             continue
         text = " ".join([e.get("shows", "")] + list(e.get("use_for", []))).lower()
         bad = " ".join(e.get("not_for", [])).lower()
         score = sum(w in text for w in ws) - 2 * sum(w in bad for w in ws) - (0.5 if e.get("weak") else 0)
         if score > 0:
-            out.append((score, name, e))
+            out.append((score, f"{folder}/{name}", e))
     return sorted(out, key=lambda x: -x[0])
 
 

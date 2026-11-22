@@ -327,7 +327,7 @@ WantedBy=default.target
         if args:
             hits = stock.find_in_index(" ".join(args))
             for sc, name, e in hits[:12]:
-                print(f"  library/broll/{name}  ({sc:g})  {e['shows']}" + ("  [weak]" if e.get("weak") else ""))
+                print(f"  library/{name}  ({sc:g})  {e['shows']}" + ("  [weak]" if e.get("weak") else ""))
             print("" if hits else "No checked clip shows that. Try broll-find / commons-find / archive-find.")
         unchecked = [n for n, e in stock.load_index().items() if isinstance(e, dict) and not e.get("shows")]
         if unchecked:

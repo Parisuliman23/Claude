@@ -266,7 +266,9 @@ their style; they override the Notebook/Class looks unless the user asks for tho
 - Lists/checklists get footage too: when a list pops in (e.g. "TSMC makes chips for: data centers, phones, PCs, cars"),
   give EACH item its own split-screen B-roll clip that cuts in on the same word the item appears (`"at": [{"w": …}]` on the
   list = the cut-away's `w0`). Pick darker clips so the white list text stays readable on top.
-- B-roll must show EXACTLY what I'm saying: no random construction / factory / office clips for a specific claim. Named
-  company = its logo, real photo of its factory/product, or chart; chips = chips/wafers/fabs; AI = data centers/GPUs.
-  If nothing specific exists, use a panel with the words instead of a vague clip (`lookbook/style/09-broll-relevance.md`).
+- B-roll must match the KIND of thing I'm saying (not necessarily the exact company): TSMC / chip making -> any chip
+  factory, clean room or wafer (a different chipmaker's fab is fine); AI -> AI factories / data centers / GPUs;
+  compute -> servers, GPUs; data center -> data centers; prices / "the stock went up" -> a real live chart (stock_chart);
+  cars -> cars clearly in shot. Never a random construction / generic factory / office clip that's only "close enough".
+  If nothing fits, use a panel with the words, a logo or a chart (`lookbook/style/09-broll-relevance.md`).
 - (Claude adds preferences here as it learns them.)
