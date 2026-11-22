@@ -502,7 +502,16 @@ class Handler(BaseHTTPRequestHandler):
         if action is None:  # save
             b = self.jbody()
             try:
+                try:
+                    before = project.load(name)
+                except Exception:  # noqa: BLE001
+                    before = None
                 rev = project.save(name, b["project"], expect_rev=b.get("rev"))
+                try:  # One Take learns from what the user changes in the studio (engine/learn.py)
+                    from . import learn
+                    learn.record(name, before, b["project"])
+                except Exception:  # noqa: BLE001 — learning must never break saving
+                    pass
                 return self.send_json({"rev": rev})
             except project.ConflictError as e:
                 return self.send_json({"conflict": True, "rev": e.rev}, 409)

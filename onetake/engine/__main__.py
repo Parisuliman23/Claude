@@ -49,6 +49,7 @@
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  learned [N]               what the user changed after Claude's edits (learned taste); read it before every edit
   broll-index "chips factory"  find B-roll by what clips REALLY show (library/broll/index.json); lists unchecked clips
   broll-describe FILE --json '{"shows": "...", "use_for": [...], "not_for": [...]}'   write what a clip shows (after broll-check)
   commons-find "NYSE trading floor" [--n 3] [--json '{"type": "video"}']   real photos/videos (Wikimedia Commons, no key):
@@ -321,6 +322,10 @@ WantedBy=default.target
         except stock.NoKey as e:
             raise SystemExit(str(e))
         print("\n".join(got) or "Nothing found. Try simpler words.")
+        return
+    if c == "learned":  # what One Take has learned from the user's own studio changes
+        from . import learn
+        print(learn.summary(int(args[0]) if args else 40))
         return
     if c == "broll-index":  # search the library by what clips REALLY show (library/broll/index.json)
         from . import stock

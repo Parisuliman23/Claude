@@ -42,7 +42,10 @@ Run `python3 -m engine` with no arguments for the full list.
    - Fix words the transcript misheard (they become the captions): `retext NAME A-B "friend"`. Watch for
      names, brands, money amounts and odd words that don't fit the sentence. The user can also
      double-click a word in the studio to fix it.
-4. **Styling pass: edit in the user's style.** Read `lookbook/STYLE.md` first (it's the rulebook; the
+4. **Styling pass: edit in the user's style.** First run `python3 -m engine learned`: One Take records every change the user
+   makes in the studio after your edits (cut-aways deleted/swapped, graphics removed/added, music, captions). Follow those
+   patterns, and when one repeats (2+ times) write it as a rule under "Learned from my edits" in `lookbook/STYLE.md`.
+   Then read `lookbook/STYLE.md` (it's the rulebook; the
    full analysis of their 10 reference reels is in `lookbook/style/`). Then:
    - **Pick the style FIRST: `python3 -m engine style-pick NAME`.** It reads the transcript and says notebook (Look D),
      motion (Look E: animated charts, counters, slams, kinetic type, intros, lower thirds, call-outs, transitions via
@@ -245,6 +248,14 @@ all in the same look. Each spec can use:
 `max_len` (seconds; trims lines from the back half), `drop_lines` ([line ids] to remove), `name`.
 `set NAME trials --json '[{"name":"Cold open","open_line":7,"hook_text":"..."}, {...}, {...}]'`
 then `export NAME trials` (renders 3 videos — takes a few minutes).
+
+## Practice runs ("run a simulation")
+
+The project titled **"Practice reel (TSMC)"** (`20261117-110819`, `"practice": true`) is kept only for practice; never post
+or delete it. To practise: re-edit it from scratch with the current rules (or on a copy), then grade every cut-away and
+graphic against `lookbook/STYLE.md`, `lookbook/style/09-broll-relevance.md` and `python3 -m engine learned`
+(✅ shows exactly what's said / ⚠️ close / ❌ wrong), find better options, and write the lessons into
+`lookbook/style/09-broll-relevance.md` (or a new numbered file) and the rules into STYLE.md. Don't render unless asked.
 
 ## Learning the user's style
 

@@ -250,6 +250,9 @@ their style; they override the Notebook/Class looks unless the user asks for tho
   above the head with future items blurred** (`checklist` `tease: true`), progress rings and growth lines for %.
 - **End**: "Comment 'WORD'" (`cta_keyword`) then "+follow"; a typed recap list if it's a framework.
 
+## Learned from my edits
+(Claude adds rules here when `python3 -m engine learned` shows I keep making the same change.)
+
 ## Things I've told Claude
 - Colour: keep my footage looking like it does on my phone. No colour filter unless I ask (no faded/lifted looks).
 - Split screen over covering my face: any big graphic (chalkboard, definition, list, chart, notes, screenshot) or B-roll

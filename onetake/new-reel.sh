@@ -46,7 +46,8 @@ NAME=$(python3 -c "from engine import project; print(project.list_projects()[0][
 
 # 2. Claude reviews the cut and styles it, plus the extra versions (an hour at most)
 PROMPT="I have a new reel to edit. It's already imported as project $NAME (joined, transcribed and rough-cut),
-so don't run 'new': start at step 3 of CLAUDE.md (review the cut), then run 'style-pick $NAME' and do the
+so don't run 'new': start at step 3 of CLAUDE.md (review the cut), then run 'learned' (what the user changed in past edits:
+follow those patterns) and 'style-pick $NAME', and do the
 styling pass (step 4) in the user's main style: the "My 3 chosen finance reels" reference in lookbook/STYLE.md
 (split-screen B-roll every 1.5-3 s, logos on every company name, white maths panels, numbered list above the head),
 timing every effect to the words. B-roll must literally show the words: pick with 'broll-index' (what clips really
