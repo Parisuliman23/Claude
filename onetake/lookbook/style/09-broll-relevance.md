@@ -33,7 +33,13 @@ Fixed: new downloads are named `pixabay-<id>.mp4`, and `library/broll/index.json
 5. **Industry words**: chips / semiconductors / foundry / wafers → chip or wafer macro shots, a fab or clean-room
    PHOTO, never a generic production line. AI → data centers / GPUs / servers, not industrial robots.
 
-## Same CATEGORY is enough (user, Nov 22 2026)
+## Order of choice (user, Nov 22 2026)
+1. **The exact thing** if we have it or can get it (TSMC's own fab photo, Jensen Huang's photo, the NVDA chart): search
+   `broll-index "TSMC"` and `commons-find "TSMC fab"` first.
+2. Otherwise the **same category** (another chipmaker's fab, any data center…), as below.
+3. Otherwise a panel with the words, a logo or a chart. Never a vague clip.
+
+## Same CATEGORY is enough when the exact thing isn't available
 "It doesn't have to be the exact TSMC factory, another chipmaker's factory is fine, just keep it similar."
 | They say… | Show |
 |---|---|

@@ -269,6 +269,8 @@ their style; they override the Notebook/Class looks unless the user asks for tho
 - Lists/checklists get footage too: when a list pops in (e.g. "TSMC makes chips for: data centers, phones, PCs, cars"),
   give EACH item its own split-screen B-roll clip that cuts in on the same word the item appears (`"at": [{"w": …}]` on the
   list = the cut-away's `w0`). Pick darker clips so the white list text stays readable on top.
+- If you HAVE footage/photos of the exact company, person or product I name, USE THAT FIRST (e.g. TSMC's own fab for TSMC).
+  Only fall back to the same category when you don't.
 - B-roll must match the KIND of thing I'm saying (not necessarily the exact company): TSMC / chip making -> any chip
   factory, clean room or wafer (a different chipmaker's fab is fine); AI -> AI factories / data centers / GPUs;
   compute -> servers, GPUs; data center -> data centers; prices / "the stock went up" -> a real live chart (stock_chart);
