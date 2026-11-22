@@ -12,11 +12,17 @@ if [ "${FREE_MB:-0}" -lt 2500 ]; then echo "$(date) skipped: only ${FREE_MB} MB 
 PROMPT="Grow the user's B-roll library (One Take, see CLAUDE.md and lookbook/style/09-broll-relevance.md). Nobody is here to
 answer questions; decide yourself. Work in this order and keep it small (the Chromebook has little disk and memory):
 1. Run 'python3 -m engine broll-cloud status' and 'python3 -m engine broll-index' to see what exists.
-2. Pick 4 topics the library is weakest on from this list (finance creator: stocks, AI, chips): stock market / trading
+2. Pick 5 topics the library is weakest on (at least 1 Canadian-investing topic every week) from this list (finance creator: stocks, AI, chips): stock market / trading
    floor; red market crash screen; green rising stock chart screen; AI data center / GPU racks; chip clean room / wafer;
    bank / Federal Reserve; cash / paying bills / debt; real estate / houses; inflation / grocery prices; big tech HQs
    (Apple, Microsoft, Amazon, Google, Tesla, NVIDIA); famous CEOs and investors (Jensen Huang, Elon Musk, Tim Cook,
-   Satya Nadella, Warren Buffett, Jerome Powell); oil / energy; crypto / bitcoin; electric cars; smartphones.
+   Satya Nadella, Warren Buffett, Jerome Powell); oil / energy; crypto / bitcoin; electric cars; smartphones;
+   CANADIAN INVESTING (the user is in Canada, teach-style reels): opening an investment account on a phone or laptop;
+   TFSA (tax-free savings); RRSP (retirement saving, older couple planning); FHSA (first home: young couple, keys, house);
+   RESP (saving for a child's education: kids, school, graduation); ETFs / index investing; dividends; compound growth;
+   Toronto Stock Exchange / Bay Street; Bank of Canada; Canadian banks (RBC, TD, BMO, Scotiabank, CIBC towers);
+   Canadian dollar / loonie coins; taxes / tax forms; budgeting at a kitchen table. Use generic screens, never a
+   real app's screenshots or logos you can't verify.
 3. For each topic: 'python3 -m engine broll-find \"<what is literally on screen>\" --n 2' for footage and/or
    'python3 -m engine commons-find \"<exact company / person / place>\" --n 2' for real photos.
 4. Look at EVERY new file: 'python3 -m engine broll-check <files>' then Read the sheet (photos: Read the image).
