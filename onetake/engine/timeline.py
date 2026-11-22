@@ -29,7 +29,9 @@ def _apply_keeps(segs, keeps):
             continue
         m = {"w0": min(s["w0"] for s in hit), "w1": max(s["w1"] for s in hit),
              "s": round(min([a] + [s["s"] for s in hit]), 3), "e": round(max([b] + [s["e"] for s in hit]), 3)}
-        segs = sorted([s for s in segs if s not in hit] + [m], key=lambda s: s["s"])
+        at = min(segs.index(h) for h in hit)  # keep the play order (a trial reel's cold open plays a later line first)
+        rest = [s for s in segs if s not in hit]
+        segs = rest[:at] + [m] + rest[at:]
     return segs
 
 

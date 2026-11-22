@@ -214,10 +214,17 @@ def apply_variant(p, v):
         return p, None
     if v.get("caption_style"):
         p["caption_style"] = v["caption_style"]
-    if v.get("hook_text"):
+    if v.get("hook_text") or v.get("hook_sub") is not None:
         for ov in p["overlays"]:
             if ov.get("role") == "hook":
-                ov.setdefault("params", {})["text"] = v["hook_text"]
+                if v.get("hook_text"):
+                    ov.setdefault("params", {})["text"] = v["hook_text"]
+                if v.get("hook_sub") is not None:
+                    ov.setdefault("params", {})["sub"] = v["hook_sub"]
+    for ov_id, params in (v.get("overlay_params") or {}).items():  # e.g. a different call to action per trial
+        for ov in p["overlays"]:
+            if ov.get("id") == ov_id:
+                ov.setdefault("params", {}).update(params)
     ls = [l for l in project.lines(p) if not l["cut"]]
     if v.get("drop_lines"):
         for l in project.lines(p):
