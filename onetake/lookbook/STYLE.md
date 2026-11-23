@@ -255,7 +255,7 @@ Every money amount, % or result I say POPS on that exact word (`money_pop`: smal
 list things they TYPE OUT in handwriting one by one as I name them, separate from the captions. When I name a topic or
 expense, a tag names it ("MANAGEMENT (keeps 15%)"). It stays until the next topic. COPY ONLY THE MOTION AND TIMING:
 keep MY colours and fonts for the tag and list (white text, my dark pill, my reel's font, no handwriting). The popping
-AMOUNT itself is big bold yellow with a dark edge (I like that). Details:
+AMOUNT itself is big bold BLUE (#0444A4, Montserrat Black, no edge), like my $80,000 counter. Details:
 `lookbook/style/10-money-pop-reference.md`. Use it in every style.
 
 ## Learned from my edits
