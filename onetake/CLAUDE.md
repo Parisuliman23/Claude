@@ -173,6 +173,11 @@ Run `python3 -m engine` with no arguments for the full list.
 The user's own voice is cloned in ElevenLabs (professional clone, 30 min of audio). The key is ONLY in `settings.json`
 (`elevenlabs_key`; never commit, print or send it anywhere else). `voice-say "text"` makes a line in their voice;
 `voice-add NAME --json '{"text": "...", "w": 120}'` puts it in a reel at a word (its own full-volume track, `voiceovers`).
+Voice notes (Nov 22 2026): the user's "Untitled voice" professional clone was trained on AI-voiced audio and doesn't
+sound like them; Speech to Speech with it gives a generic voice. Instant clone "Me (real) - One Take" (real voice) is
+closer but not there. Plan: `voice-bank` collects their REAL voice in Drive "One Take/My voice/clean" (every import adds
+its reel automatically; set `"ai_voice": true` on a project made with an AI voice so it's skipped). At ~30 min they
+create a Professional Voice Clone in ElevenLabs with those files. Always send a short sample before re-voicing a video.
 Use it to fix a misspoken word or add a line: cut the original words and cover that moment with a cut-away/split screen
 so lips aren't visible; or for voiceover-only reels. Only the user's own voice, only when they ask. Each call is capped at
 1,200 characters and counted (`elevenlabs_chars`).

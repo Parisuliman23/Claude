@@ -316,5 +316,12 @@ def new(name=None, clips=None, log=print, move=True):
         for c in clips:
             if c.parent.resolve() == config.DROP.resolve():
                 c.unlink(missing_ok=True)
+    try:  # your real voice goes into Drive "One Take/My voice" for a better voice clone (engine/voicebank.py)
+        from . import voicebank
+        mins = voicebank.add_project(name)
+        if mins:
+            log(f"  added {mins:.1f} min of your voice to the voice bank")
+    except Exception:  # noqa: BLE001 — never let this stop an import
+        pass
     log(f"Done. {len(p['words'])} words, {len(p['engine_cuts'])} lines cut automatically.")
     return name

@@ -49,6 +49,7 @@
                             (clips, footage, renders) once it's saved on the phone. The edit is kept.
   proxy NAME                make the light preview copy the studio plays (smoother on slow computers)
   image-find "apple" [--n 3] [--json '{"type": "vector"}']   images for stickers into library/images (Pixabay)
+  voice-bank [FILE…]        collect the user's REAL voice in Drive "One Take/My voice" (each import adds its reel) for a pro clone
   voice-say "text"          make a line in the user's cloned voice (ElevenLabs; key only in settings.json) -> library/voice/
   voice-swap VIDEO [OUT]    re-voice a finished video in the user's cloned voice, same timing (ElevenLabs Speech to Speech)
   voice-add NAME --json '{"text": "...", "w": 120}'   put a line in their voice into a reel at a word (full volume)
@@ -326,6 +327,17 @@ WantedBy=default.target
         except stock.NoKey as e:
             raise SystemExit(str(e))
         print("\n".join(got) or "Nothing found. Try simpler words.")
+        return
+    if c == "voice-bank":  # your real voice for a professional clone: clean new files in Drive "One Take/My voice"
+        from . import voicebank
+        if args:
+            for f in args:
+                print(f"added {voicebank.add(Path(f), 'own-' + Path(f).stem[:40]):.1f} min from {f}")
+        else:
+            m = voicebank.scan()
+            if m:
+                print(f"added {m:.1f} min from files in the My voice folder")
+        print(voicebank.status())
         return
     if c == "voice-say":  # a line in the user's cloned voice (ElevenLabs) -> library/voice/*.mp3
         from . import voice
