@@ -253,7 +253,8 @@ their style; they override the Notebook/Class looks unless the user asks for tho
 ## ★ Money & lists pop as I say them (I love this, Nov 22 2026)
 Every money amount, % or result I say POPS on that exact word (`money_pop`: small → big in ~0.2 s, bright yellow), and when I
 list things they TYPE OUT in handwriting one by one as I name them, separate from the captions. When I name a topic or
-expense, a highlighter tag names it ("MANAGEMENT (keeps 15%)"). It stays until the next topic. Details:
+expense, a tag names it ("MANAGEMENT (keeps 15%)"). It stays until the next topic. COPY ONLY THE MOTION AND TIMING:
+keep MY colours and fonts (white text, my dark pill, my reel's font), never her yellow or handwriting. Details:
 `lookbook/style/10-money-pop-reference.md`. Use it in every style.
 
 ## Learned from my edits

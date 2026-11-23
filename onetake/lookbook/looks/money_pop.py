@@ -6,9 +6,11 @@ META = {
     "params": {"label": "MANAGEMENT", "sub": "(keeps 15%)", "label_at": 0.0,
                "amount": "$686.25", "amount_at": 0.6, "amount_size": 118,
                "items": [], "items_at": [], "items2": [], "items2_at": [],
-               "marker": "#E4EE3C", "label_color": "#111111", "amount_color": "#F2F23A", "item_color": "#FFFFFF",
-               "item2_color": "#F2F23A", "cps": 24, "width": 760},
+               "marker": "#141418CC", "label_color": "#FFFFFF", "amount_color": "#FFFFFF", "item_color": "#FFFFFF",
+               "item2_color": "#FFFFFF", "font": "Inter_800ExtraBold", "list_font": "Inter_700Bold", "cps": 30, "width": 760},
 }
+# Only the MOTION is copied from the reference (pop on the word, lists typing out). Colours and fonts follow the user's
+# own reel (default: white text, dark pill like the cinematic-pill captions, Inter) — they don't want her yellow/handwriting.
 # label_at / amount_at / items_at / items2_at: word cues, e.g. {"w": 57}, so each piece lands on its word.
 # amount: leave "" for a tag-only pop (e.g. a list). Bigger money = bigger amount_size (e.g. 150 for $25,000).
 
@@ -38,10 +40,10 @@ def render(ctx):
     p, t = ctx.p, ctx.t
     Image, ImageDraw = ctx.Image, ctx.ImageDraw
     W = int(p["width"])
-    loud = ctx.font("Montserrat_900Black", 64)
-    hand = ctx.font(ctx.HAND, 40)
-    big = ctx.font("Montserrat_900Black", int(p["amount_size"]))
-    ih = ctx.font(ctx.HAND, 60)
+    loud = ctx.font(p["font"], 60)
+    hand = ctx.font(p["list_font"], 34)
+    big = ctx.font(p["font"], int(p["amount_size"]))
+    ih = ctx.font(p["list_font"], 50)
 
     # --- the tag: black caps on a highlighter swipe, tiny handwritten note under it
     if not p["label"]:  # number only: no tag
@@ -63,7 +65,7 @@ def render(ctx):
         aw, ah = int(big.getlength(p["amount"])) + 30, int(p["amount_size"] * 1.25)
         amt = Image.new("RGBA", (aw, ah), (0, 0, 0, 0))
         ImageDraw.Draw(amt).text((aw / 2, ah / 2), p["amount"], font=big, fill=ctx.rgba(p["amount_color"]), anchor="mm",
-                                 stroke_width=5, stroke_fill=(20, 20, 20, 230))
+                                 stroke_width=4, stroke_fill=(0, 0, 0, 160))
 
     rows = max(len(p["items"]), len(p["items2"]))
     H = tag_h + 20 + (amt.size[1] if amt else 0) + rows * 66 + 40

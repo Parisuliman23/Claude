@@ -19,3 +19,7 @@ I don't care about the caption type, just the way it pops up as she talks about 
 `money_pop` look (lookbook/looks/money_pop.py): `label`, `sub`, `label_at`, `amount`, `amount_at`, `amount_size`, `items`
 + `items_at`, `items2` + `items2_at` — all `*_at` as word cues. Number only: `"label": ""`. Place it on the chest
 (y ~0.6 in full-frame, or in the top half of a split screen), one per topic, w0 = topic word, w1 = last word of the topic.
+
+## User's rule (Nov 22 2026)
+Copy ONLY how things appear (pop on the word, lists typing out, tag per topic). Do NOT copy her colours or fonts:
+no yellow, no highlighter, no handwriting. Use the reel's own look: white text, dark pill like the captions, Inter.
