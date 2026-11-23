@@ -250,6 +250,12 @@ their style; they override the Notebook/Class looks unless the user asks for tho
   above the head with future items blurred** (`checklist` `tease: true`), progress rings and growth lines for %.
 - **End**: "Comment 'WORD'" (`cta_keyword`) then "+follow"; a typed recap list if it's a framework.
 
+## ★ Money & lists pop as I say them (I love this, Nov 22 2026)
+Every money amount, % or result I say POPS on that exact word (`money_pop`: small → big in ~0.2 s, bright yellow), and when I
+list things they TYPE OUT in handwriting one by one as I name them, separate from the captions. When I name a topic or
+expense, a highlighter tag names it ("MANAGEMENT (keeps 15%)"). It stays until the next topic. Details:
+`lookbook/style/10-money-pop-reference.md`. Use it in every style.
+
 ## Learned from my edits
 (Claude adds rules here when `python3 -m engine learned` shows I keep making the same change.)
 
