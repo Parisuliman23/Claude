@@ -321,6 +321,9 @@ def new(name=None, clips=None, log=print, move=True):
         mins = voicebank.add_project(name)
         if mins:
             log(f"  added {mins:.1f} min of your voice to the voice bank")
+            st = voicebank.status()
+            if "enough for a Professional" in st:
+                log("  🎉 VOICE BANK HIT 30 MINUTES: tell the user it's time to make their Professional Voice Clone")
     except Exception:  # noqa: BLE001 — never let this stop an import
         pass
     log(f"Done. {len(p['words'])} words, {len(p['engine_cuts'])} lines cut automatically.")

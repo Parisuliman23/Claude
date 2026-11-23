@@ -52,7 +52,8 @@ styling pass (step 4) in the user's main style: the "My 3 chosen finance reels" 
 (split-screen B-roll every 1.5-3 s, logos on every company name, white maths panels, numbered list above the head),
 timing every effect to the words. B-roll must literally show the words: pick with 'broll-index' (what clips really
 show, never the filename), check every new clip with broll-check and describe it with broll-describe, and prefer logos,
-real photos (commons-find) and charts over generic footage (lookbook/style/09-broll-relevance.md). Make ONE version only: don't run 'variants' (the Chromebook is short on memory;
+real photos (commons-find) and charts over generic footage (lookbook/style/09-broll-relevance.md). If the import log says the VOICE BANK HIT 30 MINUTES, start your summary with that news (time to make their Professional
+Voice Clone in ElevenLabs from Drive 'One Take/My voice/clean'). Make ONE version only: don't run 'variants' (the Chromebook is short on memory;
 the user will ask for versions again on a new laptop).
 You're running in the background from One Take: the studio is already running, so don't open it, and there's
 nobody to answer questions, so make sensible choices yourself. Run every command in the foreground and wait
