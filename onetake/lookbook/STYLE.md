@@ -285,3 +285,9 @@ AMOUNT itself is big bold BLUE (#0444A4, Montserrat Black, no edge), like my $80
   cars -> cars clearly in shot. Never a random construction / generic factory / office clip that's only "close enough".
   If nothing fits, use a panel with the words, a logo or a chart (`lookbook/style/09-broll-relevance.md`).
 - (Claude adds preferences here as it learns them.)
+
+## Reference: fitness / workout reels (Nov 23 2026)
+Gym clips with no talking = a beat-cut montage, not the finance style. Full-screen footage, 3-4 s holds so full reps show,
+cuts on the beat, small white text with a shadow (no pills): "LEG DAY" + italic script subtitle at the top, one short
+lowercase exercise line lower-middle (add the weight if known), "save this for your next leg day" at the end. Music only.
+Details: lookbook/style/11-fitness-references.md.
