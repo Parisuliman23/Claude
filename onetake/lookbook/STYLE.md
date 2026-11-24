@@ -288,6 +288,6 @@ AMOUNT itself is big bold BLUE (#0444A4, Montserrat Black, no edge), like my $80
 
 ## Reference: fitness / workout reels (Nov 23 2026)
 Gym clips with no talking = a beat-cut montage, not the finance style. Full-screen footage, 3-4 s holds so full reps show,
-cuts on the beat, small white text with a shadow (no pills): "LEG DAY" + italic script subtitle at the top, one short
+cuts on the beat, small white bold text with a heavy shadow (no pills, NO italic): "LEG DAY" + a small bold subtitle at the top, one short
 lowercase exercise line lower-middle (add the weight if known), "save this for your next leg day" at the end. Music only.
 Details: lookbook/style/11-fitness-references.md.

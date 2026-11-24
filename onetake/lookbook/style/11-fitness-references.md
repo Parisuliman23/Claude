@@ -21,4 +21,9 @@ The user sent 3 gym reels as "references of editing for fitness videos". No talk
   (1 bar = 1.714 s; mostly 2-bar holds = 3.43 s), frame-exact so cuts never drift off the beat.
 - Landscape clips: fill the frame as much as possible (scaled to ~1060 px tall over a blurred copy). Tell the user to film
   workouts **portrait** next time so they're truly full-screen.
-- Text: Montserrat Black caps + Playfair italic script, white with shadow. Ask for weights if the user wants "with 100kg" lines.
+- Text (user, Nov 24 2026: "you don't have to do the italic for fitness, use whatever you think is best"): NO italic script.
+  Montserrat Black lowercase for the main line + Montserrat Bold for the small line, white with a heavy soft shadow +
+  thin dark edge (busy gym backgrounds). No pills. Ask for weights if the user wants "with 100kg" lines.
+- Formats that work: "2 exercises i can't live without" (numbered 1./2. labels, variation names under the number), and a
+  closing split screen comparing two variations ("trap bar vs barbell", dark divider line) with "save this" on top.
+  Built by projects/workout-legday/final.py; 15 s = 9 bars of the 140 BPM beat, drop on bar 2.
