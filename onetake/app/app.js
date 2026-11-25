@@ -416,20 +416,80 @@ function openSheet() {
 }
 function closeSheet() { document.body.classList.remove("sheet"); }
 $("#sheetClose").onclick = closeSheet;
+// CapCut-style option rows (phone): tapping Cut / Visuals / Sound / Finish shows a row of quick choices above the
+// icon bar instead of a long panel. Each choice does one thing (opens a picker, runs a tool, or opens the panel at
+// that section). "All" opens the whole panel like before. Tap the same icon again to close the row.
+const panelAt = (txt) => {  // open the sheet and scroll to the heading that contains txt
+  openSheet(); hideOptRow();
+  if (!txt) { $("#panel").scrollTop = 0; return; }
+  const h = [...$("#panel").querySelectorAll("h1,h3,b,label")].find(e => e.textContent.includes(txt));
+  if (h) setTimeout(() => h.scrollIntoView({ block: "start", behavior: "smooth" }), 60);
+};
+const clickIn = (sel) => { hideOptRow(); const e = $(sel); if (e) e.click(); };
+const OPTS = {
+  cut: [
+    { i: "✎", l: "Transcript", run: () => panelAt() },
+    { i: "✂", l: "Split", run: () => tlOp("split") },
+    { i: "🗑", l: "Delete", run: () => tlOp("delete") },
+    { i: "⇤", l: "Cut before", run: () => tlOp("cutBefore") },
+    { i: "⇥", l: "Cut after", run: () => tlOp("cutAfter") },
+    { i: "🔊", l: "Mute voice", run: () => clickIn("#tlMute") },
+  ],
+  visuals: [
+    { i: "T", l: "Text", run: () => { hideOptRow(); addLookModal(); } },
+    { i: "💬", l: "Captions", run: () => panelAt("Captions") },
+    { i: "😀", l: "Stickers", run: () => { hideOptRow(); addMediaModal("emoji"); } },
+    { i: "🖼", l: "GIFs & images", run: () => { hideOptRow(); addMediaModal("gifs"); } },
+    { i: "✨", l: "Effects", run: () => { hideOptRow(); lookbookModal(); } },
+    { i: "🎬", l: "B-roll", run: () => { hideOptRow(); addMediaModal("broll"); } },
+    { i: "📈", l: "Charts", run: () => { hideOptRow(); addLookModal(); } },
+    { i: "🎨", l: "Filter", run: () => panelAt("Filter") },
+    { i: "🙂", l: "Cover face", run: () => { S.faceCard = true; renderPanel(); panelAt("Cover a face"); } },
+    { i: "⤢", l: "Push-in", run: () => clickIn("#pushBtn") },
+  ],
+  sound: [
+    { i: "♪", l: "Music", run: () => panelAt("Music bed") },
+    { i: "💥", l: "Sound effects", run: () => panelAt() },
+    { i: "✳", l: "Auto sounds", run: () => clickIn("#fxAuto") },
+    { i: "🔊", l: "Voice on/off", run: () => clickIn("#tlMute") },
+  ],
+  finish: [
+    { i: "🔒", l: "Lock in", run: () => panelAt("Your reel") },
+    { i: "✂", l: "CapCut", run: () => panelAt("Send to CapCut") },
+    { i: "🖼", l: "Frames", run: () => panelAt("Frames") },
+    { i: "▦", l: "Carousel", run: () => panelAt("carousel") },
+    { i: "🧪", l: "Trial reels", run: () => panelAt("Trial reels") },
+  ],
+};
+function hideOptRow() { const r = $("#optRow"); r.hidden = true; document.body.classList.remove("optrow"); }
+function showOptRow(t) {
+  const r = $("#optRow");
+  r.innerHTML = `<button class="opt back" data-o="-1"><b>‹</b><span>Back</span></button>` +
+    OPTS[t].map((o, k) => `<button class="opt" data-o="${k}"><b>${o.i}</b><span>${o.l}</span></button>`).join("") +
+    `<button class="opt" data-o="all"><b>☰</b><span>All</span></button>`;
+  r.querySelectorAll("[data-o]").forEach(b => b.onclick = () => {
+    const o = b.dataset.o;
+    if (o === "-1") return hideOptRow();
+    if (o === "all") return panelAt();
+    OPTS[t][+o].run();
+  });
+  r.hidden = false; r.scrollLeft = 0; document.body.classList.add("optrow");
+}
 document.querySelectorAll("#tabs [data-tab]").forEach(b => b.onclick = () => {
   if (isPhone()) {
-    if (document.body.classList.contains("sheet") && S.tab === b.dataset.tab) return closeSheet();
-    setTab(b.dataset.tab); return openSheet();
+    const t = b.dataset.tab, rowOpen = !$("#optRow").hidden;
+    if ((rowOpen || document.body.classList.contains("sheet")) && S.tab === t) { hideOptRow(); return closeSheet(); }
+    closeSheet(); setTab(t); return showOptRow(t);
   }
   setTab(b.dataset.tab);
 });
 document.querySelector('#tabs [data-mact="edit"]').onclick = () => {  // CapCut's Edit: select the clip under the playhead
-  closeSheet();
+  closeSheet(); hideOptRow();
   const i = S.segs.findIndex(sg => sg.o <= S.outT + 1e-3 && S.outT < sg.o + sg.e - sg.s);
   S.selClip = i >= 0 ? i : (S.segs.length ? 0 : null);
   updateTlTools(); drawTimeline();
 };
-$("#exportBtn").onclick = () => { setTab("finish"); openSheet(); };
+$("#exportBtn").onclick = () => { hideOptRow(); setTab("finish"); openSheet(); };
 $("#nextBtn").onclick = () => { const i = TABS.indexOf(S.tab); if (i < 3) setTab(TABS[i + 1]); else lockIn(); };
 
 function renderPanel() {
