@@ -31,7 +31,7 @@ answer questions; decide yourself. Work in this order and keep it small (the Chr
 4. Look at EVERY new file: 'python3 -m engine broll-check <files>' then Read the sheet (photos: Read the image).
    Keep only files that clearly show the topic. Delete the rest with rm (only files you downloaded in this run).
 5. Describe each kept file: 'python3 -m engine broll-describe <file> --json {\"shows\":...,\"use_for\":[...],\"not_for\":[...]}'
-   (photos: add it to library/images/index.json the same way, same fields).
+   (works for photos too: they go in library/images/index.json).
 6. Move them to the cloud: 'python3 -m engine broll-cloud push <files>'.
 7. Finish with one line per topic: what you added."
 if command -v claude >/dev/null 2>&1; then

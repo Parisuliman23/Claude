@@ -144,6 +144,17 @@ def index_unchecked(names, query):
 
 
 def describe(name, shows, use_for=(), not_for=(), avoid=False):
+    if name.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):  # photos have their own index (library/images)
+        f = config.LIBRARY / "images" / "index.json"
+        idx = json.loads(f.read_text()) if f.exists() else {}
+        e = idx.setdefault(name, {})
+        e.update({"shows": shows, "use_for": list(use_for), "not_for": list(not_for), "checked": True})
+        if avoid:
+            e["avoid"] = True
+        else:
+            e.pop("avoid", None)
+        f.write_text(json.dumps(idx, indent=1))
+        return
     idx = load_index()
     e = idx.setdefault(name, {})
     e.update({"shows": shows, "use_for": list(use_for), "not_for": list(not_for), "checked": True})
