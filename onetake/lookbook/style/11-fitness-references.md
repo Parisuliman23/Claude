@@ -16,7 +16,7 @@ The user sent 3 gym reels as "references of editing for fitness videos". No talk
 - Music only (gym audio off), loud and steady.
 
 ## How One Take does it
-- Workout reels aren't talking reels: build them as a beat-cut montage (projects/workout-legday/build2.py + beat.py).
+- Workout reels aren't talking reels: build them as a beat-cut montage (lookbook/style/fitness/final.py + beat15.py).
 - Music: `library/sounds/gym-trap-140 (made by Claude).m4a` (140 BPM, 2-bar build then a drop at 3.43 s). Cut on bar lines
   (1 bar = 1.714 s; mostly 2-bar holds = 3.43 s), frame-exact so cuts never drift off the beat.
 - Landscape clips: fill the frame as much as possible (scaled to ~1060 px tall over a blurred copy). Tell the user to film
@@ -26,4 +26,4 @@ The user sent 3 gym reels as "references of editing for fitness videos". No talk
   thin dark edge (busy gym backgrounds). No pills. Ask for weights if the user wants "with 100kg" lines.
 - Formats that work: "2 exercises i can't live without" (numbered 1./2. labels, variation names under the number), and a
   closing split screen comparing two variations ("trap bar vs barbell", dark divider line) with "save this" on top.
-  Built by projects/workout-legday/final.py; 15 s = 9 bars of the 140 BPM beat, drop on bar 2.
+  Built by lookbook/style/fitness/final.py (+ beat15.py); 15 s = 9 bars of the 140 BPM beat, drop on bar 2.
