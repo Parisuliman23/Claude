@@ -3,11 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#5B4BDB">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="One Take">
+<link rel="apple-touch-icon" href="/app/icon-192.png">
+<link rel="icon" href="/app/icon-192.png">
 <title>One Take</title>
 <style>
+  [hidden] { display: none !important; }
   :root { --bg: #F3F2F7; --panel: #fff; --ink: #17171C; --ink2: #5E5E6B; --accent: #5B4BDB; --soft: #ECEAFE; --hl: #FFF4B8; }
   @media (prefers-color-scheme: dark) { :root { --bg: #121217; --panel: #1C1C23; --ink: #F2F1F6; --ink2: #A5A4B3; --accent: #8C7EFF; --soft: #2B2747; --hl: #3B3517; } }
   * { box-sizing: border-box; }
@@ -29,6 +35,7 @@
 </head>
 <body>
 <h1>✂ One Take</h1>
+<button id="installApp" hidden style="display:block;width:100%;margin:0 0 12px;padding:12px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-size:16px;font-weight:700">📲 Install One Take on this phone</button>
 <div class="muted">Film it, pick it, done. Your Chromebook edits it in your style.</div>
 
 <label class="big" id="pick"><span class="i">⬆</span>Choose a video from your gallery
@@ -157,6 +164,18 @@ async function drawList(justDone) {
   }
 }
 poll();
+</script>
+<script>
+// Home-screen app: register the tiny service worker, and offer "Install app" when the phone allows it.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  const b = document.getElementById("installApp");
+  if (!b) return;
+  b.hidden = false;
+  b.onclick = async () => { e.prompt(); await e.userChoice; b.hidden = true; };
+});
+window.addEventListener("appinstalled", () => { const b = document.getElementById("installApp"); if (b) b.hidden = true; });
 </script>
 </body>
 </html>

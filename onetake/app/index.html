@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>One Take Studio</title>
 <link rel="stylesheet" href="/app/style.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#5B4BDB">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="One Take">
+<link rel="apple-touch-icon" href="/app/icon-192.png">
+<link rel="icon" href="/app/icon-192.png">
 </head>
 <body>
 <header id="top">
@@ -17,6 +25,7 @@
     <button data-tab="finish"><i>✓</i><span>Finish</span></button>
   </nav>
   <div class="tools">
+    <button id="installApp" hidden title="Put One Take on your home screen">📲 Install app</button>
     <button id="undo" title="Undo (⌘Z)">↶</button>
     <button id="redo" title="Redo (⇧⌘Z)">↷</button>
     <button id="claudeBtn" title="Ask Claude to change something">✳ Ask Claude <span id="claudeBadge" class="badge" hidden>0</span></button>
@@ -86,5 +95,17 @@
 
 <script src="/app/timeline.js"></script>
 <script src="/app/app.js"></script>
+<script>
+// Home-screen app: register the tiny service worker, and offer "Install app" when the phone allows it.
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  const b = document.getElementById("installApp");
+  if (!b) return;
+  b.hidden = false;
+  b.onclick = async () => { e.prompt(); await e.userChoice; b.hidden = true; };
+});
+window.addEventListener("appinstalled", () => { const b = document.getElementById("installApp"); if (b) b.hidden = true; });
+</script>
 </body>
 </html>

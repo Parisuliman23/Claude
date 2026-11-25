@@ -1,6 +1,8 @@
 """The studio: a small local web server (only reachable from your own computer)."""
 import json
 import mimetypes
+mimetypes.add_type("application/manifest+json", ".webmanifest")
+mimetypes.add_type("text/javascript", ".js")
 import os
 import re
 import threading
@@ -112,7 +114,7 @@ button{margin-top:14px;width:100%;padding:12px;font-size:17px;border:0;border-ra
 
 # Through the phone link (a Cloudflare tunnel) only the phone page and what it needs are reachable.
 TUNNEL_PATHS = re.compile(r"/phone/?|/login|/api/projects|/api/project/[a-z0-9-]+(/free-space)?|/api/newreel|/api/new-reel-file"
-                          r"|/api/new-reel-start|/media/projects/.+")
+                          r"|/api/new-reel-start|/media/projects/.+|/sw.js|/manifest.webmanifest|/app/icon-\d+\.png")
 _wrong_pins = []  # times of wrong PIN tries: after 5 in 15 minutes, PIN entry pauses for 15 minutes
 
 
@@ -291,13 +293,18 @@ class Handler(BaseHTTPRequestHandler):
         if not self.authorized():
             if path.startswith("/api/") or path.startswith("/media/"):
                 return self.send_json({"error": "Enter your One Take PIN first."}, 401)
-            if not path.startswith("/assets/fonts/"):
+            if not (path.startswith("/assets/fonts/") or path in ("/sw.js", "/manifest.webmanifest")
+                    or path.startswith("/app/icon-")):
                 return self.login_page(self.path)
         if method == "GET":
             if path in ("/phone", "/phone/"):
                 return self.send_file(config.APP / "phone.html")
             if path in ("/", "/index.html"):
                 return self.send_file(config.APP / "index.html")
+            if path == "/sw.js":  # home-screen app (served from the root so it covers the whole studio)
+                return self.send_file(config.APP / "sw.js")
+            if path == "/manifest.webmanifest":
+                return self.send_file(config.APP / "manifest.webmanifest")
             if path.startswith("/app/"):
                 return self.send_file(config.APP / Path(path[5:]).name)
             if path.startswith("/assets/") or path.startswith("/media/"):
