@@ -26,7 +26,18 @@ def render(ctx):
         mid = pad + cw / 2
         for i, ln in enumerate(ctx.wrap(p[f"{side}_title"], tf, cw - 40)[:2]):
             d.text((mid, pad + 70 + i * 40), ln, font=tf, fill=ctx.rgba(MO["muted"]), anchor="ms")
-        d.text((mid, pad + 200), p[f"{side}_value"], font=vf, fill=ctx.rgba(MO["ink"]), anchor="ms")
+        # long values ("high-yield savings account") wrap onto 2-3 lines and shrink to fit instead of running off the card
+        val, size = p[f"{side}_value"], 64
+        while True:
+            f_ = ctx.font(p.get("font") or ctx.MO_BOLD, size)
+            lines = ctx.wrap(val, f_, cw - 90)
+            if (len(lines) <= 1 and f_.getlength(val) <= cw - 90) or (len(lines) <= 3 and size <= 46) or size <= 34:
+                break
+            size -= 4
+        lh = size * 1.1
+        y0 = pad + 200 - (len(lines) - 1) * lh / 2
+        for i, ln in enumerate(lines[:3]):
+            d.text((mid, y0 + i * lh), ln, font=f_, fill=ctx.rgba(MO["ink"]), anchor="ms")
         if verdict:
             mark = ctx.ease_back(ctx.prog(p["verdict_at"], 0.3))
             bx, by, r = mid, pad + ch - 46, 26 * max(0.01, mark)
