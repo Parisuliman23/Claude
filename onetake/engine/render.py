@@ -666,7 +666,9 @@ def sync_check(name, out=None, points=6):
         if not any(sp[0] - 0.1 <= t < sp[1] + 0.1 for _, sp, _ in c.brolls):
             sg = [s for s in c.segs if s["o"] <= t][-1]
             ts = sg["s"] + (t - sg["o"])
-            if ts < sg["e"] - 0.1:
+            # skip the first 0.15 s after a cut: a sample right on a cut can land on the frame before it and read as
+            # "7 frames off" (Nov 26 2026: a false alarm on a reel that was in sync everywhere else)
+            if ts < sg["e"] - 0.1 and t - sg["o"] >= 0.15:
                 cands.append((t, ts))
         t += 0.5
     if not cands:
