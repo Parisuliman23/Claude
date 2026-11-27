@@ -3,7 +3,8 @@ META = {
     "description": "\"Comment KEYWORD\": the biggest type in the video, in CTA yellow, double-blinks on, with a curved arrow toward the comment button.",
     "group": "cta",
     "params": {"question": "WANT THE GUIDE?", "keyword": "DEBT", "line": "comment", "accent": "#FCF46C",
-               "size": 130, "q_size": 56, "arrow": True, "color": "#FFFFFF"},
+               "size": 130, "q_size": 56, "arrow": True, "color": "#FFFFFF",
+               "after": "", "after_size": 50},  # after: a small line under the keyword ("for my full checklist")
 }
 
 
@@ -15,7 +16,8 @@ def render(ctx):
     q = ctx.write(p["question"], ctx.LOUD, p["q_size"], ctx.W * 0.8, fill=p["color"], upper=True) if p["question"] else None
     line = ctx.write(p["line"], ctx.HAND, 70, ctx.W * 0.8, fill=p["color"]) if p["line"] else None
     kw = ctx.write(f'"{p["keyword"].upper()}"', ctx.LOUD, p["size"], ctx.W * 0.9, fill=p["accent"])
-    body = ctx.stack([q, line, kw], gap=0)
+    after = ctx.write(p.get("after", ""), ctx.LOUD, p.get("after_size", 50), ctx.W * 0.8, fill=p["color"]) if p.get("after") else None
+    body = ctx.stack([q, line, kw, after], gap=0)
     if not p["arrow"]:
         return ctx.shadowed(body)
     out = ctx.Image.new("RGBA", (body.width + 170, body.height + 60), (0, 0, 0, 0))
