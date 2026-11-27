@@ -289,6 +289,8 @@ AMOUNT itself is big bold BLUE (#0444A4, Montserrat Black, no edge), like my $80
   panel or caption), plus soft pops on pops/lists and a ding on the CTA. Fewer, not more.
 - Cut-aways: about one every 4-5 s is right (9 in a 43 s reel). When I say "too many", remove only 1-2 of the weakest.
 - Every clip I upload goes in: one take of each line, but never drop a line I only said once.
+- Don't cut reactions or funny bits at the end of a clip (e.g. "what is that?!" with a head-touch): they're part of the
+  video. Keep the end of my last clip as filmed, to its last frame. Ask before cutting anything that isn't a retake.
 - (Claude adds preferences here as it learns them.)
 
 ## Reference: fitness / workout reels (Nov 23 2026)
