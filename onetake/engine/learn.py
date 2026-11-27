@@ -66,6 +66,63 @@ def changes(old, new):
         out.append({"type": "music_changed", "from": _short(os_.get("src")), "to": _short(ns.get("src"))})
     elif os_.get("volume") != ns.get("volume") and ns.get("volume") is not None:
         out.append({"type": "music_volume", "from": os_.get("volume"), "to": ns.get("volume")})
+    out += _finer(old, new)
+    return out
+
+
+def _said_at(p, t0, t1):
+    """The words spoken between two source times (for timeline trims)."""
+    return " ".join(w["t"] for w in p.get("words") or [] if w.get("e", 0) > t0 and w.get("s", 0) < t1)[:120]
+
+
+def _finer(old, new):
+    """Smaller edits (added Nov 27 2026, when a whole round of studio edits went unrecorded): timeline trims, words
+    cut or brought back, retyped words, graphics re-worded / moved / re-timed, sound effects muted or changed."""
+    out = []
+    oc = {tuple(round(x, 2) for x in c) for c in old.get("time_cuts") or []}
+    for c in new.get("time_cuts") or []:
+        k = tuple(round(x, 2) for x in c)
+        if k not in oc:
+            out.append({"type": "trimmed", "secs": round(c[1] - c[0], 2), "said": _said_at(new, c[0], c[1]),
+                        "at_end": c[1] >= float(new.get("duration") or 0) - 0.1})
+    ow, nw = old.get("words") or [], new.get("words") or []
+    if len(ow) == len(nw):
+        cut, back, retext = [], [], []
+        for a, b in zip(ow, nw):
+            if not a.get("cut") and b.get("cut"):
+                cut.append(b["t"])
+            elif a.get("cut") and not b.get("cut"):
+                back.append(b["t"])
+            if a.get("t") != b.get("t"):
+                retext.append(f'{a.get("t")} -> {b.get("t")}')
+        if cut:
+            out.append({"type": "words_cut", "said": " ".join(cut)[:120]})
+        if back:
+            out.append({"type": "words_restored", "said": " ".join(back)[:120]})
+        if retext:
+            out.append({"type": "words_retyped", "changes": retext[:10]})
+    oo = {o.get("id"): o for o in old.get("overlays", [])}
+    for o in new.get("overlays", []):
+        a = oo.get(o.get("id"))
+        if not a:
+            continue
+        said = _said(new, o.get("w0"), o.get("w1"))
+        if (a.get("params") or {}) != (o.get("params") or {}):
+            diff = {k: v for k, v in (o.get("params") or {}).items() if (a.get("params") or {}).get(k) != v}
+            out.append({"type": "graphic_edited", "look": o.get("look") or o.get("kind"), "new": diff, "said": said})
+        if (a.get("w0"), a.get("w1")) != (o.get("w0"), o.get("w1")):
+            out.append({"type": "graphic_retimed", "look": o.get("look") or o.get("kind"),
+                        "from": [a.get("w0"), a.get("w1")], "to": [o.get("w0"), o.get("w1")], "said": said})
+        if any(abs(float(a.get(k) or 0) - float(o.get(k) or 0)) > 0.03 for k in ("x", "y", "scale")):
+            out.append({"type": "graphic_moved", "look": o.get("look") or o.get("kind"),
+                        "to": {k: o.get(k) for k in ("x", "y", "scale")}, "said": said})
+    of = {x.get("id"): x for x in old.get("sfx") or []}
+    for x in new.get("sfx") or []:
+        a = of.get(x.get("id"))
+        if a and bool(a.get("muted")) != bool(x.get("muted")):
+            out.append({"type": "sound_muted" if x.get("muted") else "sound_unmuted", "sound": _short(x.get("src"))})
+        elif a and a.get("src") != x.get("src"):
+            out.append({"type": "sound_swapped", "from": _short(a.get("src")), "to": _short(x.get("src"))})
     return out
 
 
