@@ -99,8 +99,17 @@ def lines(p):
     return res
 
 
+_last_id = [None]
+
+
 def new_id(prefix="o"):
-    return f"{prefix}{int(time.time() * 1000) % 10**9:x}"
+    """Time-based id; never repeats, even when several are made in the same millisecond (Nov 26 2026: four
+    cut-aways added at once all got the same id)."""
+    n = int(time.time() * 1000) % 10**9
+    if _last_id[0] is not None and n <= _last_id[0]:
+        n = _last_id[0] + 1
+    _last_id[0] = n
+    return f"{prefix}{n:x}"
 
 
 def caption_styles():

@@ -268,10 +268,10 @@ def _audio(p, segs, T, out):
         parts.append(f"[a{k}]")
     vv = float(p.get("voice_volume", 1.0))  # the timeline's "Mute clip" sets this to 0
     # Voice clean-up (Nov 26 2026: a quiet kitchen recording "sounded bad" under the effects): cut rumble,
-    # even out the level and bring it to Instagram loudness (-14 LUFS); every step adds 0 ms delay (afftdn denoise was
+    # even out the level and bring it to a comfortable -18 LUFS (user, Nov 26: -14 was "way too loud"); every step adds 0 ms delay (afftdn denoise was
     # tried and dropped: it delays the voice 25 ms). "voice_fx": false turns it off.
-    vfx = (",highpass=f=80,acompressor=threshold=-26dB:ratio=3:attack=8:release=150:makeup=3,"
-           "loudnorm=I=-14:TP=-1.5:LRA=9,aresample=48000") if p.get("voice_fx", True) else ""
+    vfx = (",highpass=f=80,acompressor=threshold=-26dB:ratio=3:attack=8:release=150:makeup=1,"
+           "loudnorm=I=-18:TP=-2:LRA=11,aresample=48000") if p.get("voice_fx", True) else ""
     fl.append("".join(parts) + f"concat=n={len(segs)}:v=0:a=1" + vfx + (f",volume={vv}" if vv != 1.0 else "") + "[voice]")
     cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", src]
     snd = p.get("sound") or {}
