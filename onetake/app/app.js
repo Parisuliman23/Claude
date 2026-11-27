@@ -1375,7 +1375,7 @@ function renderFinish() {
     <div id="edgeCard"></div>
     ${done && r.sync && r.sync.ok === false ? `<div class="card" style="background:#FDE2E2;color:#7A1111"><b>⚠ Lip sync check failed:</b> the picture is up to ${r.sync.worst_frames} frames off the voice in this render. Ask Claude to check it before you post.</div>` : ""}
     ${done && r.sync && r.sync.ok ? `<div class="muted" style="font-size:13px">✓ Lip sync checked (${r.sync.checked} spots, within ${r.sync.worst_frames} frame${r.sync.worst_frames === 1 ? "" : "s"})</div>` : ""}
-    ${done ? `<video class="finalv" controls src="${media(r.file)}?v=${p.edit_rev || 0}-${p.rev}"></video>
+    ${done ? `<video class="finalv" controls playsinline preload="metadata" src="${media(r.phone || r.file)}?v=${p.edit_rev || 0}-${p.rev}"></video>
       <div class="row" style="margin-top:10px"><a download href="${media(r.file)}"><button>⬇ Download MP4</button></a>
       ${r.phone ? `<a download href="${media(r.phone)}"><button title="A small copy to check on your phone like a viewer would">📱 Phone copy</button></a>` : ""}
       ${ex.cover ? `<a download href="${media(ex.cover)}"><button>⬇ Cover</button></a>` : ""}
@@ -1418,6 +1418,9 @@ function renderFinish() {
     ${ex.trials ? `<div class="files">${ex.trials.map(t => `<div><video controls src="${media(t.file)}?v=${p.rev}"></video><br><b>${esc(t.name)}</b><br><small>${esc(t.hook)}</small><br><a download href="${media(t.file)}">Download</a></div>`).join("")}</div>` : ""}
   </div>`;
   $("#panel").innerHTML = h;
+  // Only one thing plays at a time: the finished reel stops the live preview (its voice + music would double up
+  // and sound like an echo / out of sync, Nov 26 2026), and playing the preview stops the finished reel.
+  const fv = $("#panel").querySelector(".finalv"); if (fv) fv.addEventListener("play", () => { if (S.playing) pause(); });
   $("#lock").onclick = lockIn;
   const cc = $("#capcut"); if (cc) cc.onclick = () => runExport("capcut");
   const cp = $("#ccProj"); if (cp) cp.onclick = () => runExport("capcut_project");
@@ -1734,6 +1737,7 @@ function play() {
   if (!S.segs.length) return;
   if (S.outT >= S.T - 0.05) seek(0);
   S.playing = true;
+  document.querySelectorAll("video.finalv").forEach(x => x.pause());
   const [sg, ts] = outToSrc(S.segs, S.outT); S.curSeg = sg;
   if (Math.abs(v.currentTime - ts) > 0.05) v.currentTime = ts;
   v.play().catch(() => {});
