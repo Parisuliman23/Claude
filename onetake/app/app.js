@@ -1373,8 +1373,12 @@ function renderFinish() {
     ${stale() ? `<div class="muted">You've made changes since the last render.</div>` : ""}
     <div class="row" style="margin:8px 0"><button class="primary" id="lock">${done ? "Render again" : "🔒 Lock in my looks"}</button></div>${jobBar("render")}
     <div id="edgeCard"></div>
-    ${done && r.sync && r.sync.ok === false ? `<div class="card" style="background:#FDE2E2;color:#7A1111"><b>⚠ Lip sync check failed:</b> the picture is up to ${r.sync.worst_frames} frames off the voice in this render. Ask Claude to check it before you post.</div>` : ""}
-    ${done && r.sync && r.sync.ok ? `<div class="muted" style="font-size:13px">✓ Lip sync checked (${r.sync.checked} spots, within ${r.sync.worst_frames} frame${r.sync.worst_frames === 1 ? "" : "s"})</div>` : ""}
+    ${done && r.sync && r.sync.ok === false ? `<div class="card" style="background:#FDE2E2;color:#7A1111"><b>⚠ Lip sync check failed:</b> ${[
+      r.sync.worst_frames > 2 ? `the picture is up to ${r.sync.worst_frames} frames off the footage` : "",
+      r.sync.voice_ms > 67 ? `your voice is ${r.sync.voice_ms} ms off` : "",
+      r.sync.echo ? "your voice plays twice (an echo)" : ""].filter(Boolean).join(", ")} in this render. Ask Claude to check it before you post.</div>` : ""}
+    ${done && r.sync && r.sync.ok ? `<div class="muted" style="font-size:13px">✓ Lip sync checked: picture within ${r.sync.worst_frames} frame${r.sync.worst_frames === 1 ? "" : "s"}${r.sync.voice_checked ? ", voice on time, no echo" : ""}</div>` : ""}
+    ${p.join_sync && p.join_sync.ok === false ? `<div class="card" style="background:#FDE2E2;color:#7A1111"><b>⚠ Your clips were joined out of sync</b> (up to ${p.join_sync.worst_frames} frames). Ask Claude to fix the footage before you render.</div>` : ""}
     ${done ? `<video class="finalv" controls playsinline preload="metadata" src="${media(r.phone || r.file)}?v=${p.edit_rev || 0}-${p.rev}"></video>
       <div class="row" style="margin-top:10px"><a download href="${media(r.file)}"><button>⬇ Download MP4</button></a>
       ${r.phone ? `<a download href="${media(r.phone)}"><button title="A small copy to check on your phone like a viewer would">📱 Phone copy</button></a>` : ""}
@@ -1420,7 +1424,7 @@ function renderFinish() {
   $("#panel").innerHTML = h;
   // Only one thing plays at a time: the finished reel stops the live preview (its voice + music would double up
   // and sound like an echo / out of sync, Nov 26 2026), and playing the preview stops the finished reel.
-  const fv = $("#panel").querySelector(".finalv"); if (fv) fv.addEventListener("play", () => { if (S.playing) pause(); });
+  const fv = $("#panel").querySelector(".finalv"); if (fv) fv.addEventListener("play", () => { if (S.playing) pause(); oneAtATime.post(); });
   $("#lock").onclick = lockIn;
   const cc = $("#capcut"); if (cc) cc.onclick = () => runExport("capcut");
   const cp = $("#ccProj"); if (cp) cp.onclick = () => runExport("capcut_project");
@@ -1732,12 +1736,21 @@ function applySpeed() {  // talk faster without chipmunk voices; the export does
   v.playbackRate = r; bv.playbackRate = r; music.playbackRate = r;
   v.preservesPitch = bv.preservesPitch = music.preservesPitch = true;
 }
+// One sound at a time across every open copy of the studio (the home-screen app + a Chrome tab, two tabs…):
+// when one starts playing, the others pause. Two copies playing sound like an echo that's out of sync.
+const oneAtATime = (() => {
+  const id = Math.random().toString(36).slice(2);
+  let ch = null; try { ch = new BroadcastChannel("onetake-play"); } catch (e) { /* old browser: skip */ }
+  if (ch) ch.onmessage = (e) => { if (e.data !== id) { if (S.playing) pause(); document.querySelectorAll("video.finalv").forEach(x => x.pause()); } };
+  return { post: () => { try { ch && ch.postMessage(id); } catch (e) { /* closed */ } } };
+})();
 function play() {
   applySpeed();
   if (!S.segs.length) return;
   if (S.outT >= S.T - 0.05) seek(0);
   S.playing = true;
   document.querySelectorAll("video.finalv").forEach(x => x.pause());
+  oneAtATime.post();
   const [sg, ts] = outToSrc(S.segs, S.outT); S.curSeg = sg;
   if (Math.abs(v.currentTime - ts) > 0.05) v.currentTime = ts;
   v.play().catch(() => {});

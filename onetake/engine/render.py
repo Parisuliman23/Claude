@@ -690,4 +690,97 @@ def sync_check(name, out=None, points=6):
         if best and best[0] < 12:
             worst = max(worst, abs(best[1]))
             n += 1
-    return {"ok": worst <= 2, "worst_frames": worst, "checked": n}
+    voice = voice_check(src, out, c.segs)
+    return {"ok": worst <= 2 and voice["ok"], "worst_frames": worst, "checked": n, **voice}
+
+
+def voice_check(src, out, segs, points=6):
+    """The SOUND half of the lip-sync check (added Nov 26 2026, after a reel was reported out of sync with an echo and
+    the picture-only check couldn't say whether the file was at fault). Inside unbroken stretches of the edit (never
+    across a cut, which would look like a 'second voice'), the render's voice must line up with the footage's voice
+    (voice_ms ~0) and must not contain a second, delayed copy of it (echo)."""
+    import subprocess as sp_
+
+    def pcm(f, t, d):
+        raw = sp_.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-ss", f"{t:.3f}", "-t", f"{d:.3f}", "-i", f, "-vn",
+                       "-ac", "1", "-ar", "16000", "-f", "s16le", "-"], capture_output=True).stdout
+        x = np.frombuffer(raw, np.int16).astype(np.float32)
+        return x - x.mean() if len(x) else x
+
+    wins = []
+    for sg in segs:
+        ln = sg["e"] - sg["s"]
+        for k in range(int((ln - 0.4) // 1.6)):  # 1.4 s windows, 0.2 s away from both cuts
+            wins.append((sg["o"] + 0.2 + k * 1.6, sg["s"] + 0.2 + k * 1.6))
+    if not wins:
+        return {"voice_ms": 0, "echo": False, "voice_checked": 0}
+    step = max(1, len(wins) // points)
+    worst_ms, echo, n = 0, False, 0
+    for o, s in wins[::step][:points]:
+        r, x = pcm(out, o, 1.4), pcm(src, s - 0.3, 2.0)
+        if len(r) < 16000 or len(x) <= len(r) or float(np.abs(r).mean()) < 50:  # silence: nothing to compare
+            continue
+        cc = np.correlate(x, r, "valid")
+        if cc.max() <= 0:
+            continue
+        cc = cc / cc.max()
+        pk = int(np.argmax(cc))
+        lags = (np.arange(len(cc)) - pk) / 16000
+        far = np.abs(lags) > 0.04
+        worst_ms = max(worst_ms, abs(round((pk / 16000 - 0.3) * 1000)))
+        if far.any() and cc[far].max() > 0.5:
+            echo = True
+        n += 1
+    return {"voice_ms": worst_ms, "echo": echo, "voice_checked": n, "ok": worst_ms <= 67 and not echo}
+
+
+def join_check(name, log=print):
+    """After an import: for each original clip, is its picture where its sound is in the joined footage? Catches a join
+    that slides the voice off the lips (phone clips' sound runs a little longer than their picture). Stored in
+    project["join_sync"]; anything over 2 frames is reported so it's fixed BEFORE editing, not after rendering."""
+    import subprocess as sp_
+    p = project.load(name)
+    d = project.pdir(name)
+    src = str(config.absolute(p["source"]))
+
+    def gray(f, t):
+        raw = sp_.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-ss", f"{t:.3f}", "-i", str(f), "-frames:v", "1", "-vf",
+                       "scale=72:128", "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True).stdout
+        return np.frombuffer(raw, np.uint8).astype(np.float32) if len(raw) == 72 * 128 else None
+
+    def pcm(f, t, dur):
+        raw = sp_.run(["ffmpeg", "-nostdin", "-loglevel", "error", "-ss", f"{t:.3f}", "-t", f"{dur:.3f}", "-i", str(f), "-vn",
+                       "-ac", "1", "-ar", "8000", "-f", "s16le", "-"], capture_output=True).stdout
+        x = np.frombuffer(raw, np.int16).astype(np.float32)
+        return x - x.mean() if len(x) else x
+
+    def vdur(f):
+        out = sp_.run(["ffprobe", "-v", "error", "-select_streams", "v", "-show_entries", "stream=duration", "-of",
+                       "csv=p=0", str(f)], capture_output=True, text=True).stdout
+        return float(out.split(",")[0].strip() or 0)
+
+    res, start, worst = [], 0.0, 0.0
+    for f in sorted((d / "raw").glob("*")):
+        if f.suffix.lower() not in config.VIDEO_EXT:
+            continue
+        ln = vdur(f)
+        probe = min(4.0, ln / 2)
+        ref, best = gray(f, probe), None
+        for k in range(-15, 16):
+            g = gray(src, start + probe + k / 30)
+            if ref is None or g is None:
+                continue
+            e = float(np.mean(np.abs(g - ref)))
+            if best is None or e < best[0]:
+                best = (e, k)
+        a, b = pcm(f, probe, 2.0), pcm(src, start + probe - 0.6, 3.2)
+        if best and len(a) and len(b) > len(a) and float(np.abs(a).mean()) > 50:
+            lag = int(np.argmax(np.correlate(b, a, "valid"))) / 8000.0
+            off = ((start + probe + best[1] / 30) - (start + probe - 0.6 + lag)) * 30  # + = picture late vs voice
+            res.append({"clip": f.name, "frames": round(off, 1)})
+            worst = max(worst, abs(off))
+        start += ln
+    out = {"ok": worst <= 2, "worst_frames": round(worst, 1), "clips": res}
+    project.update(name, lambda q: q.__setitem__("join_sync", out))
+    log(f"  lip-sync check of the joined clips: {'✓ in sync' if out['ok'] else '⚠ OFF'} (worst {out['worst_frames']} frames)")
+    return out

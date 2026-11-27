@@ -310,6 +310,11 @@ def new(name=None, clips=None, log=print, move=True):
     if sounds:
         p["sound"]["src"] = config.rel(sounds[0])
     project.save(name, p)
+    try:  # is every clip's picture still on its voice after the join? (catch it now, not after the render)
+        from . import render as _render
+        _render.join_check(name, log)
+    except Exception as e:  # noqa: BLE001
+        log(f"  (join lip-sync check skipped: {e})")
     log("  making a light preview copy for the studio…")
     make_proxy(name)
     if move:  # empty the drop folder so the next reel starts clean (only now: if the import stops, they're still there)
