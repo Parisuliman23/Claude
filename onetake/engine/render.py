@@ -267,11 +267,12 @@ def _audio(p, segs, T, out):
                   f"afade=t=in:d=0.012,afade=t=out:st={max(0, ln - 0.012):.3f}:d=0.012[a{k}]")
         parts.append(f"[a{k}]")
     vv = float(p.get("voice_volume", 1.0))  # the timeline's "Mute clip" sets this to 0
-    # Voice clean-up (Nov 26 2026: a quiet kitchen recording "sounded bad" under the effects): cut rumble,
-    # even out the level and bring it to a comfortable -18 LUFS (user, Nov 26: -14 was "way too loud"); every step adds 0 ms delay (afftdn denoise was
-    # tried and dropped: it delays the voice 25 ms). "voice_fx": false turns it off.
-    vfx = (",highpass=f=80,acompressor=threshold=-26dB:ratio=3:attack=8:release=150:makeup=1,"
-           "loudnorm=I=-18:TP=-2:LRA=11,aresample=48000") if p.get("voice_fx", True) else ""
+    # Voice clean-up: cut rumble and set a comfortable, natural level. Nov 27 2026: the user said -18 LUFS with a
+    # compressor "feels like I'm yelling", so no compressor (it pushed the quiet parts up) and a gentler -20 LUFS with
+    # a wide range so it keeps its natural ups and downs. Every step adds 0 ms delay (afftdn denoise was dropped: +25 ms).
+    # "voice_fx": false turns it off; "voice_lufs" sets the level per reel.
+    vfx = (f",highpass=f=80,loudnorm=I={float(p.get('voice_lufs', -20))}:TP=-3:LRA=15,aresample=48000"
+           if p.get("voice_fx", True) else "")
     fl.append("".join(parts) + f"concat=n={len(segs)}:v=0:a=1" + vfx + (f",volume={vv}" if vv != 1.0 else "") + "[voice]")
     cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", src]
     snd = p.get("sound") or {}
