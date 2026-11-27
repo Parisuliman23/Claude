@@ -284,6 +284,11 @@ AMOUNT itself is big bold BLUE (#0444A4, Montserrat Black, no edge), like my $80
   compute -> servers, GPUs; data center -> data centers; prices / "the stock went up" -> a real live chart (stock_chart);
   cars -> cars clearly in shot. Never a random construction / generic factory / office clip that's only "close enough".
   If nothing fits, use a panel with the words, a logo or a chart (`lookbook/style/09-broll-relevance.md`).
+- Sound (Nov 26 2026): my voice at a comfortable level (renders clean it up to -18 LUFS; -14 was "way too loud"). Soft
+  background music always (a chill lo-fi track at volume ~0.06). Whooshes only on real footage cut-aways (not on every
+  panel or caption), plus soft pops on pops/lists and a ding on the CTA. Fewer, not more.
+- Cut-aways: about one every 4-5 s is right (9 in a 43 s reel). When I say "too many", remove only 1-2 of the weakest.
+- Every clip I upload goes in: one take of each line, but never drop a line I only said once.
 - (Claude adds preferences here as it learns them.)
 
 ## Reference: fitness / workout reels (Nov 23 2026)
