@@ -483,8 +483,8 @@ class Handler(BaseHTTPRequestHandler):
             env = dict(os.environ, ONETAKE_NO_BROWSER="1")
             if auto:  # from the phone: render it so it can be downloaded right away
                 env["ONETAKE_AUTO_RENDER"] = "1"
-            sp.Popen(["bash", str(config.ROOT / "new-reel.sh")], cwd=config.ROOT, env=env,
-                     stdin=sp.DEVNULL, stdout=sp.DEVNULL, stderr=sp.DEVNULL, start_new_session=True)
+            from . import newreel
+            newreel.start(env)  # new-reel.sh here; the Python runner on Windows / in the kit
             return self.send_json({"started": True})
         if path == "/api/upload":
             kind = q.get("kind", "images")
@@ -619,11 +619,17 @@ def _serve_remote(port):
 
 
 def open_url(url):
-    """Open a link in the normal browser (works on Chromebook Linux too)."""
+    """Open a link in the normal browser: Mac and Windows directly, Linux/Chromebook through open-url.sh."""
     import subprocess
+    import sys as _sys
     try:
-        subprocess.Popen(["bash", str(config.ROOT / "open-url.sh"), url])
-    except Exception:
+        if _sys.platform == "darwin":
+            subprocess.Popen(["open", url])
+        elif os.name == "nt":
+            os.startfile(url)  # noqa: S606
+        else:
+            subprocess.Popen(["bash", str(config.ROOT / "open-url.sh"), url])
+    except Exception:  # noqa: BLE001
         webbrowser.open(url)
 
 

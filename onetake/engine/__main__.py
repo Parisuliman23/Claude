@@ -64,6 +64,7 @@
   list                      list projects
 """
 import argparse
+import os
 import json
 import shutil
 import subprocess
@@ -127,7 +128,9 @@ def setup():
     ok = True
     for tool in ("ffmpeg", "ffprobe"):
         if not shutil.which(tool):
-            print(f"✗ {tool} is missing — install it (Mac: brew install ffmpeg)")
+            tip = ("brew install ffmpeg" if sys.platform == "darwin" else "winget install Gyan.FFmpeg" if os.name == "nt"
+                   else "sudo apt install ffmpeg")
+            print(f"✗ {tool} is missing: install it with  {tip}  (or run the installer again)")
             ok = False
     for mod in ("faster_whisper", "cv2", "PIL", "numpy"):
         try:
@@ -174,6 +177,10 @@ def main(argv=None):
     except Exception:  # noqa: BLE001
         pass
 
+    if c == "new-reel-bg":  # the background new-reel edit (what the studio's New reel button runs)
+        from . import newreel
+        newreel.run()
+        return
     if c == "setup":
         sys.exit(0 if setup() else 1)
     if c == "new":
@@ -243,6 +250,43 @@ def main(argv=None):
         if args:
             print("Restart the studio to use it: pkill -f 'engine open'; bash studio.sh")
         return
+    if c == "autostart" and sys.platform == "darwin":  # Mac: a LaunchAgent starts the studio when you log in
+        plist = Path.home() / "Library" / "LaunchAgents" / "com.onetake.studio.plist"
+        if args and args[0] == "off":
+            subprocess.run(["launchctl", "unload", str(plist)], check=False)
+            plist.unlink(missing_ok=True)
+            print("The studio won't start by itself any more.")
+            return
+        plist.parent.mkdir(parents=True, exist_ok=True)
+        plist.write_text(f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+ <key>Label</key><string>com.onetake.studio</string>
+ <key>WorkingDirectory</key><string>{config.ROOT}</string>
+ <key>ProgramArguments</key><array><string>{sys.executable}</string><string>-m</string><string>engine</string>
+  <string>open</string><string>--no-browser</string></array>
+ <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+ <key>StandardOutPath</key><string>{config.PROJECTS / ".studio.log"}</string>
+ <key>StandardErrorPath</key><string>{config.PROJECTS / ".studio.log"}</string>
+</dict></plist>
+""")
+        subprocess.run(["launchctl", "unload", str(plist)], check=False, capture_output=True)
+        r = subprocess.run(["launchctl", "load", str(plist)], capture_output=True, text=True)
+        print("The studio now starts whenever you log in." if r.returncode == 0 else f"Couldn't turn it on: {r.stderr.strip()}")
+        return
+    if c == "autostart" and os.name == "nt":  # Windows: a small starter in the Startup folder
+        start = Path(os.environ.get("APPDATA", str(Path.home()))) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+        bat = start / "One Take Studio.bat"
+        if args and args[0] == "off":
+            bat.unlink(missing_ok=True)
+            print("The studio won't start by itself any more.")
+            return
+        start.mkdir(parents=True, exist_ok=True)
+        pyw = Path(sys.executable).with_name("pythonw.exe")
+        exe = pyw if pyw.exists() else Path(sys.executable)
+        bat.write_text(f'@echo off\r\ncd /d "{config.ROOT}"\r\nstart "" "{exe}" -m engine open --no-browser\r\n')
+        print("The studio now starts whenever you log in to Windows.")
+        return
     if c == "autostart":  # Linux starts -> the studio starts (Chromebook: when you open any Linux app or Terminal)
         unit = Path.home() / ".config" / "systemd" / "user" / "onetake-studio.service"
         if args and args[0] == "off":
@@ -256,6 +300,7 @@ Description=One Take Studio
 After=network-online.target
 
 [Service]
+EnvironmentFile=-%h/.config/onetake/claude.env
 WorkingDirectory={config.ROOT}
 ExecStart={sys.executable} -m engine open --no-browser
 Restart=on-failure

@@ -17,7 +17,10 @@ VIDEO_AUDIO = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".m4a", ".wav", ".aac", 
 
 
 def root():
-    base = Path("/mnt/chromeos/shared/GoogleDrive/MyDrive/One Take")
+    d = config.drive_root()
+    if not d:
+        return None
+    base = d / "One Take"
     if not base.exists():
         return None
     r = base / "My voice"

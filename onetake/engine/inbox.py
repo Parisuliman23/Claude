@@ -26,7 +26,7 @@ def base():
     s = config.settings()
     if s.get("inbox"):
         return None
-    return next((r for r in DRIVE_ROOTS if r.is_dir()), None)
+    return config.drive_root()
 
 
 def folders():
@@ -108,9 +108,8 @@ def tick():
                                                                     "step": "start", "step_at": time.time(),
                                                                     "auto_render": True}))
         env = dict(os.environ, ONETAKE_NO_BROWSER="1", ONETAKE_AUTO_RENDER="1")
-        subprocess.Popen(["bash", str(config.ROOT / "new-reel.sh")], cwd=config.ROOT, env=env,
-                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                         start_new_session=True)
+        from . import newreel
+        newreel.start(env)
         return f.name
     return None
 

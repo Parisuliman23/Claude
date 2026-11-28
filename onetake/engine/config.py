@@ -58,6 +58,24 @@ def absolute(r):
     return p
 
 
+def drive_root():
+    """The user's Google Drive "My Drive" folder on this computer, or None. settings "drive_root" overrides it.
+    ChromeOS (shared with Linux), Mac (Google Drive for desktop: ~/Library/CloudStorage/GoogleDrive-*/My Drive),
+    Windows (the G: drive, or ~/Google Drive), Linux (~/Google Drive, ~/GoogleDrive)."""
+    import os
+    s = settings()
+    if s.get("drive_root"):
+        r = Path(os.path.expanduser(s["drive_root"]))
+        return r if r.is_dir() else None
+    home = Path.home()
+    cands = [Path("/mnt/chromeos/shared/GoogleDrive/MyDrive"), Path("/mnt/chromeos/GoogleDrive/MyDrive")]
+    cands += sorted((home / "Library" / "CloudStorage").glob("GoogleDrive-*/My Drive")) if (home / "Library").is_dir() else []
+    if os.name == "nt":
+        cands += [Path(f"{d}:/My Drive") for d in "GHIJ"]
+    cands += [home / "Google Drive" / "My Drive", home / "Google Drive", home / "GoogleDrive"]
+    return next((c for c in cands if c.is_dir()), None)
+
+
 def is_chromebook():
     """Running in ChromeOS's Linux (Crostini)? There, Chrome's 'localhost' forwarding into Linux can
     break (ERR_CONNECTION_RESET), so the studio is opened at the container's own address instead."""

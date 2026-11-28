@@ -13,7 +13,10 @@ from . import config
 def root():
     """The cloud library folder, or None if Google Drive isn't shared with Linux."""
     from pathlib import Path
-    base = Path("/mnt/chromeos/shared/GoogleDrive/MyDrive/One Take")
+    d = config.drive_root()
+    if not d:
+        return None
+    base = d / "One Take"
     if not base.exists():
         return None
     r = base / "B-roll Library"
