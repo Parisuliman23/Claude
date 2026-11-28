@@ -669,7 +669,9 @@ def sync_check(name, out=None, points=6):
     cands = []
     t = 1.0
     while t < c.T - 0.5:
-        if not any(sp[0] - 0.1 <= t < sp[1] + 0.1 for _, sp, _ in c.brolls):
+        # skip cut-aways and zoomed moments (push-in / punch-ins): a zoomed frame can't be compared with the footage
+        zoomed = abs(timeline.camera_zoom(c.p, c.words, c.segs, t) - 1.0) > 0.002
+        if not zoomed and not any(sp[0] - 0.1 <= t < sp[1] + 0.1 for _, sp, _ in c.brolls):
             sg = [s for s in c.segs if s["o"] <= t][-1]
             ts = sg["s"] + (t - sg["o"])
             # skip the first 0.15 s after a cut: a sample right on a cut can land on the frame before it and read as
@@ -677,9 +679,7 @@ def sync_check(name, out=None, points=6):
             if ts < sg["e"] - 0.1 and t - sg["o"] >= 0.15:
                 cands.append((t, ts))
         t += 0.5
-    if not cands:
-        return {"ok": True, "worst_frames": 0, "checked": 0}
-    step = max(1, len(cands) // points)
+    step = max(1, len(cands) // points) if cands else 1
     worst, n = 0, 0
     for t, ts in cands[::step][:points]:
         r = grab(out, t)
@@ -697,7 +697,8 @@ def sync_check(name, out=None, points=6):
             worst = max(worst, abs(best[1]))
             n += 1
     voice = voice_check(src, out, c.segs)
-    return {"ok": worst <= 2 and voice["ok"], "worst_frames": worst, "checked": n, **voice}
+    voice_ok = voice.pop("ok", True)  # (Nov 28 2026 fix: voice's own "ok" used to overwrite the picture result)
+    return {"ok": worst <= 2 and voice_ok, "worst_frames": worst, "checked": n, **voice}
 
 
 def voice_check(src, out, segs, points=6):
