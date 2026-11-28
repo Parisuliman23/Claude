@@ -1,0 +1,18 @@
+ONE TAKE STUDIO: PERSONAL LICENCE  (DRAFT: have this reviewed before you sell)
+
+Copyright (c) 2026 [YOUR NAME / BUSINESS NAME]. All rights reserved.
+
+By installing or using One Take Studio ("the Software") you agree to these terms.
+
+1. Licence. You may install and use the Software for your own content (one creator or one brand), on your own
+   computers. You may change your own copy (for example your style file and looks).
+2. Don't share or resell. You may not sell, share, publish, sublicense or give away the Software, in whole or in part,
+   or offer it as a service to others, without written permission.
+3. Your content is yours. Videos, captions and graphics you make with the Software belong to you.
+4. Third-party parts. The Software includes open-source components under their own licences (see
+   THIRD_PARTY_NOTICES.md). It works with services you sign up for yourself (Claude / Claude Code, and optionally
+   Pixabay, ElevenLabs); their terms and fees apply to you.
+5. No warranty. The Software is provided "as is", without warranty of any kind. To the extent the law allows, the
+   author is not liable for any damages arising from its use.
+6. Not affiliated. One Take Studio is not affiliated with or endorsed by Anthropic, CapCut/ByteDance, Instagram/Meta
+   or any other company named in it.

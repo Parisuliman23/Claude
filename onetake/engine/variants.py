@@ -31,10 +31,16 @@ def _hook(style, first_line, w0, w1):
     return {"look": "serif_hook", "y": 0.185, "params": {"top": "", "mid": " ".join(words[:5]).strip(",.!?").lower(), "bottom": ""}}
 
 
+if not (config.LOOKBOOK / "looks" / "jess_title.py").exists():  # the class looks aren't installed (e.g. the kit)
+    STYLES.pop("class", None)
+
+
 def default_styles(p):
     """The original is already in its picked style, so by default it gets the class version (or notebook, if the
-    original is the class one)."""
-    return ["notebook"] if p.get("style_variant") == "class" else ["class"]
+    original is the class one). Without the class looks: the other main style (motion <-> notebook)."""
+    if "class" in STYLES:
+        return ["notebook"] if p.get("style_variant") == "class" else ["class"]
+    return ["notebook"] if p.get("style_variant") == "motion" else ["motion"]
 
 
 def make(name, styles=None):

@@ -64,6 +64,28 @@
   list                      list projects
 """
 import argparse
+import os as _os
+import sys as _sys
+
+
+def _use_venv():
+    """Installed with the kit's installer, the packages live in .venv: if this Python lacks them, re-run there,
+    so `python3 -m engine …` works the same for Claude and the user on every computer."""
+    try:
+        import numpy, PIL  # noqa: F401,E401
+        return
+    except ImportError:
+        pass
+    root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+    for py in (_os.path.join(root, ".venv", "bin", "python3"), _os.path.join(root, ".venv", "Scripts", "python.exe")):
+        if _os.path.exists(py) and _os.path.abspath(_sys.executable) != _os.path.abspath(py):
+            if _os.name == "nt":
+                import subprocess
+                raise SystemExit(subprocess.call([py, "-m", "engine", *_sys.argv[1:]]))
+            _os.execv(py, [py, "-m", "engine", *_sys.argv[1:]])
+
+
+_use_venv()
 import os
 import json
 import shutil
