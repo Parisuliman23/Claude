@@ -171,6 +171,17 @@ def setup():
     return ok
 
 
+LITE_LOCKED = {  # command: what it's called for the upgrade message (free edition only; see config.lite)
+    "export": "Exporting to CapCut, carousels, stories and trial reels", "variants": "Making extra versions",
+    "broll-find": "Finding free stock B-roll", "broll-starter": "The B-roll starter pack", "commons-find": "Real photos",
+    "archive-find": "Archive footage", "archive-preview": "Archive footage", "archive-clip": "Archive footage",
+    "logo-find": "Company logos", "logo-pack": "Company logos", "logo-import": "Company logos",
+    "price-fetch": "Live stock charts", "study-ref": "Learning from reference reels", "look-preview": "Custom looks",
+    "voice-say": "Voiceovers", "voice-add": "Voiceovers", "voice-swap": "Voiceovers", "broll-cloud": "The cloud B-roll library",
+    "image-find": "Finding stickers and illustrations",
+}
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="python3 -m engine", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd")
@@ -199,6 +210,9 @@ def main(argv=None):
     except Exception:  # noqa: BLE001
         pass
 
+    if config.lite() and c in LITE_LOCKED:  # the free edition: these are in the full version
+        print(config.upgrade_note(LITE_LOCKED[c]))
+        return
     if c == "new-reel-bg":  # the background new-reel edit (what the studio's New reel button runs)
         from . import newreel
         newreel.run()

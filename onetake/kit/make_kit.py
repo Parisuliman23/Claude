@@ -15,7 +15,13 @@ from pathlib import Path
 
 SRC = Path(__file__).resolve().parent.parent
 KIT = SRC / "kit"
-OUT = Path(sys.argv[1]).expanduser().resolve() if len(sys.argv) > 1 else SRC.parent / "onetake-kit"
+LITE = "--lite" in sys.argv  # the free edition (lead magnet): fewer looks, watermark, full-version features locked
+_args = [a for a in sys.argv[1:] if not a.startswith("--")]
+OUT = Path(_args[0]).expanduser().resolve() if _args else SRC.parent / ("onetake-free" if LITE else "onetake-kit")
+UPGRADE_URL = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--upgrade-url=")), "https://YOUR-SALES-PAGE")
+LITE_LOOKS = {"typed_title", "serif_hook", "headline_slam", "checklist", "keyword_def", "hand_note", "count_up",
+              "money_pop", "emoji_row", "arrow", "red_x", "cta_keyword"}
+LITE_CAPTIONS = {"notebook-word", "cinematic-pill", "bold-pop", "single-word"}
 
 # never ship: personal, other creators' styles, or platform-specific helpers
 SKIP_ENGINE = {"voicebank.py"}                     # the owner's voice-clone collection
@@ -65,14 +71,15 @@ def build():
     copy_tree(SRC / "assets", OUT / "assets")
     (OUT / "lookbook" / "looks" / "custom").mkdir(parents=True)
     for f in (SRC / "lookbook" / "looks").glob("*.py"):
-        if not SKIP_LOOK.match(f.name):
+        if not SKIP_LOOK.match(f.name) and (not LITE or f.stem in LITE_LOOKS):
             shutil.copy2(f, OUT / "lookbook" / "looks" / f.name)
     caps = json.loads((SRC / "lookbook" / "captions.json").read_text())
+    keep = lambda c: c.get("id") not in SKIP_CAPTIONS and (not LITE or c.get("id") in LITE_CAPTIONS)
     if isinstance(caps, list):
-        caps = [c for c in caps if c.get("id") not in SKIP_CAPTIONS]
+        caps = [c for c in caps if keep(c)]
     else:
         key = next(k for k, v in caps.items() if isinstance(v, list))
-        caps[key] = [c for c in caps[key] if c.get("id") not in SKIP_CAPTIONS]
+        caps[key] = [c for c in caps[key] if keep(c)]
     (OUT / "lookbook" / "captions.json").write_text(json.dumps(caps, indent=1))
     shutil.copy2(SRC / "lookbook" / "filters.json", OUT / "lookbook" / "filters.json")
     (OUT / "lookbook" / "style").mkdir()
@@ -84,6 +91,14 @@ def build():
         if (KIT / src).exists():
             (OUT / dst).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(KIT / src, OUT / dst)
+    if LITE:
+        (OUT / "edition.json").write_text(json.dumps({"edition": "lite", "name": "One Take",
+                                                      "upgrade_url": UPGRADE_URL}, indent=1))
+        for name in ("CLAUDE.md", "README.md"):
+            extra = KIT / f"lite-{name}"
+            if extra.exists():
+                (OUT / name).write_text((OUT / name).read_text().rstrip() + "\n\n" +
+                                        extra.read_text().replace("{upgrade_url}", UPGRADE_URL))
     for d in ("drop-in-order", "projects", "library/broll", "library/images", "library/gifs", "library/sounds"):
         (OUT / d).mkdir(parents=True, exist_ok=True)
         (OUT / d / ".keep").write_text("")
@@ -116,4 +131,4 @@ if __name__ == "__main__":
         print("\n".join("  " + x for x in leaks[:60]))
         shutil.rmtree(OUT)
         raise SystemExit(1)
-    print(f"Kit built: {OUT}  ({size:.1f} MB, {sum(1 for _ in OUT.rglob('*') if _.is_file())} files). Leak scan: clean.")
+    print(f"{'Free edition' if LITE else 'Kit'} built: {OUT}  ({size:.1f} MB, {sum(1 for _ in OUT.rglob('*') if _.is_file())} files). Leak scan: clean.")

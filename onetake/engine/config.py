@@ -58,6 +58,26 @@ def absolute(r):
     return p
 
 
+def edition():
+    """{"edition": "full" | "lite", "upgrade_url": "..."}: the free kit is the lite edition (edition.json)."""
+    f = ROOT / "edition.json"
+    try:
+        d = json.loads(f.read_text()) if f.exists() else {}
+    except (OSError, ValueError):
+        d = {}
+    return {"edition": d.get("edition", "full"), "upgrade_url": d.get("upgrade_url", ""),
+            "name": d.get("name", "One Take")}
+
+
+def lite():
+    return edition()["edition"] == "lite"
+
+
+def upgrade_note(feature):
+    e = edition()
+    return (f"{feature} is in the full version of {e['name']}." + (f" Get it here: {e['upgrade_url']}" if e["upgrade_url"] else ""))
+
+
 def drive_root():
     """The user's Google Drive "My Drive" folder on this computer, or None. settings "drive_root" overrides it.
     ChromeOS (shared with Linux), Mac (Google Drive for desktop: ~/Library/CloudStorage/GoogleDrive-*/My Drive),

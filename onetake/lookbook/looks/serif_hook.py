@@ -11,7 +11,12 @@ def render(ctx):
     p = ctx.p
     sz = int(p["size"])
     fs, fm = ctx.font(p.get("font2") or "Poppins_700Bold", sz), ctx.font(p.get("font") or ctx.NB_SERIF, int(sz * p["mid_scale"]))
-    rows = [(p["top"], fs, p["color"]), (p["mid"], fm, p["accent"]), (p["bottom"], fs, p["color"])]
+    maxw = ctx.W * 0.88  # a long phrase wraps onto two lines and shrinks to fit the screen (never runs off the edges)
+    mid_lines = ctx.wrap(p["mid"], fm, maxw) if p["mid"] else []
+    while p["mid"] and (len(mid_lines) > 2 or max(fm.getlength(x) for x in mid_lines) > maxw) and fm.size > 40:
+        fm = ctx.font(p.get("font") or ctx.NB_SERIF, int(fm.size * 0.9))
+        mid_lines = ctx.wrap(p["mid"], fm, maxw)
+    rows = [(p["top"], fs, p["color"])] + [(x, fm, p["accent"]) for x in mid_lines] + [(p["bottom"], fs, p["color"])]
     rows = [r for r in rows if r[0]]
     W = int(max(f.getlength(t) for t, f, _ in rows) + 40)
     hs = [int(f.size * (1.0 if f is fm else 1.25)) for _, f, _ in rows]

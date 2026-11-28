@@ -580,6 +580,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json({"file": finish.save_frame(name, float(b["t"]))})
         if action == "export":
             kind = b["kind"]
+            if config.lite():  # free edition: exports are in the full version
+                return self.send_json({"error": config.upgrade_note("Exporting to CapCut, carousels, stories and trial reels")})
             fns = {"carousel": lambda prog: finish.carousel(name), "story": lambda prog: finish.story(name),
                    "trials": lambda prog: finish.trials(name, progress=prog),
                    "capcut": lambda prog: finish.capcut(name, progress=prog),

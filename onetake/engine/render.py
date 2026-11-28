@@ -389,6 +389,20 @@ def _overlay_img(ov, t_local, dur, W, H):
     return img
 
 
+def watermark(W):
+    """'Made with One Take' in small white type on a soft dark pill (the free edition's renders)."""
+    from PIL import Image, ImageDraw, ImageFont
+    f = ImageFont.truetype(str(config.FONTS / "Montserrat_700Bold.ttf"), max(18, W // 40))
+    text = f"made with {config.edition()['name']}"
+    w = int(f.getlength(text)) + 36
+    h = int(f.size * 1.7)
+    img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    d.rounded_rectangle([0, 0, w - 1, h - 1], radius=h // 2, fill=(0, 0, 0, 110))
+    d.text((w / 2, h / 2), text, font=f, fill=(255, 255, 255, 220), anchor="mm")
+    return img
+
+
 def blend_onto_rgba(layer, img, cx, cy):
     """'over' compositing onto a transparent BGRA layer."""
     H, W = layer.shape[:2]
@@ -551,6 +565,10 @@ class Composer:
             if f["kind"] in ("flash", "drip") and a <= t < b:
                 from . import fx as _fx
                 frame = _fx.over_everything(frame, f, (t - a) / (b - a))
+        if config.lite() and not self.transparent:  # free edition: a small mark that points people to One Take
+            if getattr(self, "_mark", None) is None:
+                self._mark = watermark(W)
+            put(self._mark, W * 0.5, H * 0.062)
         return frame
 
     def speaker(self, ts, t):

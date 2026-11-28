@@ -41,15 +41,24 @@ def _arch():
 
 
 def ensure_binary():
-    """Download cloudflared (about 40 MB, once) into bin/."""
+    """Download cloudflared (about 40 MB, once) into bin/: Linux, Mac (Intel/Apple) and Windows builds."""
     import shutil
+    import sys
+    import tarfile
     found = shutil.which("cloudflared")
     if found:
         return found
-    if BIN.exists():
-        return str(BIN)
+    exe = BIN.with_suffix(".exe") if os.name == "nt" else BIN
+    if exe.exists():
+        return str(exe)
     BIN.parent.mkdir(exist_ok=True)
-    url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-{_arch()}"
+    base = "https://github.com/cloudflare/cloudflared/releases/latest/download/"
+    if sys.platform == "darwin":
+        url = base + f"cloudflared-darwin-{_arch()}.tgz"
+    elif os.name == "nt":
+        url = base + f"cloudflared-windows-{'386' if _arch() == 'arm' else 'amd64'}.exe"
+    else:
+        url = base + f"cloudflared-linux-{_arch()}"
     tmp = BIN.with_suffix(".part")
     req = urllib.request.Request(url, headers={"User-Agent": "OneTakeStudio/1.0"})
     with urllib.request.urlopen(req, timeout=300) as r, open(tmp, "wb") as fh:
@@ -58,9 +67,17 @@ def ensure_binary():
             if not chunk:
                 break
             fh.write(chunk)
-    tmp.chmod(0o755)
-    tmp.rename(BIN)
-    return str(BIN)
+    if url.endswith(".tgz"):  # Mac builds come zipped: take the program out
+        with tarfile.open(tmp) as t:
+            m = next(x for x in t.getmembers() if x.name.endswith("cloudflared"))
+            with t.extractfile(m) as src, open(exe, "wb") as out:
+                out.write(src.read())
+        tmp.unlink()
+    else:
+        tmp.rename(exe)
+    if os.name != "nt":
+        exe.chmod(0o755)
+    return str(exe)
 
 
 def _publish(url):
@@ -83,7 +100,10 @@ def _kill_leftover():
     """A link left running by a studio that was killed: close it, so only one link exists."""
     try:
         pid = int(PIDFILE.read_text())
-        if "cloudflared" in open(f"/proc/{pid}/cmdline").read():
+        if os.path.exists(f"/proc/{pid}/cmdline"):  # Linux: make sure that number is still our link
+            if "cloudflared" in open(f"/proc/{pid}/cmdline").read():
+                os.kill(pid, signal.SIGTERM)
+        else:  # Mac / Windows: no /proc; the number was ours, ask it to stop
             os.kill(pid, signal.SIGTERM)
     except (OSError, ValueError):
         pass
